@@ -40,13 +40,15 @@ Yampi", "Aviso da Yampi", "Envio", "Resposta", "Base do privado"; §9 PRs "comum
 | 6 · Partes 1–5 | API das Entregas · liberação · rota da configuração · Configurações › Rastreio · Entregas + bloco da Yampi | 2; o cartão do número do atendimento espera B·2b e o bloco no cartão da Yampi, B·6c | `…-pr6-painel.md` |
 | 5 | WhatsApp: mensagens, envio pela base, status, fallback para e-mail, cancelar no "parar" | 4, 3·2, B·3, B·4 (que já vêm depois de B·2a e B·2b) | `…-pr5-whatsapp.md` |
 | 7 | `/privacidade`, prova em prod, card | 3, 4, 6 (e 5 e 8, se já estiverem no ar) | `…-pr7-privacidade-prova.md` |
-| 8 | Melhor Envio: conexão OAuth e os marcos entregue, não entregue e pausado (spec §3.6) | 4 e 2; provas 4 e 5 da Fase 0 | a escrever com o resultado das provas 4 (Y22) e 5 (M1–M7) |
+| 8 · Partes 1–6 | Melhor Envio (spec §3.6): banco (conexão, `state`, `rastreio_gravar_marco`) · cliente OAuth/API e marcos · stores · passada no cron (`avisarEtapaNova`) · conexão (conectar, retorno, cartão, desconectar) · cartão em Integrações e prova | portão: Y22 abaixo de 80% (prova 5 já passou, 02/11); a Parte 4 também 2·2 e 4 em `main`, e nunca junto com o 5 | `…-pr8-melhor-envio.md` |
 
 Ondas (regra de waves: arquivos disjuntos e sem dependência): o **1** vem logo depois do B·1a. Depois do **2**, os
 PRs **3, 4 e 6** podem andar em paralelo; os arquivos de cada um estão listados nos planos e não se cruzam, e só a
 Parte 2 do 3 espera a Parte 1 do 4. O **5** vem depois do 4 e da Parte 2 do 3 (mexe em `lib/rastreio/registrar.ts`,
 `lib/rastreio/cron.ts` e na rota de "parar avisos") e da base do privado. O **8** (Melhor Envio) vem logo depois do
-4, se a Fase 0 pedir (provas 4 e 5); ele e o 5 mexem no `cron.ts`, então um de cada vez. Página e
+4, se a Y22 ficar abaixo de 80% (a prova 5 passou em 02/11; o portão está no plano dele). As Partes 1 e 2 do 8 andam
+juntas, a 3 depois delas, a 4 e a 5 em paralelo, e a 6 por último; a Parte 4 e o 5 mexem em `registrar.ts` e
+`cron.ts`, então um de cada vez. Página e
 e-mail vão ao ar antes do WhatsApp. Com a Fase 0 (spec §10) pendente, o PR 1 pode ir a `main`; o 2 espera a prova do
 payload da Yampi. As provas da Yampi (1, 2 e 4) saem do levantamento do Recuperar: linhas **Y22 a Y27** de
 `_recuperar-fase-0-resultado.md`. A prova 5 tem plano próprio, `2026-10-30-rastreio-pedidos-fase-0-melhor-envio.md`
@@ -186,7 +188,8 @@ export type AvisoParaEnviar = { id: string; orderId: string; etapa: EtapaComAvis
   `varrerPedidos(tenantId: string, agora: Date): Promise<number>`.
 - `lib/rastreio/cron.ts`: `rodarCronRastreio(agora: Date): Promise<{ lojas: number; falhas: number }>` — por loja de
   `lojasComRastreio()`, cada passo num `try/catch` próprio (uma loja com erro não para as outras). O PR 4 acrescenta
-  o passo de e-mail; o PR 5, os de WhatsApp; o PR 8, o dos marcos do Melhor Envio (nomes no plano dele). Rota: `apps/web/src/app/api/cron/rastreio/route.ts` (`GET`,
+  o passo de e-mail; o PR 5, os de WhatsApp; o PR 8, o dos marcos do Melhor Envio (`passo("melhor envio", …)`, antes
+  dos envios). Rota: `apps/web/src/app/api/cron/rastreio/route.ts` (`GET`,
   `isCronAuthorized`).
 - Rotas do painel citadas por outros PRs (o PR 6 cria): Vendas › Entregas em `/painel/vendas/entregas`; o sininho do
   problema aponta para `/painel/vendas/entregas?pedido=<id>`.
@@ -208,6 +211,15 @@ export type AvisoParaEnviar = { id: string; orderId: string; etapa: EtapaComAvis
 - PR 6: `lib/stores/rastreio-entregas.ts` (lista, números do topo, saúde do código); rotas
   `/api/rastreio/config`, `/api/rastreio/entregas`, `/api/rastreio/entregas/[id]/reenviar`, `/api/rastreio/saude`;
   `Porta` ganha `"Rastreio de pedidos"`; `Liberacao` ganha `"rastreio"`.
+- PR 8: `rastreio_gravar_marco(p_tenant uuid, p_order uuid, p_etapa text, p_em timestamptz, p_status_raw text)` (mesmo
+  retorno da `rastreio_gravar_pedido`; `status_raw` = `melhorenvio:<status>`); `lib/rastreio/marcos.ts` →
+  `normalizarCodigo`, `marcoDaEtiqueta`; `lib/stores/rastreio-pedidos.ts` ganha `gravarMarco`, `pedidosACaminho`,
+  `entreguesPeloMelhorEnvio`; `lib/rastreio/registrar.ts` ganha
+  `avisarEtapaNova(tenantId: string, gravado: PedidoGravado, e: { origem: OrigemDoPedido; atualizadoEm: string; numero: string }, deps?): Promise<{ id: string; canal: Canal }[]>`
+  (o bloco de aviso que `registrarPedidoDaYampi` usa: quem pendurar envio imediato pendura nela);
+  `lib/rastreio/melhor-envio.ts` → `rodarMarcosDoMelhorEnvio(tenantId: string, agora: Date, deps?)`; rotas
+  `POST /api/integracoes/melhor-envio/conectar`, `GET …/retorno`, `GET`/`DELETE /api/integracoes/melhor-envio`;
+  sininho `rastreio_melhor_envio`.
 
 ## Contrato da base (fixado no índice do Recuperar)
 
@@ -369,8 +381,8 @@ Vale sobre qualquer linha dos planos que diga outra coisa.
 ## Fechamento de cada PR
 
 Revisar → CI verde → mergear → apagar a branch, na mesma sessão (CLAUDE.md, "Regra de PR"). Revisão de segurança
-(agente Security Engineer) antes de mergear os PRs 1, 3, 4 · Parte 1 (texto do banco no `From` e no HTML do e-mail)
-e 5. No card `rastreio-pedidos` (prod): mover para
+(agente Security Engineer) antes de mergear os PRs 1, 3, 4 · Parte 1 (texto do banco no `From` e no HTML do e-mail),
+5 e 8 · Parte 5 (OAuth do Melhor Envio). No card `rastreio-pedidos` (prod): mover para
 `em_construcao` no PR 1, reescrever o `blocker` a cada PR e chamar `select public.move_card(...)` quando o status
 mudar. `no_ar_verificado` só com a prova do plano do PR 7, colhida na hora.
 

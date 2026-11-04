@@ -108,8 +108,9 @@ Quem for construído primeiro faz a base (PR "base" no §9). O Rastreio não ree
 | `paused` ("exige ação do destinatário") | `problema` |
 | os outros (`generated`, `posted`, …) | não mexem: o "enviado" vem da Yampi, com o código |
 
-- A etiqueta é casada com o pedido pelo **código de rastreio** que a Yampi já gravou (`tracking_code`); a Fase 0 (prova
-  5) confere se esse código é o `tracking` ou o `self_tracking` do Melhor Envio. Pedido sem código não é consultado.
+- A etiqueta é casada com o pedido pelo **código de rastreio** que a Yampi já gravou (`tracking_code`) = o campo
+  `tracking` da etiqueta (prova 5, 02/11: 9 de 9 pelo `tracking`, nenhum pelo `self_tracking`), sem espaço e em
+  maiúsculas. Pedido sem código não é consultado. Data do marco: `delivered_at` no entregue; `updated_at` no problema.
 - O marco grava pelo mesmo caminho do pedido da Yampi: a etapa não volta (um `paused` depois de `entregue` não muda
   nada) e o aviso é um por etapa e canal. Se a Yampi também marcar `delivered`, a etapa já é `entregue` e nada se repete.
 - A Fase 0 confere em etiquetas reais o que o `paused` cobre; se for "aguardando retirada na agência", ele continua
@@ -229,10 +230,12 @@ Rastreio acrescenta `Liberacao = "rastreio"` em `painel-nav.ts`.
 ### 2.4 `melhorenvio_connections` (PR 8, migração própria)
 
 Uma linha por loja (`tenant_id` único): `access_token` e `refresh_token` selados (secret-box, AAD
-`melhorenvio:<tenant>:<campo>`), `expires_at`, `refresh_expires_at`, `status` (`ativa` · `reautorizar` ·
-`desconectada`), `first_pass_at` (nulo = primeira passada, sem aviso, ainda não feita), `last_check_at`, `last_error`,
-`created_at`, `updated_at`. Mesmo molde de `bling_connections`. Em `tracking_orders`, a coluna `carrier_checked_at`
-(última consulta do pedido no Melhor Envio) espalha as consultas.
+`melhorenvio:<tenant>:<campo>`), `expires_at`, `refresh_expires_at`, `status` (`ativa` · `reautorizar`; desconectar
+apaga a linha), `account_name` e `account_email` (do `/me`, para a tela mostrar qual conta entrou), `has_labels` (nulo =
+ainda não se sabe), `first_pass_at` (nulo = primeira passada, sem aviso, ainda não feita), `last_check_at` (a passada de
+30 min é por loja, reivindicada por `update` condicional), `last_error`, `connected_by`, `created_at`, `updated_at`.
+Mesmo molde de `bling_connections`, com `melhorenvio_oauth_states` no molde de `bling_oauth_states`. O marco grava por
+`rastreio_gravar_marco` (mesma regra e trava da `rastreio_gravar_pedido`; `status_raw` = `melhorenvio:<status>`).
 
 ## 3. Fluxos
 
@@ -290,13 +293,17 @@ pela base: enviado/entregue/lido → atualiza; falhou ou vencido → `falhou` + 
 ### 3.6 Marcos do Melhor Envio (PR 8)
 
 - **Conectar:** a lojista autoriza o app da Girumo na conta dela do Melhor Envio (OAuth, escopos só de leitura
-  `orders-read` e `shipping-tracking`), no molde da conexão do Bling (`/api/integracoes/bling/conectar` e `/retorno`,
-  `lib/bling/oauth.ts`). `User-Agent` com o e-mail técnico, como a API exige.
+  `orders-read`, `shipping-tracking` e `users-read`, este para o `/me`), no molde da conexão do Bling
+  (`/api/integracoes/bling/conectar` e `/retorno`, `lib/bling/oauth.ts`). `User-Agent` com o e-mail técnico, como a API
+  exige. A tela mostra a conta conectada (nome e e-mail do `/me`) e avisa quando ela não tem etiqueta nenhuma: na prova
+  5, o navegador já logado aprovou duas contas erradas sem perguntar. O callback registrado é o do `www`; o retorno que
+  chega lá desvia para o `app.`, onde mora o cookie do `state`.
 - **Consultar:** no cron do Rastreio, a cada 30 min, por loja com o Melhor Envio `ativa`: os pedidos em `enviado` ou
-  `problema`, com código, enviados há menos de 30 dias e não consultados há 30 min (`carrier_checked_at`) → busca a
-  etiqueta pelo código → marco do §1.1 → grava pelo mesmo caminho do pedido (RPC do PR 1) → avisos do §1.2. Sem
-  webhook: ele não dispara para etiqueta criada pelo app da Yampi, pelo Bling ou pelo site. A forma de busca (por
-  código ou listando por status) a Fase 0 decide.
+  `problema`, com código e `etapa_at` nos últimos 30 dias → a lista paginada `/me/orders` (10 por página, da mais nova à
+  mais antiga; 204 sem corpo = vazia), lida até casar todos, até passar da criação do pedido mais antigo que falta ou
+  até 20 páginas → marco do §1.1 → grava pela `rastreio_gravar_marco` (mesma regra "a etapa não volta") → avisos do
+  §1.2. Sem webhook: ele não dispara para etiqueta criada pelo app da Yampi, pelo Bling ou pelo site. A busca
+  (`/me/orders/search`) não é usada (prova 5).
 - **Volume:** baixo (dezenas de pedidos a caminho por loja), dentro de 250 requisições por minuto por conta. Se crescer
   acima do normal, avisar o Melhor Envio (termo 17.3).
 - **Chave:** o acesso vale 30 dias e a renovação 45; o cron renova antes de vencer. Renovação recusada → `reautorizar`,
@@ -309,7 +316,7 @@ pela base: enviado/entregue/lido → atualiza; falhou ou vencido → `falhou` + 
 | Rota | Quem | Faz |
 |---|---|---|
 | `GET /api/cron/rastreio` | cron | liga loja nova, varredura por `updated_at`, e-mails, fallback, purge; com o PR 8, os marcos do Melhor Envio |
-| `GET /api/integracoes/melhor-envio/conectar` · `GET …/retorno` · `POST …/desconectar` (PR 8) | `settings:connection` | OAuth do Melhor Envio (com `state`), troca do código pela chave, desconectar |
+| `POST /api/integracoes/melhor-envio/conectar` · `GET …/retorno` (público, limitado) · `GET`/`DELETE /api/integracoes/melhor-envio` (PR 8) | `settings:connection` (o retorno autentica pelo `state` + cookie) | OAuth do Melhor Envio (com `state`), troca do código pela chave, cartão, desconectar |
 | `GET/PATCH /api/rastreio/config` | `settings:connection` | matriz, convite, slug, número da loja |
 | `GET/POST /api/rastreio/entregas` | `settings:connection` | lista + números do topo, filtros; busca por nº/nome/documento só por `POST` (CPF fora da query string e do log) |
 | `POST /api/rastreio/entregas/[id]/reenviar` | `settings:connection` | recria o aviso da etapa atual nos canais ligados |
