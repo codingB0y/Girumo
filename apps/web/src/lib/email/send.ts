@@ -26,7 +26,7 @@ const PROIBIDOS = '<>"\\@';
 /** Monta o From com o nome de exibição limpo (sem < > " \ @ nem quebra de linha, até 60 caracteres). */
 export function remetenteComNome(base: string, nome: string | undefined): string {
   const colapsado = Array.from(nome ?? "")
-    .map((c) => (/[\p{Cc}\p{Cf}  ]/u.test(c) || PROIBIDOS.includes(c) ? " " : c))
+    .map((c) => (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(c) || PROIBIDOS.includes(c) ? " " : c))
     .join("").replace(/\s+/g, " ").trim();
   // Corta por ponto de código, para não partir um emoji ao meio.
   const limpo = Array.from(colapsado).slice(0, 60).join("").trim();
