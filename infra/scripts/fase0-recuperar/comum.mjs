@@ -151,18 +151,28 @@ export function eventosDaRota(bruto, rota) {
 export const ALIASES_ENVIADO = ["shipped", "sent", "on_carriage", "in_transit"];
 
 const diaDaYampi = (v) => /^(\d{4}-\d{2}-\d{2})/.exec(typeof v === "string" ? v : (v?.date ?? ""))?.[1] ?? null;
-const janelaDeEntregues = (agora) => [45, 15].map((dias) => new Date(agora - dias * 864e5).toISOString().slice(0, 10));
 
-export function pedidosDaJanela(pedidos, agora = Date.now()) {
-  const [inicio, fim] = janelaDeEntregues(agora);
+// Janela em dias atrás, [DE, ATE]. A padrão é a da spec do Rastreio (45 a 15); loja nova usa a que tem pedido (ex.: 45-7).
+export const JANELA_PADRAO = [45, 15];
+/** "DE-ATE" em dias atrás, com DE maior que ATE: o mesmo formato da prova 5 do Rastreio (`medir sem-filtro 14-0`). */
+export function lerJanela(texto) {
+  const m = /^(\d{1,3})-(\d{1,3})$/.exec(String(texto));
+  if (!m || Number(m[1]) <= Number(m[2])) throw new Error(`janela inválida: "${texto}" (use DE-ATE em dias atrás, com DE maior que ATE, como 45-15 ou 45-7)`);
+  return [Number(m[1]), Number(m[2])];
+}
+/** As duas pontas da janela como dia (AAAA-MM-DD), as duas dentro. */
+export const janelaDeEntregues = (agora, janela = JANELA_PADRAO) => janela.map((dias) => new Date(agora - dias * 864e5).toISOString().slice(0, 10));
+
+export function pedidosDaJanela(pedidos, agora = Date.now(), janela = JANELA_PADRAO) {
+  const [inicio, fim] = janelaDeEntregues(agora, janela);
   return pedidos.filter((p) => {
     const dia = diaDaYampi(p.created_at ?? p.date);
     return dia !== null && dia >= inicio && dia <= fim;
   });
 }
 
-export function contarEntregues(pedidos, agora = Date.now(), aliasesEnviado = ALIASES_ENVIADO) {
-  const [inicio, fim] = janelaDeEntregues(agora);
+export function contarEntregues(pedidos, agora = Date.now(), aliasesEnviado = ALIASES_ENVIADO, janela = JANELA_PADRAO) {
+  const [inicio, fim] = janelaDeEntregues(agora, janela);
   const r = { baixados: pedidos.length, semData: 0, naJanela: 0, enviados: 0, entregues: 0, enviadosPorStatus: 0, comCodigo: 0, maisAntigo: null, maisNovo: null };
   for (const p of pedidos) {
     const dia = diaDaYampi(p.created_at ?? p.date);

@@ -11,6 +11,7 @@ import {
   celulares,
   contarEntregues,
   dentroDoIntervalo,
+  lerJanela,
   marcadores,
   nomeDaInstancia,
   pedidosDaJanela,
@@ -80,6 +81,25 @@ test("Y26 do Rastreio: conta o que a listagem devolveu dentro e fora do interval
     { created_at: "2026-10-30 10:00:00" },
   ];
   assert.deepEqual(dentroDoIntervalo(pedidos, "2026-10-28", "2026-10-30"), { dentro: 2, fora: 1, semData: 1 });
+});
+
+test("janela em dias (DE-ATE, o formato da prova 5 do Rastreio): loja nova fica vazia na 45-15 e cabe na 45-7", () => {
+  const agora = Date.UTC(2026, 10, 2, 12); // 02/11: a piloto tinha 25 pedidos, de 20/10 a 02/11
+  const pedidos = [
+    { created_at: { date: "2026-10-20 09:00:00.000000" }, status: { data: { alias: "delivered" } } },
+    { created_at: { date: "2026-10-25 09:00:00.000000" }, status: { data: { alias: "on_carriage" } } },
+    { created_at: "2026-11-01 08:00:00", status: { data: { alias: "on_carriage" } } },
+  ];
+  assert.equal(contarEntregues(pedidos, agora).naJanela, 0); // a padrão (45 a 15 dias atrás) cai antes do primeiro pedido
+  const c = contarEntregues(pedidos, agora, undefined, lerJanela("45-7"));
+  assert.deepEqual([c.naJanela, c.enviados, c.entregues], [2, 2, 1]);
+  assert.equal(pedidosDaJanela(pedidos, agora, lerJanela("45-0")).length, 3);
+});
+
+test("janela: só DE-ATE em dias atrás, com DE maior que ATE", () => {
+  assert.deepEqual(lerJanela("45-15"), [45, 15]);
+  assert.deepEqual(lerJanela("14-0"), [14, 0]);
+  for (const ruim of ["15-45", "7-7", "14", "a-b", "1000-0", "-3-0"]) assert.throws(() => lerJanela(ruim), /janela inválida/);
 });
 
 test("assinatura da Yampi: base64 do HMAC do corpo cru", () => {
