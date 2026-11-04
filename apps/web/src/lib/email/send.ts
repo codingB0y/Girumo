@@ -16,7 +16,24 @@ type SendOptions = {
    * gera um segundo e-mail. Para quem pede reenvio na falha (webhook do Stripe).
    */
   idempotencyKey?: string;
+  /** Só o nome de exibição do remetente; o endereço segue o de FROM_EMAIL. */
+  fromName?: string;
+  /** Parte em texto puro do mesmo e-mail. */
+  text?: string;
 };
+
+const PROIBIDOS = '<>"\\@';
+/** Monta o From com o nome de exibição limpo (sem < > " \ @ nem quebra de linha, até 60 caracteres). */
+export function remetenteComNome(base: string, nome: string | undefined): string {
+  const colapsado = Array.from(nome ?? "")
+    .map((c) => (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(c) || PROIBIDOS.includes(c) ? " " : c))
+    .join("").replace(/\s+/g, " ").trim();
+  // Corta por ponto de código, para não partir um emoji ao meio.
+  const limpo = Array.from(colapsado).slice(0, 60).join("").trim();
+  if (!limpo) return base;
+  const dentro = /<([^>]+)>\s*$/.exec(base);
+  return `"${limpo}" <${(dentro ? dentro[1] : base).trim()}>`;
+}
 
 /**
  * Grava o resultado do envio em public.logs.
@@ -52,16 +69,17 @@ async function recordDelivery(
  * e-mail quebrado só existia como console.error e passava semanas invisível.
  */
 export async function sendEmail(options: SendOptions): Promise<boolean> {
-  const { to, subject, html, idempotencyKey } = options;
+  const { to, subject, html, idempotencyKey, fromName, text } = options;
 
   try {
     const resend = getResend();
     const { error } = await resend.emails.send(
       {
-        from: FROM_EMAIL,
+        from: remetenteComNome(FROM_EMAIL, fromName),
         to,
         subject,
         html,
+        text,
       },
       { idempotencyKey },
     );
