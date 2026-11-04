@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { acessoRestrito, podeAcessar } from "@/lib/auth/modulos";
 import { lerStatusDoRecuperar, liberacoesDaCasca, type RecuperarNaCasca } from "@/lib/painel/casca";
+import { hasPermission } from "@/lib/permissions";
 import type { Liberacoes } from "@/lib/painel-nav";
 import { useRecarga } from "./home/ao-vivo/use-recarga";
 import { useRole } from "./role-provider";
@@ -66,6 +67,7 @@ const RECUPERAR_RECARGA_MS = 30_000;
 export function CascaProvider({ children }: { children: React.ReactNode }) {
   const [foco, definirFoco] = useState(false);
   const [instagram, setInstagram] = useState<StatusInstagram | null>(null);
+  const [rastreio, setRastreio] = useState(false);
   const [recuperar, setRecuperar] = useState<RecuperarNaCasca | null>(null);
   const [recuperarFalhou, setRecuperarFalhou] = useState(false);
   const [versao, setVersao] = useState(0);
@@ -76,6 +78,25 @@ export function CascaProvider({ children }: { children: React.ReactNode }) {
   const pergunta = carregado && !acessoRestrito(acesso);
   // Recuperar: dono, admin e operador sempre; vendedora só com o módulo; papel desconhecido nunca.
   const perguntaRecuperar = carregado && acesso !== null && podeAcessar(acesso, "/api/recuperar/status", "GET");
+
+  // Só dono e admin perguntam: operador e vendedora tomariam 403 (rota é settings:connection).
+  const perguntaRastreio = carregado && acesso !== null && hasPermission(acesso.role, "settings:connection");
+
+  useEffect(() => {
+    if (!perguntaRastreio) return;
+    let cancelado = false;
+    fetch("/api/rastreio/status", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((raw: { enabled?: unknown } | null) => {
+        if (!cancelado) setRastreio(raw?.enabled === true);
+      })
+      .catch(() => {
+        if (!cancelado) setRastreio(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [perguntaRastreio]);
 
   useEffect(() => {
     if (!pergunta) return;
@@ -137,11 +158,12 @@ export function CascaProvider({ children }: { children: React.ReactNode }) {
         perguntouRecuperar: perguntaRecuperar,
         recuperar,
         recuperarFalhou,
+        rastreio,
       }),
       recarregarInstagram,
       recarregarRecuperar: buscarRecuperar,
     }),
-    [foco, instagram, recuperar, recuperarFalhou, pergunta, perguntaRecuperar, recarregarInstagram, buscarRecuperar],
+    [foco, instagram, recuperar, recuperarFalhou, rastreio, pergunta, perguntaRecuperar, recarregarInstagram, buscarRecuperar],
   );
   return <CascaContext.Provider value={valor}>{children}</CascaContext.Provider>;
 }

@@ -68,6 +68,7 @@ const base = {
   perguntouRecuperar: true,
   recuperar: LIGADO,
   recuperarFalhou: false,
+  rastreio: false,
 };
 
 test("lerStatusDoRecuperar aceita o corpo da rota e descarta lixo", () => {
@@ -84,16 +85,21 @@ test("lerStatusDoRecuperar aceita o corpo da rota e descarta lixo", () => {
 test("liberacoesDaCasca espera as respostas que o acesso precisa antes de decidir", () => {
   assert.equal(liberacoesDaCasca({ ...base, recuperar: null }), null);
   assert.equal(liberacoesDaCasca({ ...base, instagram: null }), null);
-  assert.deepEqual(liberacoesDaCasca(base), { instagram: true, recuperar: true });
+  assert.deepEqual(liberacoesDaCasca(base), { instagram: true, recuperar: true, rastreio: false });
 });
 
 test("liberacoesDaCasca: Recuperar que falhou não trava o Instagram; falha depois de um estado conhecido mantém o estado", () => {
-  assert.deepEqual(liberacoesDaCasca({ ...base, recuperar: null, recuperarFalhou: true }), { instagram: true, recuperar: false });
-  assert.deepEqual(liberacoesDaCasca({ ...base, recuperarFalhou: true }), { instagram: true, recuperar: true });
+  assert.deepEqual(liberacoesDaCasca({ ...base, recuperar: null, recuperarFalhou: true }), { instagram: true, recuperar: false, rastreio: false });
+  assert.deepEqual(liberacoesDaCasca({ ...base, recuperarFalhou: true }), { instagram: true, recuperar: true, rastreio: false });
 });
 
 test("liberacoesDaCasca: a vendedora só pergunta o que o acesso dela alcança", () => {
   const vendedora = { ...base, perguntouInstagram: false, instagram: null };
-  assert.deepEqual(liberacoesDaCasca(vendedora), { instagram: false, recuperar: true });
+  assert.deepEqual(liberacoesDaCasca(vendedora), { instagram: false, recuperar: true, rastreio: false });
   assert.equal(liberacoesDaCasca({ ...vendedora, perguntouRecuperar: false, recuperar: null }), null);
+});
+
+test("liberacoesDaCasca: o Rastreio passa adiante e não segura o menu", () => {
+  assert.deepEqual(liberacoesDaCasca({ ...base, rastreio: true }), { instagram: true, recuperar: true, rastreio: true });
+  assert.equal(liberacoesDaCasca({ ...base, rastreio: true, instagram: null }), null);
 });

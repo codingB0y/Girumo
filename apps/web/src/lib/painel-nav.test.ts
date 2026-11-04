@@ -156,8 +156,8 @@ test("Instagram fica em Lotar, logo depois de Campanhas, e só aparece com a lib
   const instagram = NAV_ALL.find((i) => i.href === "/painel/instagram") as NavItem;
   assert.equal(instagram.requer, "instagram");
   assert.equal(liberado(instagram, null), false, "sem resposta ainda, esconde em vez de piscar");
-  assert.equal(liberado(instagram, { instagram: false, recuperar: false }), false);
-  assert.equal(liberado(instagram, { instagram: true, recuperar: false }), true);
+  assert.equal(liberado(instagram, { instagram: false, recuperar: false, rastreio: false }), false);
+  assert.equal(liberado(instagram, { instagram: true, recuperar: false, rastreio: false }), true);
   const campanhas = NAV_ALL.find((i) => i.href === "/painel/campanhas") as NavItem;
   assert.equal(liberado(campanhas, null), true, "item sem liberação aparece sempre");
 });
@@ -168,7 +168,7 @@ const DONO: Acesso = { role: "owner", modules: [] };
 const OPERADOR: Acesso = { role: "operator", modules: [] };
 const VENDEDORA: Acesso = { role: "seller", modules: [] };
 const VENDEDORA_POSTA: Acesso = { role: "seller", modules: ["postar"] };
-const COM_INSTAGRAM = { instagram: true, recuperar: false };
+const COM_INSTAGRAM = { instagram: true, recuperar: false, rastreio: false };
 
 const item = (href: string) => NAV_ALL.find((i) => i.href === href) as NavItem;
 const visiveis = (acesso: Acesso | null) =>
@@ -185,7 +185,7 @@ test("dono e operador veem o menu de antes, sem Vendas", () => {
   for (const acesso of [DONO, OPERADOR]) {
     assert.ok(!visiveis(acesso).includes("/painel/vendas"));
     assert.deepEqual(visiveis(acesso), NAV_ALL.filter((i) => i.href !== "/painel/vendas").map((i) => i.href));
-    assert.equal(visivelNoMenu(item("/painel/instagram"), acesso, { instagram: false, recuperar: false }), false);
+    assert.equal(visivelNoMenu(item("/painel/instagram"), acesso, { instagram: false, recuperar: false, rastreio: false }), false);
   }
 });
 
@@ -260,9 +260,23 @@ test("Link da bio fica em Lotar logo depois de Páginas, fora das barras, e a ve
   assert.ok(!visiveis(VENDEDORA_POSTA).includes("/painel/link-da-bio"));
 });
 
+test("item com permissao: só papel que a tem, e só com a liberação ligada", () => {
+  const entregas: NavItem = { href: "/x", label: "X", icon: Link2, grupo: "vender", requer: "rastreio", permissao: "settings:connection" };
+  const ligado = { instagram: false, recuperar: false, rastreio: true };
+  const admin: Acesso = { role: "admin", modules: [] };
+  assert.equal(visivelNoMenu(entregas, DONO, ligado), true);
+  assert.equal(visivelNoMenu(entregas, admin, ligado), true);
+  assert.equal(visivelNoMenu(entregas, DONO, { instagram: false, recuperar: false, rastreio: false }), false);
+  assert.equal(visivelNoMenu(entregas, OPERADOR, ligado), false);
+  assert.equal(visivelNoMenu(entregas, VENDEDORA, ligado), false);
+  assert.equal(visivelNoMenu(entregas, VENDEDORA_POSTA, ligado), false);
+  assert.equal(visivelNoMenu(entregas, null, ligado), false);
+  assert.equal(visivelNoMenu(entregas, DONO, null), false);
+});
+
 // --- Recuperar (spec 2026-10-29): item com oferta, barra de 7 e a linha do Mais ---
 
-const COM_RECUPERAR = { instagram: false, recuperar: true };
+const COM_RECUPERAR = { instagram: false, recuperar: true, rastreio: false };
 const VENDEDORA_RECUPERA: Acesso = { role: "seller", modules: ["recuperar"] };
 
 test("Recuperar: em Vender, do módulo recuperar, com oferta, fora das barras fixas", () => {
@@ -275,7 +289,7 @@ test("Recuperar: em Vender, do módulo recuperar, com oferta, fora das barras fi
 test("Recuperar: dono, admin e operador veem no Mais mesmo desligado; a barra só traz ligado, depois do Relâmpago", () => {
   for (const acesso of [DONO, OPERADOR]) {
     assert.ok(visiveis(acesso).includes("/painel/recuperar"));
-    assert.ok(!itensDaBarra(acesso, { instagram: false, recuperar: false }).some((i) => i.href === "/painel/recuperar"));
+    assert.ok(!itensDaBarra(acesso, { instagram: false, recuperar: false, rastreio: false }).some((i) => i.href === "/painel/recuperar"));
     assert.deepEqual(itensDaBarra(acesso, COM_RECUPERAR).map((i) => i.href).slice(3, 6), ["/painel/relampago", "/painel/recuperar", "/painel/grupos"]);
   }
 });
@@ -283,7 +297,7 @@ test("Recuperar: dono, admin e operador veem no Mais mesmo desligado; a barra s�
 test("Recuperar: a vendedora vê só com o módulo E o add-on ligado; sem acesso conhecido, nada", () => {
   const r = item("/painel/recuperar");
   assert.equal(visivelNoMenu(r, VENDEDORA_RECUPERA, COM_RECUPERAR), true);
-  assert.equal(visivelNoMenu(r, VENDEDORA_RECUPERA, { instagram: false, recuperar: false }), false);
+  assert.equal(visivelNoMenu(r, VENDEDORA_RECUPERA, { instagram: false, recuperar: false, rastreio: false }), false);
   assert.equal(visivelNoMenu(r, VENDEDORA_RECUPERA, null), false);
   assert.equal(visivelNoMenu(r, VENDEDORA, COM_RECUPERAR), false);
   assert.equal(visivelNoMenu(r, null, COM_RECUPERAR), false);

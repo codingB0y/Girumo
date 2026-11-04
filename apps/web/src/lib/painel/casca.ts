@@ -72,6 +72,8 @@ export type LeituraDaCasca = {
   recuperar: RecuperarNaCasca | null;
   /** A última pergunta do Recuperar falhou. Não apaga `recuperar`: falha não é "desligado". */
   recuperarFalhou: boolean;
+  /** Rastreio de pedidos: só dono e admin perguntam; não segura o menu (fica falso até responder). */
+  rastreio: boolean;
 };
 
 /**
@@ -83,5 +85,5 @@ export function liberacoesDaCasca(i: LeituraDaCasca): Liberacoes | null {
   if (!i.perguntouInstagram && !i.perguntouRecuperar) return null;
   if (i.perguntouInstagram && !i.instagram) return null;
   if (i.perguntouRecuperar && !i.recuperar && !i.recuperarFalhou) return null;
-  return { instagram: i.instagram?.enabled ?? false, recuperar: i.recuperar?.enabled ?? false };
+  return { instagram: i.instagram?.enabled ?? false, recuperar: i.recuperar?.enabled ?? false, rastreio: i.rastreio };
 }

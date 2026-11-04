@@ -180,6 +180,17 @@ export async function setInstagramEnabled(tenantId: string, enabled: boolean): P
 }
 
 /**
+ * Liberação do Rastreio de pedidos. Só o servidor chama: o trigger da migração B·1a impede
+ * `authenticated` de mexer na coluna.
+ */
+export async function setRastreioEnabled(tenantId: string, enabled: boolean): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from("tenant_settings")
+    .upsert({ tenant_id: tenantId, rastreio_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" });
+  if (error) throw new Error(error.message);
+}
+
+/**
  * Liberação do add-on Recuperar. Só o servidor (webhook do Stripe) chama: o
  * trigger `tenant_settings_guard_recuperar_rastreio_flags` (migração
  * 20261030120000) impede `authenticated` de mexer na coluna.

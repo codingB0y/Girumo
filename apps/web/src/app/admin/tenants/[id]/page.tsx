@@ -4,9 +4,11 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { TenantActions } from "@/components/admin/tenant-actions";
 import { TenantInstagramInvite } from "@/components/admin/tenant-instagram-invite";
+import { TenantRastreio } from "@/components/admin/tenant-rastreio";
 import { TenantPlanGrant } from "@/components/admin/tenant-plan-grant";
 import { TenantRecuperar } from "@/components/admin/tenant-recuperar";
 import { requireAdmin } from "@/lib/admin-guard";
+import { rastreioLigado } from "@/lib/stores/rastreio-config";
 import { avisoConfirmadoEm } from "@/lib/recuperar/aviso";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
 
@@ -35,6 +37,8 @@ export default async function AdminTenantDetailPage({ params }: Props) {
   }
 
   if (!org) notFound();
+
+  const rastreio = await rastreioLigado(id).catch(() => null);
 
   // Membros
   const { data: memberships, error: membershipsError } = await supabase
@@ -252,6 +256,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
             />
           )}
           <TenantInstagramInvite tenantId={org.id} />
+          <TenantRastreio tenantId={org.id} enabled={rastreio} />
           {recuperar && <TenantRecuperar tenantId={org.id} ligado={recuperar.ligado} avisoEm={recuperar.avisoEm} />}
         </section>
 
