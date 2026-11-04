@@ -20,7 +20,8 @@ export type EmailKind =
   | "group_admin_risk"
   | "alert_optout"
   | "trial_ending"
-  | "bling_reconectar";
+  | "bling_reconectar"
+  | "rastreio";
 
 export type EmailDelivery = {
   tenantId: string;

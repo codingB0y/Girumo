@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
-import { sendEmail } from "./send";
+import { remetenteComNome, sendEmail } from "./send";
 
 /**
  * Os dois `console.error` do envio (o Resend recusou, e a exceção): o log diz a falha com o endereço
@@ -54,4 +54,35 @@ test("o Resend recusa o envio: o log mascara o endereço", async (t) => {
   const logado = erros.mock.calls.map((c) => c.arguments.map(String).join(" ")).join("\n");
   assert.match(logado, /\[email\] Failed to send to fi\*\*\*@gmail\.com/);
   assert.doesNotMatch(logado, /financeiromegastock/);
+});
+
+const BASE = "Girumo <noreply@girumo.com.br>";
+
+test("remetenteComNome troca só o nome de exibição e não deixa < > \" \ @ nem quebra de linha passar", () => {
+  assert.equal(remetenteComNome(BASE, "Loja Exemplo"), '"Loja Exemplo" <noreply@girumo.com.br>');
+  assert.equal(remetenteComNome("noreply@girumo.com.br", "Loja Exemplo"), '"Loja Exemplo" <noreply@girumo.com.br>');
+  assert.equal(remetenteComNome(BASE, "x".repeat(100)), `"${"x".repeat(60)}" <noreply@girumo.com.br>`);
+  assert.equal(
+    remetenteComNome(BASE, 'Loja <ceo@banco.test>"\r\nBcc: alguem@x.test'),
+    '"Loja ceo banco.test Bcc: alguem x.test" <noreply@girumo.com.br>',
+  );
+  assert.equal(remetenteComNome(BASE, '<>"\r\n'), BASE);
+  assert.equal(remetenteComNome(BASE, undefined), BASE);
+});
+
+test("fromName e text chegam ao Resend; sem fromName vale o remetente padrão", async () => {
+  process.env.RESEND_API_KEY = "re_chave_falsa";
+  const corpos: Array<{ from: string; text?: string }> = [];
+  globalThis.fetch = (async (entrada: RequestInfo | URL, init?: RequestInit) => {
+    const url = entrada instanceof Request ? entrada.url : String(entrada);
+    if (!url.startsWith("https://api.resend.com/")) return fetchOriginal(entrada, init);
+    corpos.push(JSON.parse(String(init?.body)));
+    return new Response(JSON.stringify({ id: "email-1" }), { status: 200 });
+  }) as typeof fetch;
+
+  assert.equal(await sendEmail({ ...ENVIO, kind: "rastreio", fromName: "Loja Exemplo", text: "oi" }), true);
+  assert.equal(await sendEmail(ENVIO), true);
+  assert.match(corpos[0].from, /^"Loja Exemplo" <[^<>]+>$/);
+  assert.equal(corpos[0].text, "oi");
+  assert.doesNotMatch(corpos[1].from, /Loja Exemplo/);
 });
