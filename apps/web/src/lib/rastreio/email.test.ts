@@ -62,3 +62,8 @@ test("cada etapa tem assunto e título próprios; o terceiro passo do andamento 
   assert.ok(retirada.includes(">Retirada<") && !retirada.includes(">Enviado<"));
   assert.match(montarEmailDoAviso(LOJA, PEDIDO, "enviado", null).html, />Confirmado<[\s\S]*>Separado<[\s\S]*>Enviado<[\s\S]*>Entregue</);
 });
+
+test("o assunto não carrega caracteres de controle do número do pedido", () => {
+  const { subject } = montarEmailDoAviso(LOJA, { ...PEDIDO, numero: "15\u000032\u202E" }, "enviado", null);
+  assert.ok(!/[\u0000\u202E]/.test(subject));
+});

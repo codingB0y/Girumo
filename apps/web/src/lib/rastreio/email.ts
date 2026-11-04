@@ -47,7 +47,7 @@ function passo(rotulo: string, indice: number, feitos: number, cor: string): str
       : "background:#ffffff;color:#9aa3ab;border:2px solid #d5dade";
   return `<td align="center" width="25%" style="padding:0 2px;font-family:${FONTE}">
 <div style="width:26px;height:26px;line-height:22px;border-radius:13px;font-size:13px;font-weight:700;text-align:center;${estilo}">${feito ? "&#10003;" : "&nbsp;"}</div>
-<div style="margin-top:6px;font-size:12px;color:${feito || atual ? "#14181c" : "#9aa3ab"}">${esc(rotulo)}</div></td>`;
+<div style="margin-top:6px;font-size:12px;color:${feito || atual ? "#14181c" : "#6b757e"}">${esc(rotulo)}</div></td>`;
 }
 
 export function montarEmailDoAviso(
@@ -57,7 +57,7 @@ export function montarEmailDoAviso(
   convite: { url: string } | null,
 ): { subject: string; html: string; text: string } {
   const cor = corDaLoja(loja.corPrimaria);
-  const n = pedido.numero.replace(/\s+/g, " ").trim();
+  const n = pedido.numero.replace(/[\s\p{Cc}\p{Cf}]+/gu, " ").trim().slice(0, 40);
   const nomeLoja = loja.nome;
   const c = copiaDa(etapa, n, nomeLoja, pedido.shipmentService);
   const saudacao = pedido.buyerFirstName ? `Oi, ${pedido.buyerFirstName}!` : "Olá!";

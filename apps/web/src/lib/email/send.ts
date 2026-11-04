@@ -25,9 +25,11 @@ type SendOptions = {
 const PROIBIDOS = '<>"\\@';
 /** Monta o From com o nome de exibição limpo (sem < > " \ @ nem quebra de linha, até 60 caracteres). */
 export function remetenteComNome(base: string, nome: string | undefined): string {
-  const limpo = Array.from(nome ?? "")
-    .map((c) => (c < " " || c === "\u007f" || PROIBIDOS.includes(c) ? " " : c))
-    .join("").replace(/\s+/g, " ").trim().slice(0, 60);
+  const colapsado = Array.from(nome ?? "")
+    .map((c) => (/[\p{Cc}\p{Cf}  ]/u.test(c) || PROIBIDOS.includes(c) ? " " : c))
+    .join("").replace(/\s+/g, " ").trim();
+  // Corta por ponto de código, para não partir um emoji ao meio.
+  const limpo = Array.from(colapsado).slice(0, 60).join("").trim();
   if (!limpo) return base;
   const dentro = /<([^>]+)>\s*$/.exec(base);
   return `"${limpo}" <${(dentro ? dentro[1] : base).trim()}>`;
