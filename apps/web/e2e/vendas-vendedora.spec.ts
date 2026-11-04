@@ -285,6 +285,9 @@ test.describe("vendedora: só o que o dono liberou", () => {
     expect(pedidos.status()).toBe(403);
     // O texto do guard de módulo: um 403 de outra origem (permissão de papel, CSRF) não passa.
     expect(await pedidos.text()).toBe(MENSAGEM_BLOQUEIO);
+    const entregas = await page.request.get("/api/rastreio/entregas");
+    expect(entregas.status()).toBe(403);
+    expect(await entregas.text()).toBe(MENSAGEM_BLOQUEIO);
     // Sem `postar`, nem o upload pelo cookie (findMembershipTenantId com guard, PR 3).
     const preparo = await page.request.post("/api/media/prepare", { data: { mime: "image/png", kind: "media" } });
     expect(preparo.status()).toBe(403);

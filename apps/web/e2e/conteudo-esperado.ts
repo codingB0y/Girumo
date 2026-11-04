@@ -81,6 +81,12 @@ async function instagramIndisponivel(request: APIRequestContext): Promise<string
   return liberado ? null : "A loja de QA nao tem instagram_enabled; libere em tenant_settings.";
 }
 
+async function rastreioIndisponivel(request: APIRequestContext): Promise<string | null> {
+  const res = await request.get("/api/rastreio/status");
+  const liberado = res.ok() && ((await res.json()) as { enabled?: boolean }).enabled === true;
+  return liberado ? null : "A loja de QA não tem rastreio_enabled; libere em tenant_settings.";
+}
+
 /**
  * Pega o primeiro texto util de uma lista de registros da API.
  *
@@ -342,6 +348,16 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     ancora: /Do anúncio à venda|Ainda não chegou nenhum cadastro com origem/,
     semLista:
       "Agrega cadastros, entradas e pedidos em funil; quem confere o número contra o banco é o teste de integração de attribution_report.",
+  },
+
+  "/painel/vendas/entregas": {
+    ancora: /Pedidos da Yampi dos últimos 30 dias/,
+    indisponivel: rastreioIndisponivel,
+    lista: {
+      api: "/api/rastreio/entregas",
+      marca: (j) => primeiroTexto((j as { linhas?: unknown } | null)?.linhas, "numero"),
+      vazio: /Nenhum pedido em andamento/i,
+    },
   },
 
   "/painel/vendas": {
