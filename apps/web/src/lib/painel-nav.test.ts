@@ -100,6 +100,14 @@ test("marks only the exact home route active, and any nested route otherwise", (
   assert.equal(isNavItemActive("/painel/campanhas/nova", "/painel/campanhas"), true);
 });
 
+test("the most specific item wins: Entregas, not Vendas, on /painel/vendas/entregas", () => {
+  assert.equal(isNavItemActive("/painel/vendas/entregas", "/painel/vendas/entregas"), true);
+  assert.equal(isNavItemActive("/painel/vendas/entregas", "/painel/vendas"), false);
+  assert.equal(isNavItemActive("/painel/vendas", "/painel/vendas"), true);
+  assert.equal(isNavItemActive("/painel/vendas", "/painel/vendas/entregas"), false);
+  assert.equal(isNavItemActive("/painel/vendas/123", "/painel/vendas"), true);
+});
+
 // --- Vitrine Aberta (spec 2026-09-07): grupos do Mais, barra de 5 e resumo ---
 
 test("todo item de navegação pertence a um dos três grupos do Mais", () => {
@@ -184,7 +192,10 @@ test("Vendas é item do módulo vendas, em Vender; Disparos é do módulo postar
 test("dono e operador veem o menu de antes, sem Vendas", () => {
   for (const acesso of [DONO, OPERADOR]) {
     assert.ok(!visiveis(acesso).includes("/painel/vendas"));
-    assert.deepEqual(visiveis(acesso), NAV_ALL.filter((i) => i.href !== "/painel/vendas").map((i) => i.href));
+    assert.deepEqual(
+      visiveis(acesso),
+      NAV_ALL.filter((i) => i.href !== "/painel/vendas" && i.href !== "/painel/vendas/entregas").map((i) => i.href),
+    );
     assert.equal(visivelNoMenu(item("/painel/instagram"), acesso, { instagram: false, recuperar: false, rastreio: false }), false);
   }
 });
@@ -272,6 +283,25 @@ test("item com permissao: só papel que a tem, e só com a liberação ligada", 
   assert.equal(visivelNoMenu(entregas, VENDEDORA_POSTA, ligado), false);
   assert.equal(visivelNoMenu(entregas, null, ligado), false);
   assert.equal(visivelNoMenu(entregas, DONO, null), false);
+});
+
+test("Entregas: logo depois de Vendas, em Vender, só dono e admin com o Rastreio ligado, fora das barras", () => {
+  const entregas = item("/painel/vendas/entregas");
+  assert.equal(entregas.grupo, "vender");
+  assert.equal(entregas.requer, "rastreio");
+  assert.equal(entregas.permissao, "settings:connection");
+  const hrefs = NAV_ALL.map((i) => i.href);
+  assert.equal(hrefs.indexOf("/painel/vendas/entregas"), hrefs.indexOf("/painel/vendas") + 1);
+  const ligado = { instagram: false, recuperar: false, rastreio: true };
+  const admin: Acesso = { role: "admin", modules: [] };
+  for (const a of [DONO, admin]) assert.equal(visivelNoMenu(entregas, a, ligado), true);
+  for (const a of [OPERADOR, VENDEDORA, VENDEDORA_POSTA, null]) assert.equal(visivelNoMenu(entregas, a, ligado), false);
+  assert.equal(visivelNoMenu(entregas, DONO, { instagram: false, recuperar: false, rastreio: false }), false);
+  for (const barra of [NAV_BARRA_DESKTOP, NAV_BARRA_COM_RECUPERAR, NAV_BARRA_ESQUERDA, NAV_BARRA_DIREITA, NAV_MOBILE_PRIMARY]) {
+    assert.ok(!barra.some((i) => i.href === "/painel/vendas/entregas"));
+  }
+  // A página abre por prefixo de /painel/vendas; quem barra a vendedora é a API.
+  assert.equal(destinoDaPagina(VENDEDORA, "/painel/vendas/entregas"), "mostrar");
 });
 
 // --- Recuperar (spec 2026-10-29): item com oferta, barra de 7 e a linha do Mais ---

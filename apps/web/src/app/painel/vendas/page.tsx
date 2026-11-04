@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AbasDeVendas } from "@/components/painel/rastreio/abas-de-vendas";
+import { useRastreioLiberado } from "@/components/painel/rastreio/use-rastreio-liberado";
 import { brl } from "@/components/painel/home/format";
 import { BuscaDoCliente, ClienteDaVenda, type ClienteBuscado } from "@/components/painel/vendas/busca-do-cliente";
 import { FormularioDeItens, LISTA_DE_PRODUTOS } from "@/components/painel/vendas/itens-da-venda";
@@ -26,6 +28,7 @@ const SEM_CONFIRMACAO = "Não deu pra confirmar se a venda foi registrada. Confi
  */
 export default function PainelVendas() {
   const minhas = useMinhasVendas();
+  const rastreioLiberado = useRastreioLiberado();
   const [cliente, setCliente] = useState<ClienteBuscado | null>(null);
   const [nome, setNome] = useState("");
   const [venda, setVenda] = useState<VendaDoMes | null>(null);
@@ -113,6 +116,7 @@ export default function PainelVendas() {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-5 lg:py-8">
+      <AbasDeVendas ativa="registrar" visivel={rastreioLiberado} />
       <header>
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Registrar venda</h1>
         <p className="mt-1 text-[14px] text-slate-600">Busque o cliente pelo número do WhatsApp.</p>

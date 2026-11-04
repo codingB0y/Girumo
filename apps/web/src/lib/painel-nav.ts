@@ -15,6 +15,7 @@ import {
   Camera,
   ShoppingBag,
   ShoppingCart,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 import { hasPermission, type Action } from "@/lib/permissions";
@@ -91,6 +92,8 @@ const VENDAS: NavItem = { href: "/painel/vendas", label: "Vendas", icon: Shoppin
 const CAMPANHAS: NavItem = { href: "/painel/campanhas", label: "Campanhas", icon: Layers, grupo: "lotar" };
 // lucide-react não tem o ícone Instagram (ver lp-piloto/ui.tsx); Camera é o substituto.
 const INSTAGRAM: NavItem = { href: "/painel/instagram", label: "Instagram", icon: Camera, grupo: "lotar", requer: "instagram" };
+/** Rastreio (PR 6): dono e administração com a liberação ligada; a vendedora abre a página por prefixo, quem barra é a API. */
+const ENTREGAS: NavItem = { href: "/painel/vendas/entregas", label: "Entregas", icon: Truck, grupo: "vender", requer: "rastreio", permissao: "settings:connection" };
 const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: Send, grupo: "vender", modulo: "postar" };
 const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
 const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender", curto: "Relâmpago" };
@@ -106,7 +109,7 @@ const RESULTADOS: NavItem = { href: "/painel/resultados", label: "Resultados", i
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { title: null, items: [INICIO, VENDAS, CAMPANHAS, INSTAGRAM, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, RECUPERAR, COMUNIDADES, GRUPOS, CONTATOS] },
+  { title: null, items: [INICIO, VENDAS, ENTREGAS, CAMPANHAS, INSTAGRAM, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, RECUPERAR, COMUNIDADES, GRUPOS, CONTATOS] },
   { title: "Crescimento", items: [PAGINAS, LINK_DA_BIO, RESULTADOS] },
 ];
 
@@ -142,8 +145,13 @@ export const NAV_ALL: NavItem[] = [
   ...NAV_FOOTER,
 ];
 
-export function isNavItemActive(pathname: string, href: string): boolean {
+function casaCom(pathname: string, href: string): boolean {
   return href === "/painel" ? pathname === href : pathname.startsWith(href);
+}
+
+/** O item mais específico vence: em /painel/vendas/entregas só Entregas fica ativo, não Vendas. */
+export function isNavItemActive(pathname: string, href: string): boolean {
+  return casaCom(pathname, href) && !NAV_ALL.some((i) => i.href.length > href.length && casaCom(pathname, i.href));
 }
 
 /** `null` = a casca ainda não sabe: esconde o que depende de liberação em vez de piscar. */
