@@ -17,6 +17,7 @@ import { authenticatedFetch } from "@/lib/supabase/client";
 
 import { AbasDeVendas } from "./abas-de-vendas";
 import { TabelaDeEntregas } from "./entregas-tabela";
+import { useRastreioLiberado } from "./use-rastreio-liberado";
 
 type Carga = "carregando" | "ok" | "erro" | "desligado";
 type Consulta = { filtro: FiltroDeEntregas; busca: string; pagina: number; pedido: string | null };
@@ -32,6 +33,7 @@ export default function Entregas() {
   const toast = useToast();
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const pode = carregado && can("settings:connection");
+  const rastreioLiberado = useRastreioLiberado();
 
   const [carga, setCarga] = useState<Carga>("carregando");
   const [resposta, setResposta] = useState<RespostaDeEntregas | null>(null);
@@ -107,9 +109,20 @@ export default function Entregas() {
     [],
   );
 
+  /**
+   * Consulta já, levando a busca digitada: cancela o atraso pendente, senão ele dispara depois e
+   * sobrescreve a página/filtro novos com a consulta velha. Busca mudada volta pra página 1.
+   */
+  function consultarJa(parcial: Partial<Consulta>) {
+    if (atraso.current) clearTimeout(atraso.current);
+    atraso.current = null;
+    const novaBusca = busca !== atual.current.busca;
+    void consultar({ ...atual.current, busca, ...parcial, ...(novaBusca ? { pagina: 1 } : {}) });
+  }
+
   function filtrar(f: FiltroDeEntregas) {
     setFiltro(f);
-    void consultar({ ...atual.current, filtro: f, pagina: 1 });
+    consultarJa({ filtro: f, pagina: 1 });
   }
 
   function buscar(b: string) {
@@ -120,7 +133,7 @@ export default function Entregas() {
 
   function verTodos() {
     setPedido(null);
-    void consultar({ ...atual.current, pedido: null, pagina: 1 });
+    consultarJa({ pedido: null, pagina: 1 });
   }
 
   async function reenviar(l: LinhaDeEntrega) {
@@ -157,7 +170,7 @@ export default function Entregas() {
 
   return (
     <div className={COLUNA}>
-      <AbasDeVendas ativa="entregas" visivel />
+      <AbasDeVendas ativa="entregas" visivel={rastreioLiberado && carga !== "desligado"} />
       <header>
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Entregas</h1>
       </header>
@@ -192,7 +205,7 @@ export default function Entregas() {
             erro={erro}
             aoFiltrar={filtrar}
             aoBuscar={buscar}
-            aoPaginar={(p) => void consultar({ ...atual.current, pagina: p })}
+            aoPaginar={(p) => consultarJa({ pagina: p })}
             aoReenviar={(l) => void reenviar(l)}
             reenviando={reenviando}
           />

@@ -145,8 +145,13 @@ export const NAV_ALL: NavItem[] = [
   ...NAV_FOOTER,
 ];
 
-export function isNavItemActive(pathname: string, href: string): boolean {
+function casaCom(pathname: string, href: string): boolean {
   return href === "/painel" ? pathname === href : pathname.startsWith(href);
+}
+
+/** O item mais específico vence: em /painel/vendas/entregas só Entregas fica ativo, não Vendas. */
+export function isNavItemActive(pathname: string, href: string): boolean {
+  return casaCom(pathname, href) && !NAV_ALL.some((i) => i.href.length > href.length && casaCom(pathname, i.href));
 }
 
 /** `null` = a casca ainda não sabe: esconde o que depende de liberação em vez de piscar. */

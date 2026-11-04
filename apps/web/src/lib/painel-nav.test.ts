@@ -100,6 +100,14 @@ test("marks only the exact home route active, and any nested route otherwise", (
   assert.equal(isNavItemActive("/painel/campanhas/nova", "/painel/campanhas"), true);
 });
 
+test("the most specific item wins: Entregas, not Vendas, on /painel/vendas/entregas", () => {
+  assert.equal(isNavItemActive("/painel/vendas/entregas", "/painel/vendas/entregas"), true);
+  assert.equal(isNavItemActive("/painel/vendas/entregas", "/painel/vendas"), false);
+  assert.equal(isNavItemActive("/painel/vendas", "/painel/vendas"), true);
+  assert.equal(isNavItemActive("/painel/vendas", "/painel/vendas/entregas"), false);
+  assert.equal(isNavItemActive("/painel/vendas/123", "/painel/vendas"), true);
+});
+
 // --- Vitrine Aberta (spec 2026-09-07): grupos do Mais, barra de 5 e resumo ---
 
 test("todo item de navegação pertence a um dos três grupos do Mais", () => {
