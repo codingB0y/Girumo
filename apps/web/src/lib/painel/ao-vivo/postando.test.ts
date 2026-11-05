@@ -19,9 +19,14 @@ function resumo(p: Partial<ResumoDaEntrega>): ResumoDaEntrega {
 // 14:10:00 em Brasília (UTC-3).
 const AGORA = new Date("2026-10-03T17:10:00Z");
 
-test("termina por volta de agora + restantes x 6 s, em hora de Brasília", () => {
-  // 13 x 6 s = 78 s -> 14:11:18
-  assert.equal(terminaPorVolta(resumo({ postando: 1, naFila: 12, total: 20 }), AGORA), "14:11");
+test("termina por volta de agora + restantes x 45 s num post em lote, em hora de Brasília", () => {
+  // 13 x 45 s = 585 s -> 14:19:45
+  assert.equal(terminaPorVolta(resumo({ postando: 1, naFila: 12, total: 20 }), AGORA), "14:19");
+});
+
+test("post pequeno (menos de 10 grupos) termina por volta de agora + restantes x 6 s", () => {
+  // 3 x 6 s = 18 s -> 14:10:18
+  assert.equal(terminaPorVolta(resumo({ postando: 1, naFila: 2, total: 6 }), AGORA), "14:10");
 });
 
 test("termina por volta vira null quando nada resta", () => {

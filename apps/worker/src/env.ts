@@ -25,7 +25,7 @@ export type WorkerEnv = {
   evolutionApiKey: string | null;
   /** Máximo de comandos de envio por claim (o anti-ban do claim limita o resto). */
   sendBatchSize: number;
-  /** Intervalo do loop de envio, em ms. O ritmo do número vem do gate no claim (gap 3-7 s), não do poll. */
+  /** Intervalo do loop de envio, em ms. O ritmo do número vem do gate no claim (gap 3-7 s, ou 20-60 s em lote), não do poll. */
   sendPollMs: number;
   /**
    * Envio real. Default `false` (DRY-RUN): o loop faz tudo — claim sob anti-ban,
@@ -117,7 +117,7 @@ export function loadEnv(): WorkerEnv {
     evolutionApiUrl: optionalEnv("EVOLUTION_API_URL"),
     evolutionApiKey: optionalEnv("EVOLUTION_API_KEY"),
     sendBatchSize: intEnv("WORKER_SEND_BATCH_SIZE", 10, 1),
-    // Envio poll curto: o ritmo do número vem do gate no claim (gap 3-7 s), não do poll.
+    // Envio poll curto: o ritmo do número vem do gate no claim (gap 3-7 s, ou 20-60 s em lote), não do poll.
     sendPollMs: intEnv("WORKER_SEND_POLL_MS", 1000, 250),
     sendEnabled: boolEnv("WORKER_SEND_ENABLED"),
     appBaseUrl: optionalEnv("APP_URL"),
