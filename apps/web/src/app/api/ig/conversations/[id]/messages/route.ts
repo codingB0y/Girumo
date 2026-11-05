@@ -1,12 +1,15 @@
 import { z } from "zod";
-import { chaveDeEnvio, decidirEnvio, marcasDoFio, pausaAte, rotulosPorMensagem, ultimaDela } from "@/lib/ig/conversas/fio";
+import { classificarAnexo } from "@/lib/ig/conversas/anexo";
+import { assinaturaDeEnvio } from "@/lib/ig/conversas/campo";
+import { abrirEnvio, concluirEnvio, responderErroDoEnvio, type EnvioAberto } from "@/lib/ig/conversas/envio";
+import { chaveDeEnvio, marcasDoFio, rotulosPorMensagem, ultimaDela } from "@/lib/ig/conversas/fio";
 import { carregarConversa, corpoInvalido, pausaVigente, requireConversas, responderErroConversa, zernioDaLoja } from "@/lib/ig/conversas/http";
-import { janela, situacaoAoResponderPelaLoja } from "@/lib/ig/conversas/situacao";
+import { janela } from "@/lib/ig/conversas/situacao";
 import type { FioDaConversa, MensagemDto } from "@/lib/ig/conversas/tipos";
 import type { InboxMessage } from "@/lib/ig/zernio-inbox";
+import { midiaParaEnvio } from "@/lib/media-store";
 import { applyContact, getContactByIgUserId } from "@/lib/stores/ig-contacts";
-import { listConversationEvents, recordConversationEvent, touchConversation, updateConversation } from "@/lib/stores/ig-conversations";
-import { stopWaitingRunsOfPerson } from "@/lib/stores/ig-runs";
+import { listConversationEvents } from "@/lib/stores/ig-conversations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +22,13 @@ const PAGINA = 50;
 /** O cursor é da Zernio e opaco; passa adiante, mas com teto de tamanho. */
 const CURSOR_MAX = 512;
 
-const enviarSchema = z.object({ texto: z.string().trim().min(1).max(1000), idempotencyKey: z.string().uuid() });
+/** Texto, foto/vídeo (`midiaId` do upload direto) ou os dois; pelo menos um. */
+const enviarSchema = z
+  .object({ texto: z.string().trim().max(1000).optional(), midiaId: z.string().min(1).max(300).optional(), idempotencyKey: z.string().uuid() })
+  .refine((c) => Boolean(c.texto || c.midiaId));
+
+/** O link assinado de leitura que a Zernio baixa: curto e só para este envio. */
+const LINK_DA_MIDIA_SEGUNDOS = 600;
 
 /** Anexos saem SEM a URL da Zernio: a tela usa `/media?mid=&i=` com o `id` da mensagem e o `indice`. */
 function paraMensagem(m: InboxMessage, rotulos: ReturnType<typeof rotulosPorMensagem>): MensagemDto {
@@ -76,36 +85,41 @@ export async function GET(req: Request, { params }: Ctx) {
   }
 }
 
-// POST /api/ig/conversations/[id]/messages — { texto, idempotencyKey }. Só texto (foto e vídeo vêm no PR 2e).
+type Corpo = z.infer<typeof enviarSchema>;
+
+/**
+ * Manda pela Zernio e devolve os ids das mensagens que saíram (com texto + anexo, duas). `Response` de volta = recusa
+ * antes de mandar: mídia que não é da loja é 404, tipo ou tamanho fora do limite do Instagram é 400. O link assinado
+ * fica só aqui: não vai ao navegador nem ao log.
+ */
+async function mandar(tenantId: string, id: string, aberto: EnvioAberto, corpo: Corpo): Promise<{ ids: string[]; previa: string } | Response> {
+  const comum = { conversationId: aberto.conversa.zernio_conversation_id, accountId: aberto.accountId, humanAgent: aberto.humanAgent, idempotencyKey: chaveDeEnvio(tenantId, id, corpo.idempotencyKey, assinaturaDeEnvio(corpo.midiaId ? "midia" : "texto", corpo)) };
+  if (!corpo.midiaId) {
+    const texto = corpo.texto ?? "";
+    const { messageId } = await zernioDaLoja().sendText({ ...comum, message: texto });
+    return { ids: messageId ? [messageId] : [], previa: texto };
+  }
+  const midia = await midiaParaEnvio(corpo.midiaId, tenantId, LINK_DA_MIDIA_SEGUNDOS);
+  if (!midia) return Response.json({ error: "Arquivo não encontrado. Envie de novo.", code: "midia_nao_achou" }, { status: 404 });
+  const anexo = classificarAnexo(midia.mime, midia.size);
+  if (!anexo.ok) return Response.json({ error: anexo.mensagem, code: "anexo_invalido" }, { status: 400 });
+  const { messageIds } = await zernioDaLoja().sendMedia({ ...comum, attachmentUrl: midia.url, attachmentType: anexo.tipo, ...(corpo.texto ? { message: corpo.texto } : {}) });
+  return { ids: messageIds, previa: corpo.texto || (anexo.tipo === "image" ? "Foto" : "Vídeo") };
+}
+
+// POST /api/ig/conversations/[id]/messages — { texto?, midiaId?, idempotencyKey }, pelo menos um dos dois.
 export async function POST(req: Request, { params }: Ctx) {
   try {
     const ctx = await requireConversas(req);
     const { id } = await params;
     const corpo = enviarSchema.safeParse(await req.json().catch(() => null));
     if (!corpo.success) return corpoInvalido();
-    const { conversa, accountId } = await carregarConversa(ctx.tenantId, id);
-    const agora = new Date();
-    const ficha = await getContactByIgUserId(ctx.tenantId, conversa.ig_user_id);
-    const envio = decidirEnvio(ficha?.last_dm_at ?? null, agora);
-    if (!envio.ok) return Response.json({ error: "A janela de 7 dias fechou. Só dá para responder quando a pessoa escrever de novo.", code: "janela_fechada" }, { status: 409 });
-    const enviada = await zernioDaLoja().sendText({ conversationId: conversa.zernio_conversation_id, accountId, message: corpo.data.texto, humanAgent: envio.humanAgent, idempotencyKey: chaveDeEnvio(ctx.tenantId, id, corpo.data.idempotencyKey) });
-    // A mensagem JÁ SAIU: nada abaixo pode virar erro para a loja. Primeiro o que protege a pessoa (§6: sem a pausa e sem
-    // encerrar a espera, um "sim" dela retomaria um fluxo velho), depois o registro. Falhas só avisam `registroParcial`.
-    // A proteção ganha uma segunda tentativa: sem ela não há quem refaça a pausa nem o fim da espera depois do 200.
-    const comUmaRepeticao = <T,>(f: () => Promise<T>): Promise<T> => f().catch(() => f());
-    const protecao = await Promise.allSettled([
-      comUmaRepeticao(() => updateConversation(ctx.tenantId, id, { unread_count: 0, bot_paused_until: pausaAte(agora) })),
-      comUmaRepeticao(() => stopWaitingRunsOfPerson(ctx.tenantId, { igUserId: conversa.ig_user_id, username: conversa.username }, "replied_by_store")),
-    ]);
-    const registro = await Promise.allSettled([
-      enviada.messageId ? recordConversationEvent(ctx.tenantId, { conversationId: id, kind: "store_message", zernioMessageId: enviada.messageId, occurredAt: agora.toISOString() }) : Promise.resolve(),
-      touchConversation(ctx.tenantId, { zernioConversationId: conversa.zernio_conversation_id, igUserId: conversa.ig_user_id, igAccountId: conversa.ig_account_id, direction: "out", at: agora.toISOString(), preview: corpo.data.texto, status: situacaoAoResponderPelaLoja() }),
-    ]);
-    const falhas = [...protecao, ...registro].filter((r): r is PromiseRejectedResult => r.status === "rejected");
-    // Só o tipo do erro: a mensagem do PostgREST pode trazer dado da loja.
-    for (const f of falhas) console.error("[ig/conversas] registro do envio falhou:", f.reason instanceof Error ? f.reason.name : typeof f.reason);
-    return Response.json({ ok: true, messageId: enviada.messageId, ...(falhas.length ? { registroParcial: true } : {}) });
+    const aberto = await abrirEnvio(ctx.tenantId, id);
+    const saiu = await mandar(ctx.tenantId, id, aberto, corpo.data);
+    if (saiu instanceof Response) return saiu;
+    const { registroParcial } = await concluirEnvio(ctx.tenantId, aberto, { mensagemIds: saiu.ids, previa: saiu.previa });
+    return Response.json({ ok: true, messageId: saiu.ids[0] ?? null, messageIds: saiu.ids, ...(registroParcial ? { registroParcial: true } : {}) });
   } catch (e) {
-    return responderErroConversa(e);
+    return responderErroDoEnvio(e);
   }
 }

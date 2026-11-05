@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MarcaDoFio } from "@/lib/ig/conversas/fio";
+import { assinaturaDeEnvio, chaveParaAssinatura, semAssinatura } from "@/lib/ig/conversas/campo";
 import { criarSequencia, mesclarMensagens } from "@/lib/ig/conversas/tela";
 import type { ConversaDto, FioDaConversa, MensagemDto } from "@/lib/ig/conversas/tipos";
 
 export type CargaDoFio = "carregando" | "ok" | "erro" | "nao-achou";
 export type Resultado = { ok: true } | { ok: false; mensagem: string };
 export type AcaoDaConversa = "resolver" | "pausar" | "retomar";
+/** O que o campo manda: texto, uma mídia já enviada ao Storage (`midiaId`) ou os dois. */
+export type Envio = { texto?: string; midiaId?: string };
 
 type Janela = FioDaConversa["janela"];
 type Corpo = { error?: string; code?: string };
@@ -42,7 +45,8 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
   const emVoo = useRef(false);
   const sujo = useRef(false);
   const idAtual = useRef(id);
-  const ultimoEnvio = useRef<{ texto: string; chave: string } | null>(null);
+  // Uma chave de idempotência por conteúdo ainda não confirmado: um texto que falhou não perde a chave quando um convite sai.
+  const chaves = useRef<ReadonlyMap<string, string>>(new Map());
   const aoMudar = useRef(aoMudarConversa);
   useEffect(() => {
     idAtual.current = id;
@@ -91,7 +95,7 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     setMarcas([]);
     setJanela(SEM_JANELA);
     setPausadoAte(null);
-    ultimoEnvio.current = null;
+    chaves.current = new Map();
     if (id) void carregar(id, true);
   }, [id, carregar]);
 
@@ -130,21 +134,26 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     }
   }, [proximo, buscandoAntigas]);
 
-  /** A chave de idempotência é uma por tentativa e a MESMA no reenvio do mesmo texto. */
-  const enviar = useCallback(
-    async (texto: string): Promise<Resultado> => {
-      if (!idAtual.current) return { ok: false, mensagem: "Abra uma conversa primeiro." };
-      const chave = ultimoEnvio.current?.texto === texto ? ultimoEnvio.current.chave : crypto.randomUUID();
-      ultimoEnvio.current = { texto, chave };
+  /**
+   * Uma tentativa de mandar pela loja (texto, mídia ou convite). A chave de idempotência é uma por tentativa e a MESMA
+   * no reenvio do mesmo conteúdo (`assinatura`): a Zernio não duplica.
+   */
+  const postar = useCallback(
+    async (sufixo: string, assinatura: string, corpo: Record<string, unknown>): Promise<Resultado> => {
+      const conversa = idAtual.current;
+      if (!conversa) return { ok: false, mensagem: "Abra uma conversa primeiro." };
+      const guardada = chaveParaAssinatura(chaves.current, assinatura, () => crypto.randomUUID());
+      const chave = guardada.chave;
+      chaves.current = guardada.mapa;
       try {
-        const r = await fetch(url("/messages"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ texto, idempotencyKey: chave }) });
+        const r = await fetch(`/api/ig/conversations/${conversa}${sufixo}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...corpo, idempotencyKey: chave }) });
         if (!r.ok) {
-          const corpo = await lerCorpo(r);
-          // A janela fechou enquanto a loja escrevia: o campo troca para o estado fechado.
-          if (r.status === 409 && corpo?.code === "janela_fechada") setJanela((j) => ({ ...j, estado: "fechada" }));
-          return { ok: false, mensagem: corpo?.error ?? "Não deu pra enviar. Tente de novo." };
+          const resposta = await lerCorpo(r);
+          // A janela fechou enquanto a loja escrevia: o campo troca para o estado fechado (se ainda é esta conversa).
+          if (r.status === 409 && resposta?.code === "janela_fechada" && conversa === idAtual.current) setJanela((j) => ({ ...j, estado: "fechada" }));
+          return { ok: false, mensagem: resposta?.error ?? "Não deu pra enviar. Tente de novo." };
         }
-        ultimoEnvio.current = null;
+        chaves.current = semAssinatura(chaves.current, assinatura);
         recarregarNovas();
         return { ok: true };
       } catch {
@@ -153,6 +162,9 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     },
     [recarregarNovas],
   );
+
+  const enviar = useCallback((e: Envio): Promise<Resultado> => postar("/messages", assinaturaDeEnvio(e.midiaId ? "midia" : "texto", e), { texto: e.texto, midiaId: e.midiaId }), [postar]);
+  const convidar = useCallback((campanhaId: string): Promise<Resultado> => postar("/invite", assinaturaDeEnvio("convite", { campanhaId }), { campanhaId }), [postar]);
 
   const agir = useCallback(
     async (acao: AcaoDaConversa): Promise<Resultado> => {
@@ -172,5 +184,5 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     [recarregarNovas],
   );
 
-  return { viuOk, mensagens, proximo, marcas, janela, pausadoAte, carga, erroDaCarga, buscandoAntigas, recarregar: () => id && void carregar(id, true), recarregarNovas, maisAntigas, enviar, agir };
+  return { viuOk, mensagens, proximo, marcas, janela, pausadoAte, carga, erroDaCarga, buscandoAntigas, recarregar: () => id && void carregar(id, true), recarregarNovas, maisAntigas, enviar, convidar, agir };
 }

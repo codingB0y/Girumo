@@ -48,10 +48,11 @@ test("link do anexo: só https com nome de host de verdade", () => {
 
 test("chave de envio: UUID derivado da loja, da conversa e da chave do navegador (não repassa a crua)", () => {
   const u = "9b2f6c1e-3d4a-4b5c-8d7e-0a1b2c3d4e5f";
-  const a = chaveDeEnvio("loja-a", "c1", u);
+  const a = chaveDeEnvio("loja-a", "c1", u, "s");
   assert.match(a, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   assert.notEqual(a, u);
-  assert.equal(a, chaveDeEnvio("loja-a", "c1", u), "estável: o reenvio repete a chave");
-  assert.notEqual(a, chaveDeEnvio("loja-b", "c1", u));
-  assert.notEqual(a, chaveDeEnvio("loja-a", "c2", u));
+  assert.equal(a, chaveDeEnvio("loja-a", "c1", u, "s"), "estável: o reenvio repete a chave");
+  assert.notEqual(a, chaveDeEnvio("loja-b", "c1", u, "s"));
+  assert.notEqual(a, chaveDeEnvio("loja-a", "c2", u, "s"));
+  assert.notEqual(a, chaveDeEnvio("loja-a", "c1", u, "outro conteúdo"), "mesmo UUID com outro conteúdo = outra chave");
 });

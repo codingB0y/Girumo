@@ -92,3 +92,34 @@ test("sem chave: erro de configuração antes de qualquer pedido", async () => {
   await assert.rejects(createZernioInbox({ apiKey: "", fetchImpl }).markRead({ conversationId: "c1", accountId: "a1" }), (e: unknown) => e instanceof InboxError && e.kind === "config");
   assert.equal(pedidos.length, 0);
 });
+
+test("anexo: attachmentUrl + attachmentType (+ texto) e devolve os dois ids, o do anexo primeiro", async () => {
+  const { fetchImpl, pedidos } = fetchFalso([
+    { status: 200, body: { success: true, data: { messageId: "mid-a", messageIds: ["mid-a", "mid-t"] } } },
+    { status: 200, body: { success: true, data: { messageId: "mid-s" } } },
+    { status: 200, body: { success: true, data: {} } },
+  ]);
+  const z = createZernioInbox({ apiKey: "k", fetchImpl });
+  const com = await z.sendMedia({ conversationId: "c1", accountId: "a1", attachmentUrl: "https://x.supabase.co/a.png", attachmentType: "image", message: "Olha", humanAgent: true, idempotencyKey: "u-1" });
+  assert.deepEqual(com.messageIds, ["mid-a", "mid-t"]);
+  assert.deepEqual(pedidos[0].corpo, { accountId: "a1", attachmentUrl: "https://x.supabase.co/a.png", attachmentType: "image", message: "Olha", messagingType: "MESSAGE_TAG", messageTag: "HUMAN_AGENT" });
+  assert.equal(pedidos[0].headers["idempotency-key"], "u-1");
+  const sem = await z.sendMedia({ conversationId: "c1", accountId: "a1", attachmentUrl: "https://x/v.mp4", attachmentType: "video", humanAgent: false, idempotencyKey: "u-2" });
+  assert.deepEqual(sem.messageIds, ["mid-s"], "sem messageIds vale o messageId");
+  assert.deepEqual(pedidos[1].corpo, { accountId: "a1", attachmentUrl: "https://x/v.mp4", attachmentType: "video" });
+  assert.deepEqual((await z.sendMedia({ conversationId: "c1", accountId: "a1", attachmentUrl: "https://x/v.mp4", attachmentType: "video", humanAgent: false, idempotencyKey: "u-3" })).messageIds, [], "formato inesperado = sem ids, nunca erro");
+});
+
+test("anexo que a Zernio não consegue baixar chega como invalid com o código dela", async () => {
+  const { fetchImpl } = fetchFalso([{ status: 422, body: { error: "x", type: "validation_error", code: "attachment_fetch_failed" } }]);
+  const z = createZernioInbox({ apiKey: "k", fetchImpl });
+  await assert.rejects(z.sendMedia({ conversationId: "c1", accountId: "a1", attachmentUrl: "https://x/a.png", attachmentType: "image", humanAgent: false, idempotencyKey: "u" }), (e: unknown) => e instanceof InboxError && e.kind === "invalid" && e.code === "attachment_fetch_failed");
+});
+
+test("botão de URL: message + buttons no corpo, com a tag de atendimento humano quando precisa", async () => {
+  const { fetchImpl, pedidos } = fetchFalso([{ status: 200, body: { data: { messageId: "mid-b" } } }]);
+  const z = createZernioInbox({ apiKey: "k", fetchImpl });
+  const r = await z.sendButtons({ conversationId: "c1", accountId: "a1", message: "Entre", buttons: [{ type: "url", title: "Entrar no grupo VIP", url: "https://app.test/r/vip" }], humanAgent: true, idempotencyKey: "u-1" });
+  assert.deepEqual(r, { messageId: "mid-b" });
+  assert.deepEqual(pedidos[0].corpo, { accountId: "a1", message: "Entre", buttons: [{ type: "url", title: "Entrar no grupo VIP", url: "https://app.test/r/vip" }], messagingType: "MESSAGE_TAG", messageTag: "HUMAN_AGENT" });
+});

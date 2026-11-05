@@ -75,7 +75,7 @@ test("a bolha nossa leva o rótulo do evento; a dela, nenhum; anexo aponta para 
 });
 
 const campo = (janela: Parameters<typeof estadoDoCampo>[0], pausa: string | null = null) =>
-  renderToStaticMarkup(createElement(CampoDeResposta, { estado: estadoDoCampo(janela, pausa, AGORA), quem: "@ana", aoEnviar: async () => ({ ok: true as const }), aoRetomar: async () => ({ ok: true as const }) }));
+  renderToStaticMarkup(createElement(CampoDeResposta, { estado: estadoDoCampo(janela, pausa, AGORA), quem: "@ana", aoEnviar: async () => ({ ok: true as const }), aoConvidar: async () => ({ ok: true as const }), aoRetomar: async () => ({ ok: true as const }) }));
 
 test("campo: janela aberta envia como Enviar e o textarea tem rótulo", () => {
   const h = campo({ estado: "aberta", ultimaDelaEm: ha(2) });

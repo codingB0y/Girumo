@@ -15,8 +15,18 @@ export function montarLink(origem: string, slug: string, ref: string): string {
   return `${origem}${campaignLinkPath(origem, slug)}?ig=${encodeURIComponent(ref)}`;
 }
 
-export async function linkDoConvite(tenantId: string, slug: string, ref: string): Promise<string> {
+/** O domínio próprio ativo da loja, senão o do app. */
+async function origemDaLoja(tenantId: string): Promise<string> {
   const dominio = await getCustomDomain(tenantId);
-  const origem = dominio?.status === "active" ? `https://${dominio.hostname}` : getAppUrl();
-  return montarLink(origem, slug, ref);
+  return dominio?.status === "active" ? `https://${dominio.hostname}` : getAppUrl();
+}
+
+export async function linkDoConvite(tenantId: string, slug: string, ref: string): Promise<string> {
+  return montarLink(await origemDaLoja(tenantId), slug, ref);
+}
+
+/** O link da campanha puro, SEM `?ig=`: o convite mandado pelo chat não conta clique atribuído (isso é da fase 3). */
+export async function linkDaCampanha(tenantId: string, slug: string): Promise<string> {
+  const origem = await origemDaLoja(tenantId);
+  return `${origem}${campaignLinkPath(origem, slug)}`;
 }

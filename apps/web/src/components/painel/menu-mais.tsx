@@ -42,11 +42,11 @@ const SO_NO_MAIS = NAV_ALL.filter((item) => !NAV_BARRA_DESKTOP.includes(item) &&
  * todos os módulos por verbo e o estado de cada um — a mesma lista da folha
  * "Mais" do celular — e o romaneio do plano no rodapé. Esc (devolvendo o foco
  * ao botão), clique fora, escolher um item e trocar de rota fecham. Não é modal.
- * Com o Recuperar ligado e gente esperando, o botão ganha um ponto até 1279 px:
+ * Com o Recuperar ou o Instagram ligado e gente esperando, o botão ganha um ponto até 1279 px:
  * dali em diante o item mora na barra e leva o contador (ponto, não número, para
  * o botão não crescer a 1024 px).
  */
-export function MenuMais() {
+export function MenuMais({ instagramAguardando = 0 }: { instagramAguardando?: number }) {
   const pathname = usePathname();
   const { recuperar, liberacoes } = useCasca();
   // Add-on ligado mora na barra (xl+) e é ele que acende; o Mais só acende pelos que moram só nele.
@@ -87,12 +87,9 @@ export function MenuMais() {
     <div ref={raiz} className="relative flex self-stretch">
       <button ref={botao} type="button" aria-expanded={aberto} aria-controls={id} onClick={() => setAberto((v) => !v)} className={cn("pn-barra__item", noMais && "pn-barra__item--ativo")}>
         Mais <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
-        {esperando > 0 && (
-          <>
-            <span className="pn-barra__ponto absolute right-1.5 top-3 xl:hidden" aria-hidden="true" />
-            <span className="sr-only xl:hidden">{`, ${numero(esperando)} ${esperando === 1 ? "precisa" : "precisam"} de você no Recuperar`}</span>
-          </>
-        )}
+        {(esperando > 0 || instagramAguardando > 0) && <span className="pn-barra__ponto absolute right-1.5 top-3 xl:hidden" aria-hidden="true" />}
+        {esperando > 0 && <span className="sr-only xl:hidden">{`, ${numero(esperando)} ${esperando === 1 ? "precisa" : "precisam"} de você no Recuperar`}</span>}
+        {instagramAguardando > 0 && <span className="sr-only xl:hidden">{`, ${numero(instagramAguardando)} aguardando você no Instagram`}</span>}
       </button>
       {aberto && (
         <div id={id} data-testid="painel-menu-mais" className="pn-menu-mais">
