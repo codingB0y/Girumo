@@ -4,17 +4,22 @@ import { RECIPES } from "@/lib/ig/flow/recipes";
 import type { FlowDef, FlowOut } from "@/lib/ig/flow/types";
 import { createFakeTransport } from "@/lib/ig/transport/fake";
 import { ZernioError } from "@/lib/ig/transport/types";
+import type { IgContactRow } from "@/lib/stores/ig-contacts";
 import { advance, type Deps, type RunState } from "./advance";
+import { contatoDaPessoa } from "./ficha";
+import { criarContatosFalsos } from "./ficha-falsa";
 
 const comConvite = (def: FlowDef, slug = "vip"): FlowDef => ({ ...def, nodes: def.nodes.map((n) => (n.type === "invite" ? { ...n, campaignSlug: slug } : n)) });
 const agora = () => new Date("2026-10-06T12:00:00Z");
 const base: RunState = { id: "run-1", flowId: "f1", ref: "ref123456789", sourceKind: "comment", providerAccountId: "z1", comment: { platformPostId: "post", commentId: "com" }, conversationId: null, windowExpiresAt: "2026-10-13T12:00:00Z", directsSent: 0 };
 
-function montar(opts: Parameters<typeof createFakeTransport>[0] = {}) {
+function montar(opts: Parameters<typeof createFakeTransport>[0] = {}, inicial: Partial<IgContactRow> = {}) {
   const { transport, chamadas } = createFakeTransport(opts);
   const passos: Array<[string, FlowOut]> = [];
-  const deps: Deps = { transport, now: agora, link: async (slug, ref) => `https://app/r/${slug}?ig=${ref}`, step: async (n, o) => { passos.push([n, o]); } };
-  return { deps, chamadas, passos };
+  const { contatos, aplicacoes } = criarContatosFalsos({ inicial: { ig_user_id: "u1", ...inicial } });
+  const contato = contatoDaPessoa(contatos, "loja-a", "u1", null, agora().toISOString());
+  const deps: Deps = { transport, now: agora, contato, link: async (slug, ref) => `https://app/r/${slug}?ig=${ref}`, step: async (n, o) => { passos.push([n, o]); } };
+  return { deps, chamadas, passos, aplicacoes };
 }
 
 test("comentou, entra no grupo: resposta pública, uma privada com o link no fim, run termina", async () => {

@@ -14,13 +14,14 @@ export type Chamada =
  * combinado em `falhar` (uma vez por chamada, sempre). Sem "server-only" de
  * propósito: os testes do motor importam daqui.
  */
-export function createFakeTransport(opts: { falhar?: Partial<Record<Chamada["metodo"], ZernioError>>; contas?: ZernioAccount[] } = {}) {
+export function createFakeTransport(opts: { falhar?: Partial<Record<Chamada["metodo"], ZernioError>>; contas?: ZernioAccount[]; recusarQuickReplies?: ZernioError } = {}) {
   const chamadas: Chamada[] = [];
   const registra = (c: Chamada) => {
     chamadas.push(c);
     const erro = opts.falhar?.[c.metodo];
     if (erro) throw erro;
   };
+  let enviadas = 0;
   const transport: Transport = {
     async ensureProfile(name) {
       registra({ metodo: "ensureProfile", args: name });
@@ -39,12 +40,15 @@ export function createFakeTransport(opts: { falhar?: Partial<Record<Chamada["met
     },
     async privateReply(i) {
       registra({ metodo: "privateReply", args: i });
+      return { messageId: `msg-falsa-${++enviadas}` };
     },
     async publicReply(i) {
       registra({ metodo: "publicReply", args: i });
     },
     async sendMessage(i) {
       registra({ metodo: "sendMessage", args: i });
+      if (i.quickReplies?.length && opts.recusarQuickReplies) throw opts.recusarQuickReplies;
+      return { messageId: `msg-falsa-${++enviadas}` };
     },
   };
   return { transport, chamadas };

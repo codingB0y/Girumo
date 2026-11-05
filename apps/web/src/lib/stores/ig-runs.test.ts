@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
-import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getRunResumedBy, getWaitingRun, hasRecentRun, retakeStalledRun, listRuns, purgeOldRuns, recordStep, stopActiveRuns, updateRun } from "./ig-runs";
+import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getRunResumedBy, getWaitingRun, hasRecentRun, listRunSteps, retakeStalledRun, listRuns, purgeOldRuns, recordStep, stopActiveRuns, updateRun } from "./ig-runs";
 
 type Pedido = { metodo: string; url: URL; prefer: string; corpo: unknown };
 const pedidos: Pedido[] = [];
@@ -62,6 +62,8 @@ test("ler por source_id, atualizar e gravar passo filtram a loja", async () => {
   await recordStep("loja-a", { flowId: "f1", runId: "r1", nodeId: "gatilho", out: "next" });
   assert.deepEqual([pedidos[2].metodo, pedidos[2].url.pathname], ["POST", "/rest/v1/ig_run_steps"]);
   assert.deepEqual(pedidos[2].corpo, { tenant_id: "loja-a", flow_id: "f1", run_id: "r1", node_id: "gatilho", out: "next" });
+  await listRunSteps("loja-a", "r1");
+  assert.deepEqual(filtros(pedidos[3].url), { tenant_id: "eq.loja-a", run_id: "eq.r1", order: "id.asc" });
 });
 
 test("teto por conta conta com HEAD; entrada recente por pessoa e fluxo", async () => {

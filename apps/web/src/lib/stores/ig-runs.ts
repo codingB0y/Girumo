@@ -166,6 +166,13 @@ export async function recordStep(tenantId: string, input: { flowId: string; runI
   if (error) throw new Error(error.message);
 }
 
+/** Os passos do run em ordem de gravação (o reenvio reusa a saída que cada Se… já tomou). */
+export async function listRunSteps(tenantId: string, runId: string): Promise<Array<{ node_id: string; out: string }>> {
+  const { data, error } = await getSupabaseAdmin().from("ig_run_steps").select("node_id, out").eq("tenant_id", tenantId).eq("run_id", runId).order("id", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Array<{ node_id: string; out: string }>;
+}
+
 /** Teto por conta (a Meta permite 750 respostas privadas por hora). */
 export async function countRunsStartedSince(tenantId: string, igAccountId: string, sinceIso: string): Promise<number> {
   const { count, error } = await getSupabaseAdmin().from("ig_runs").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("ig_account_id", igAccountId).gte("started_at", sinceIso);
