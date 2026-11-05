@@ -22,6 +22,10 @@ const HORA_MS = 3_600_000;
 const MIN_MS = 60_000;
 // Bem além da tolerância de 15 min de app.missed_send_tolerance().
 const DUAS_HORAS_ATRAS = () => new Date(Date.now() - 2 * HORA_MS).toISOString();
+// Dentro da tolerância, mas já depois do atraso aleatório de até 7 min que
+// app.atraso_do_agendamento() soma ao horário (fan-out lento, 05/11/2026): a 1 min
+// do horário o agendamento ainda pode, de propósito, não ter sido promovido.
+const OITO_MINUTOS_ATRAS = () => new Date(Date.now() - 8 * MIN_MS).toISOString();
 
 const broadcastIds: string[] = [];
 const scheduleIds: string[] = [];
@@ -132,7 +136,7 @@ test("agendamento recorrente que perdeu a hora só avança a data, sem enviar", 
 
 test("agendamento dentro da tolerância segue o caminho normal", async () => {
   if (pular()) return;
-  const { scheduleId } = await criarAgendamento(new Date(Date.now() - MIN_MS).toISOString(), "none");
+  const { scheduleId } = await criarAgendamento(OITO_MINUTOS_ATRAS(), "none");
 
   await promover();
 
@@ -180,7 +184,7 @@ async function lerAgendamento(tenant: string, scheduleId: string, broadcastId: s
 test("loja que cancelou: o recorrente vencido não enfileira, não toca o disparo e só avança a data", async () => {
   if (pular()) return;
   const loja = await lojaComAssinatura("canceled");
-  const agendadoEm = new Date(Date.now() - MIN_MS).toISOString();
+  const agendadoEm = OITO_MINUTOS_ATRAS();
   const { broadcastId, scheduleId } = await criarAgendamento(agendadoEm, "daily", loja);
 
   await promover();
@@ -198,7 +202,7 @@ test("loja que cancelou: o recorrente vencido não enfileira, não toca o dispar
 test("loja que cancelou: o agendamento único vira failed com o motivo da assinatura", async () => {
   if (pular()) return;
   const loja = await lojaComAssinatura("canceled");
-  const { broadcastId, scheduleId } = await criarAgendamento(new Date(Date.now() - MIN_MS).toISOString(), "none", loja);
+  const { broadcastId, scheduleId } = await criarAgendamento(OITO_MINUTOS_ATRAS(), "none", loja);
 
   await promover();
 
@@ -212,7 +216,7 @@ test("loja que cancelou: o agendamento único vira failed com o motivo da assina
 test("loja em teste grátis segue o caminho normal", async () => {
   if (pular()) return;
   const loja = await lojaComAssinatura("trialing");
-  const { broadcastId, scheduleId } = await criarAgendamento(new Date(Date.now() - MIN_MS).toISOString(), "none", loja);
+  const { broadcastId, scheduleId } = await criarAgendamento(OITO_MINUTOS_ATRAS(), "none", loja);
 
   await promover();
 
