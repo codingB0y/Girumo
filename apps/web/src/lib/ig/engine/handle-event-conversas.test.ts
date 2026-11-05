@@ -189,3 +189,16 @@ test("ler a conversa lançando no direct pede reenvio sem responder; no comentá
   assert.equal(logs.some((l) => String(l[0]).includes("ler falhou")), true, "o log diz a operação");
   assert.equal(JSON.stringify(logs).includes("rede"), false, "e não a mensagem do erro");
 });
+
+test("erro que não passa sozinho ao ler a conversa (tabela ausente) não emudece o robô: segue como não pausado", async () => {
+  const a = ambiente();
+  a.amb.conversas = { ...a.amb.conversas, ler: async () => { throw Object.assign(new Error("relation does not exist"), { code: "42P01" }); } };
+  const erro = console.error;
+  console.error = () => {};
+  try {
+    assert.equal((await tratarEvento(direct, a.amb)).kind, "handled");
+    assert.equal(a.chamadas.length > 0, true, "o robô respondeu");
+  } finally {
+    console.error = erro;
+  }
+});

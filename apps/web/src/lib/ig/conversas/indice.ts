@@ -26,7 +26,17 @@ export function registrarFalha(op: "ler" | "tocar" | "evento", e: unknown): void
 /** Como a situação do direct é decidida: pelo que o robô fez, forçada em Aguardando você (retry, exceção) ou mantida (reentrega). */
 export type ModoDaSituacao = "auto" | "waiting" | "manter";
 
-export const robotPausado = (c: IgConversationRow | null, agora: Date): boolean => !!c?.bot_paused_until && Date.parse(c.bot_paused_until) > agora.getTime();
+/**
+ * Falha que passa sozinha: sem código (rede, 5xx do gateway), conexão (08…), timeout (57014), recurso (53…),
+ * conflito (40001, 40P01). Erro com outro código (tabela ausente, permissão) se repete em todo reenvio.
+ */
+export function falhaPassageira(e: unknown): boolean {
+  const code = e instanceof Error ? (e as { code?: unknown }).code : undefined;
+  if (typeof code !== "string" || code === "") return true;
+  return /^(08|53)/.test(code) || ["57014", "40001", "40P01"].includes(code);
+}
+
+export const robotPausado =(c: IgConversationRow | null, agora: Date): boolean => !!c?.bot_paused_until && Date.parse(c.bot_paused_until) > agora.getTime();
 
 /** Lê a conversa da pessoa. Banco fora do ar = sem conversa conhecida: o robô segue, o índice se refaz na próxima mensagem. */
 export async function lerConversa(conversas: Conversas, tenantId: string, igUserId: string): Promise<IgConversationRow | null> {

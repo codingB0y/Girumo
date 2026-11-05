@@ -1,4 +1,4 @@
-import { gravarEnvios, lerConversa, registrarEnviada, registrarFalha, registrarRecebida, robotPausado, type Conversas, type EnvioDoRobo, type ModoDaSituacao } from "@/lib/ig/conversas/indice";
+import { falhaPassageira, gravarEnvios, lerConversa, registrarEnviada, registrarFalha, registrarRecebida, robotPausado, type Conversas, type EnvioDoRobo, type ModoDaSituacao } from "@/lib/ig/conversas/indice";
 import type { FlowOut } from "@/lib/ig/flow/types";
 import { TETO_RUNS_POR_HORA } from "@/lib/ig/limites";
 import { ZernioError, type Transport } from "@/lib/ig/transport/types";
@@ -204,13 +204,14 @@ async function processar(ev: EventoZernio, amb: Ambiente, ctx: Contexto): Promis
 
   // Robô pausado (a loja respondeu pelo painel): nada abre nem retoma para essa pessoa. Comentário só confere depois de casar um fluxo.
   if (ev.event === "message.received") {
-    // Sem saber se está pausado, o robô não responde: a Zernio reenvia o direct.
-    let conversa: Awaited<ReturnType<Conversas["ler"]>>;
+    // Falha passageira: sem saber se está pausado, o robô não responde e a Zernio reenvia. Erro que se repete
+    // (tabela ausente, permissão) não pode emudecer o robô em loop: segue como não pausado.
+    let conversa: Awaited<ReturnType<Conversas["ler"]>> = null;
     try {
       conversa = await amb.conversas.ler(tenantId, entrada.igUserId);
     } catch (e) {
       registrarFalha("ler", e);
-      return { kind: "retry", reason: "conversa" };
+      if (falhaPassageira(e)) return { kind: "retry", reason: "conversa" };
     }
     if (robotPausado(conversa, agora)) {
       ctx.pausado = true;
