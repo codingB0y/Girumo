@@ -105,6 +105,7 @@ test("campo: robô pausado mostra a faixa com Retomar agora", () => {
   assert.match(h, /Robô pausado até/);
   assert.match(h, />Retomar agora</);
   assert.match(h, /Volta sozinho depois de 12 h/);
+  assert.doesNotMatch(h, /o robô pausa aqui por 12 h/, "a faixa já conta da pausa; repetir embaixo só rouba altura do fio");
   assert.doesNotMatch(campo({ estado: "aberta", ultimaDelaEm: ha(2) }), /Retomar agora/);
 });
 

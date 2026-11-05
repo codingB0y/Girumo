@@ -17,6 +17,7 @@ import { useRespostasProntas } from "./use-respostas-prontas";
 
 const LIMITE = 1000;
 const BOTAO = "inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-13 font-medium text-volt-950 disabled:opacity-50 lg:min-h-9";
+const SO_ICONE = "w-11 justify-center px-0 lg:w-9";
 
 type Props = {
   estado: EstadoDoCampo;
@@ -139,12 +140,12 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
   return (
     <div className="flex flex-col gap-2 border-t border-line-200 bg-paper-0 p-3">
       {estado.pausadoAte && (
-        <div className="flex flex-col gap-1 rounded-[var(--radius-control)] bg-canvas-100 px-3 py-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-13 font-medium text-volt-950">Robô pausado até {quando(estado.pausadoAte, agora)}</span>
-            <button type="button" onClick={() => void retomar()} className={BOTAO}>Retomar agora</button>
+        <div className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] bg-canvas-100 px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-13 font-medium text-volt-950">Robô pausado até {quando(estado.pausadoAte, agora)}</p>
+            <p className="text-12 text-slate-600">{NOTA_DA_PAUSA}</p>
           </div>
-          <p className="text-12 text-slate-600">{NOTA_DA_PAUSA}</p>
+          <button type="button" onClick={() => void retomar()} className={cn(BOTAO, "shrink-0")}>Retomar agora</button>
         </div>
       )}
       <p className={cn("flex items-center gap-2 text-13 font-medium", estado.modo === "aberta" ? "text-success-700" : estado.modo === "humano" ? "text-warning-700" : "text-slate-600")}>
@@ -187,9 +188,8 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
           <Link2 aria-hidden="true" className="h-4 w-4" />
           Convite do grupo
         </button>
-        <button type="button" disabled={!estado.podeEnviar || enviando || anexo.fase === "enviando"} onClick={() => arquivo.current?.click()} className={BOTAO}>
+        <button type="button" aria-label="Foto ou vídeo" title="Foto ou vídeo" disabled={!estado.podeEnviar || enviando || anexo.fase === "enviando"} onClick={() => arquivo.current?.click()} className={cn(BOTAO, SO_ICONE)}>
           <ImageIcon aria-hidden="true" className="h-4 w-4" />
-          Foto ou vídeo
         </button>
         <input
           ref={arquivo}
@@ -205,7 +205,7 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
           }}
         />
         {podeGerenciar && (
-          <button ref={botaoGerenciar} type="button" aria-label="Gerenciar respostas" title="Gerenciar respostas" aria-expanded={painel === "gerenciar"} onClick={() => setPainel(painel === "gerenciar" ? null : "gerenciar")} className={cn(BOTAO, "w-11 justify-center px-0 lg:w-9")}>
+          <button ref={botaoGerenciar} type="button" aria-label="Gerenciar respostas" title="Gerenciar respostas" aria-expanded={painel === "gerenciar"} onClick={() => setPainel(painel === "gerenciar" ? null : "gerenciar")} className={cn(BOTAO, SO_ICONE)}>
             <Settings2 aria-hidden="true" className="h-4 w-4" />
           </button>
         )}
@@ -216,7 +216,7 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 flex-1 text-12 text-slate-600">
           {estado.nota}
-          {estado.podeEnviar && " Ao responder, o robô pausa aqui por 12 h."}
+          {estado.podeEnviar && !estado.pausadoAte && " Ao responder, o robô pausa aqui por 12 h."}
         </p>
         {estado.podeEnviar && <span className="font-data text-12 tabular-nums text-slate-600">{texto.length}/{LIMITE}</span>}
       </div>
