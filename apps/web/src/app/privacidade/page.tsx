@@ -77,6 +77,12 @@ export default function PrivacidadePage() {
             configurou &quot;Guardar em&quot;.
           </li>
           <li>
+            <strong>Conversas do Instagram (add-on):</strong> não guardamos o histórico. Guardamos
+            só o índice da lista, com a última mensagem (até 200 caracteres), e um registro, sem
+            texto, do que o robô e a loja fizeram em cada conversa. As mensagens e os anexos ficam
+            na Zernio e no Instagram.
+          </li>
+          <li>
             <strong>Uso da plataforma:</strong> registros de ações, envios, erros, data e hora, e
             endereço IP.
           </li>
