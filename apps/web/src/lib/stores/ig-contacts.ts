@@ -1,5 +1,6 @@
 import "server-only";
 
+import { deleteRunsOfUser } from "@/lib/stores/ig-runs";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /** Valor de campo da pessoa: o banco guarda texto (cortado em 200) ou o escalar que veio. */
@@ -19,7 +20,7 @@ export type IgContactRow = {
   updated_at: string;
 };
 
-const COLS = "id, tenant_id, ig_user_id, username, fields, tags, first_seen_at, last_seen_at, last_dm_at, source_flow_id, updated_at";
+export const CONTACT_COLS = "id, tenant_id, ig_user_id, username, fields, tags, first_seen_at, last_seen_at, last_dm_at, source_flow_id, updated_at";
 
 export type ApplyContactInput = {
   igUserId: string;
@@ -57,13 +58,13 @@ export async function applyContact(tenantId: string, input: ApplyContactInput): 
 }
 
 export async function getContactByIgUserId(tenantId: string, igUserId: string): Promise<IgContactRow | null> {
-  const { data, error } = await getSupabaseAdmin().from("ig_contacts").select(COLS).eq("tenant_id", tenantId).eq("ig_user_id", igUserId).maybeSingle();
+  const { data, error } = await getSupabaseAdmin().from("ig_contacts").select(CONTACT_COLS).eq("tenant_id", tenantId).eq("ig_user_id", igUserId).maybeSingle();
   if (error) throw new Error(error.message);
   return (data as unknown as IgContactRow | null) ?? null;
 }
 
 export async function getContactById(tenantId: string, id: string): Promise<IgContactRow | null> {
-  const { data, error } = await getSupabaseAdmin().from("ig_contacts").select(COLS).eq("tenant_id", tenantId).eq("id", id).maybeSingle();
+  const { data, error } = await getSupabaseAdmin().from("ig_contacts").select(CONTACT_COLS).eq("tenant_id", tenantId).eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   return (data as unknown as IgContactRow | null) ?? null;
 }
@@ -117,8 +118,8 @@ export async function deleteContact(tenantId: string, id: string): Promise<boole
   const contato = await getContactById(tenantId, id);
   if (!contato) return false;
   // Atendimentos antes da ficha: se a segunda parte falhar, o reenvio ainda acha a pessoa e termina de apagar.
-  const { error: erroRuns } = await getSupabaseAdmin().from("ig_runs").delete().eq("tenant_id", tenantId).eq("ig_user_id", contato.ig_user_id);
-  if (erroRuns) throw new Error(erroRuns.message);
+  await deleteRunsOfUser(tenantId, contato.ig_user_id);
+  // Plano 2: aqui entram o índice de conversas e o pedido à Zernio para apagar a cópia (antes da ficha, pela mesma razão de ordem).
   const { error } = await getSupabaseAdmin().from("ig_contacts").delete().eq("tenant_id", tenantId).eq("id", id);
   if (error) throw new Error(error.message);
   return true;
