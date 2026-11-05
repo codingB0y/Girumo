@@ -13,6 +13,13 @@ import { SENTRY_CSP_HOST } from "./src/lib/observability/sentry-options";
  */
 const EVAL_IN_DEV = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
+/**
+ * Para onde a rota de mídia das Conversas (`/api/ig/conversations/[id]/media`) manda o anexo com 302. É o CDN de
+ * mensagens da Meta, documentado como `https://lookaside.fbsbx.com/ig_messaging_cdn/...` nos payloads do Instagram
+ * (developers.facebook.com/docs/instagram-platform/webhooks). Só este host: nada de `https:` amplo.
+ */
+const CDN_DOS_ANEXOS = "https://lookaside.fbsbx.com";
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -30,7 +37,9 @@ const securityHeaders = [
       // que renderizam por request usam nonce (src/lib/security/csp.ts).
       `script-src 'self' 'unsafe-inline'${EVAL_IN_DEV} https://js.stripe.com`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.supabase.co",
+      `img-src 'self' data: blob: https://*.supabase.co ${CDN_DOS_ANEXOS}`,
+      // media-src não existia (caía no default-src 'self'): vídeo/áudio do Instagram e a prévia local (blob:) do envio.
+      `media-src 'self' blob: ${CDN_DOS_ANEXOS}`,
       "font-src 'self'",
       `connect-src 'self' https://*.supabase.co https://api.stripe.com wss://*.supabase.co ${SENTRY_CSP_HOST}`,
       // player.vimeo.com: vídeo real do bazar Mega Stock no case da /lp

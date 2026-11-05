@@ -8,6 +8,8 @@ import type { ConversaDto, FioDaConversa, MensagemDto } from "@/lib/ig/conversas
 export type CargaDoFio = "carregando" | "ok" | "erro" | "nao-achou";
 export type Resultado = { ok: true } | { ok: false; mensagem: string };
 export type AcaoDaConversa = "resolver" | "pausar" | "retomar";
+/** O que o campo manda: texto, uma mídia já enviada ao Storage (`midiaId`) ou os dois. */
+export type Envio = { texto?: string; midiaId?: string };
 
 type Janela = FioDaConversa["janela"];
 type Corpo = { error?: string; code?: string };
@@ -42,7 +44,7 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
   const emVoo = useRef(false);
   const sujo = useRef(false);
   const idAtual = useRef(id);
-  const ultimoEnvio = useRef<{ texto: string; chave: string } | null>(null);
+  const ultimoEnvio = useRef<{ assinatura: string; chave: string } | null>(null);
   const aoMudar = useRef(aoMudarConversa);
   useEffect(() => {
     idAtual.current = id;
@@ -130,19 +132,22 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     }
   }, [proximo, buscandoAntigas]);
 
-  /** A chave de idempotência é uma por tentativa e a MESMA no reenvio do mesmo texto. */
-  const enviar = useCallback(
-    async (texto: string): Promise<Resultado> => {
+  /**
+   * Uma tentativa de mandar pela loja (texto, mídia ou convite). A chave de idempotência é uma por tentativa e a MESMA
+   * no reenvio do mesmo conteúdo (`assinatura`): a Zernio não duplica.
+   */
+  const postar = useCallback(
+    async (sufixo: string, assinatura: string, corpo: Record<string, unknown>): Promise<Resultado> => {
       if (!idAtual.current) return { ok: false, mensagem: "Abra uma conversa primeiro." };
-      const chave = ultimoEnvio.current?.texto === texto ? ultimoEnvio.current.chave : crypto.randomUUID();
-      ultimoEnvio.current = { texto, chave };
+      const chave = ultimoEnvio.current?.assinatura === assinatura ? ultimoEnvio.current.chave : crypto.randomUUID();
+      ultimoEnvio.current = { assinatura, chave };
       try {
-        const r = await fetch(url("/messages"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ texto, idempotencyKey: chave }) });
+        const r = await fetch(url(sufixo), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...corpo, idempotencyKey: chave }) });
         if (!r.ok) {
-          const corpo = await lerCorpo(r);
+          const resposta = await lerCorpo(r);
           // A janela fechou enquanto a loja escrevia: o campo troca para o estado fechado.
-          if (r.status === 409 && corpo?.code === "janela_fechada") setJanela((j) => ({ ...j, estado: "fechada" }));
-          return { ok: false, mensagem: corpo?.error ?? "Não deu pra enviar. Tente de novo." };
+          if (r.status === 409 && resposta?.code === "janela_fechada") setJanela((j) => ({ ...j, estado: "fechada" }));
+          return { ok: false, mensagem: resposta?.error ?? "Não deu pra enviar. Tente de novo." };
         }
         ultimoEnvio.current = null;
         recarregarNovas();
@@ -153,6 +158,9 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     },
     [recarregarNovas],
   );
+
+  const enviar = useCallback((e: Envio): Promise<Resultado> => postar("/messages", `${e.texto ?? ""}|${e.midiaId ?? ""}`, { texto: e.texto, midiaId: e.midiaId }), [postar]);
+  const convidar = useCallback((campanhaId: string): Promise<Resultado> => postar("/invite", `convite|${campanhaId}`, { campanhaId }), [postar]);
 
   const agir = useCallback(
     async (acao: AcaoDaConversa): Promise<Resultado> => {
@@ -172,5 +180,5 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     [recarregarNovas],
   );
 
-  return { viuOk, mensagens, proximo, marcas, janela, pausadoAte, carga, erroDaCarga, buscandoAntigas, recarregar: () => id && void carregar(id, true), recarregarNovas, maisAntigas, enviar, agir };
+  return { viuOk, mensagens, proximo, marcas, janela, pausadoAte, carga, erroDaCarga, buscandoAntigas, recarregar: () => id && void carregar(id, true), recarregarNovas, maisAntigas, enviar, convidar, agir };
 }

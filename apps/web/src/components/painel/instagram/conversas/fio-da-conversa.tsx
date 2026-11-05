@@ -126,7 +126,7 @@ export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha, inerte, r
         )}
       </div>
 
-      {fio.viuOk && <CampoDeResposta key={conversa.id} estado={campo} quem={quem} aoEnviar={fio.enviar} aoRetomar={() => agir("retomar")} />}
+      {fio.viuOk && <CampoDeResposta key={conversa.id} estado={campo} quem={quem} aoEnviar={fio.enviar} aoConvidar={fio.convidar} aoRetomar={() => agir("retomar")} />}
     </section>
   );
 }

@@ -274,3 +274,27 @@ export async function readMedia(id: string, tenantId: string): Promise<{ buffer:
   };
 }
 
+
+/**
+ * Mídia da loja pronta para um envio por link (Instagram, spec §7.10): o tipo e o tamanho vêm da linha de `uploads`
+ * da loja (gravada no registro a partir do OBJETO real no Storage, não do que o navegador alegou) e o link assinado
+ * de leitura vale só `ttlSegundos`. Id de outra loja, de outro `kind` ou sem linha = `null`. O link nunca é logado.
+ */
+export async function midiaParaEnvio(id: string, tenantId: string, ttlSegundos: number): Promise<{ url: string; mime: string; size: number } | null> {
+  const storagePath = decodeMediaId(id);
+  if (!storagePath || !mediaPathBelongsToTenant(storagePath, tenantId)) return null;
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("uploads")
+    .select("mime_type, size")
+    .eq("tenant_id", tenantId)
+    .eq("kind", "media")
+    .eq("path", `uploads/${storagePath}`)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const size = Number(data?.size);
+  if (!data || typeof data.mime_type !== "string" || !Number.isFinite(size)) return null;
+  const assinado = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, ttlSegundos);
+  if (assinado.error || !assinado.data?.signedUrl) throw new Error("midia_sem_link");
+  return { url: assinado.data.signedUrl, mime: data.mime_type, size };
+}

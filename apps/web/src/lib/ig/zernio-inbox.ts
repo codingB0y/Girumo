@@ -1,7 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
-import { ZernioError } from "@/lib/ig/transport/types";
+import { ZernioError, type MessageButton } from "@/lib/ig/transport/types";
 
 /**
  * Caixa de entrada da Zernio (conversas e mensagens do Instagram). Separado de `transport/zernio.ts`, que
@@ -92,6 +92,13 @@ export type InboxClient = {
   listMessages(i: { conversationId: string; accountId: string; cursor?: string; limit?: number }): Promise<Pagina<InboxMessage>>;
   /** `humanAgent`: fora das 24 h, dentro de 7 dias (tag de atendimento humano). */
   sendText(i: { conversationId: string; accountId: string; message: string; humanAgent: boolean; idempotencyKey: string }): Promise<{ messageId: string | null }>;
+  /**
+   * Foto ou vídeo por link HTTPS público. Com `message` a Zernio manda duas mensagens do Instagram e devolve os dois
+   * ids (o do anexo primeiro). Lista vazia = a resposta veio num formato que não conhecemos; a mensagem já saiu.
+   */
+  sendMedia(i: { conversationId: string; accountId: string; attachmentUrl: string; attachmentType: "image" | "video"; message?: string; humanAgent: boolean; idempotencyKey: string }): Promise<{ messageIds: string[] }>;
+  /** Texto com botões (1 a 3; `message` até 640 caracteres): vira o modelo de botão do Instagram. */
+  sendButtons(i: { conversationId: string; accountId: string; message: string; buttons: MessageButton[]; humanAgent: boolean; idempotencyKey: string }): Promise<{ messageId: string | null }>;
   markRead(i: { conversationId: string; accountId: string }): Promise<void>;
   /** Link novo (assinado, expira) do anexo `index` da mensagem. */
   attachmentUrl(i: { conversationId: string; messageId: string; index: number; accountId: string }): Promise<string>;
@@ -134,6 +141,18 @@ export function createZernioInbox(deps: { apiKey: string; fetchImpl?: typeof fet
     return json;
   }
 
+  /** Um envio. A mensagem já saiu quando a resposta chega: formato inesperado vira ids vazios, nunca erro. */
+  async function enviar(i: { conversationId: string; accountId: string; humanAgent: boolean; idempotencyKey: string }, conteudo: Record<string, unknown>): Promise<{ messageId: string | null; messageIds: string[] }> {
+    const body = { accountId: i.accountId, ...conteudo, ...(i.humanAgent ? { messagingType: "MESSAGE_TAG", messageTag: "HUMAN_AGENT" } : {}) };
+    const r = (await call({ method: "POST", path: `v1/inbox/conversations/${seg(i.conversationId)}/messages`, body, idempotencyKey: i.idempotencyKey })) as { data?: { messageId?: unknown; messageIds?: unknown } } | null;
+    const id = r?.data?.messageId;
+    const ids = r?.data?.messageIds;
+    return {
+      messageId: typeof id === "string" && id ? id : null,
+      messageIds: Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string" && x !== "") : [],
+    };
+  }
+
   return {
     async listConversations(i) {
       const query: Record<string, string> = { accountId: i.accountId, limit: String(Math.min(i.limit ?? 100, 100)) };
@@ -149,11 +168,16 @@ export function createZernioInbox(deps: { apiKey: string; fetchImpl?: typeof fet
       return { items, nextCursor: proximo(r?.pagination) };
     },
     async sendText(i) {
-      const body = { accountId: i.accountId, message: i.message, ...(i.humanAgent ? { messagingType: "MESSAGE_TAG", messageTag: "HUMAN_AGENT" } : {}) };
-      const r = (await call({ method: "POST", path: `v1/inbox/conversations/${seg(i.conversationId)}/messages`, body, idempotencyKey: i.idempotencyKey })) as { data?: { messageId?: unknown } } | null;
-      const id = r?.data?.messageId;
-      // A mensagem já saiu: formato inesperado vira `null`, nunca erro.
-      return { messageId: typeof id === "string" && id ? id : null };
+      const { messageId } = await enviar(i, { message: i.message });
+      return { messageId };
+    },
+    async sendMedia(i) {
+      const { messageId, messageIds } = await enviar(i, { attachmentUrl: i.attachmentUrl, attachmentType: i.attachmentType, ...(i.message ? { message: i.message } : {}) });
+      return { messageIds: messageIds.length ? messageIds : messageId ? [messageId] : [] };
+    },
+    async sendButtons(i) {
+      const { messageId } = await enviar(i, { message: i.message, buttons: i.buttons });
+      return { messageId };
     },
     async markRead(i) {
       await call({ method: "POST", path: `v1/inbox/conversations/${seg(i.conversationId)}/read`, body: { accountId: i.accountId } });
