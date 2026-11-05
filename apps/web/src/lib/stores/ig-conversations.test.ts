@@ -45,8 +45,10 @@ test("touch chama a função atômica com a loja e todos os parâmetros", async 
   assert.deepEqual([pedidos[0].metodo, pedidos[0].url.pathname], ["POST", "/rest/v1/rpc/ig_conversation_touch"]);
   assert.deepEqual(pedidos[0].corpo, {
     p_tenant: "loja-a", p_zernio_conversation_id: "z1", p_ig_user_id: "u1", p_ig_account_id: null, p_username: "ana", p_display_name: null,
-    p_direction: "in", p_at: "2026-11-06T10:00:00Z", p_preview: "oi", p_status: "waiting",
+    p_direction: "in", p_at: "2026-11-06T10:00:00Z", p_preview: "oi", p_status: "waiting", p_message_id: null,
   });
+  await touchConversation("loja-a", { zernioConversationId: "z1", igUserId: "u1", direction: "in", at: "2026-11-06T10:00:00Z", preview: null, status: null, messageId: "m-1" });
+  assert.equal((pedidos[1].corpo as Record<string, unknown>).p_message_id, "m-1");
   proxima = { status: 500, body: { code: "XX000", message: "banco fora", details: null, hint: null } };
   await assert.rejects(() => touchConversation("loja-a", { zernioConversationId: "z1", igUserId: "u1", direction: "out", at: "2026-11-06T10:00:00Z", preview: null, status: null }), /banco fora/);
 });
@@ -102,6 +104,9 @@ test("evento: grava a loja e só os campos sem texto; listar filtra loja e conve
   await recordConversationEvent("loja-a", { conversationId: "c1", kind: "bot_message", runId: "r1", detail: "handoff" });
   assert.deepEqual([pedidos[0].metodo, pedidos[0].url.pathname], ["POST", "/rest/v1/ig_conversation_events"]);
   assert.deepEqual(pedidos[0].corpo, { tenant_id: "loja-a", conversation_id: "c1", kind: "bot_message", zernio_message_id: null, run_id: "r1", detail: "handoff" });
+  // Reentrega do mesmo envio: o par (conversa, id da mensagem) é único e o duplicado é ignorado, não erro.
+  assert.equal(pedidos[0].url.searchParams.get("on_conflict"), "conversation_id,zernio_message_id");
+  assert.match(pedidos[0].prefer, /resolution=ignore-duplicates/);
   await listConversationEvents("loja-a", "c1");
   assert.deepEqual(filtros(pedidos[1].url), { tenant_id: "eq.loja-a", conversation_id: "eq.c1", order: "occurred_at.asc", limit: "1000" });
 });

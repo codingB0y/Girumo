@@ -32,7 +32,7 @@ const mensagemRecebida = z.object({
     platform: z.string(),
     direction: z.enum(["incoming", "outgoing"]),
     text: z.string().nullable().default(null),
-    sender: z.object({ id: z.string().min(1), username: z.string().optional() }),
+    sender: z.object({ id: z.string().min(1), name: z.string().optional(), username: z.string().optional() }),
     sentAt: z.string(),
   }),
   conversation: z.object({ id: z.string().min(1), participantId: z.string().min(1) }),
@@ -44,6 +44,24 @@ const mensagemRecebida = z.object({
       postbackPayload: z.string().optional(),
     })
     .optional(),
+  timestamp: z.string(),
+});
+
+/**
+ * O que a conta mandou (pelo painel, pela API ou pelo app do Instagram). `sentVia` null é ambíguo e
+ * nunca vira "humano" (spec §7.4); a outra ponta é `conversation.participantId`. O texto vira prévia.
+ */
+const mensagemEnviada = z.object({
+  id: z.string().min(1),
+  event: z.literal("message.sent"),
+  message: z.object({
+    platformMessageId: z.string().min(1),
+    platform: z.string(),
+    text: z.string().nullable().default(null),
+    sentAt: z.string(),
+  }),
+  conversation: z.object({ id: z.string().min(1), participantId: z.string().min(1), participantName: z.string().optional(), participantUsername: z.string().optional() }),
+  account: conta,
   timestamp: z.string(),
 });
 
@@ -61,11 +79,12 @@ const contaDesconectada = z.object({
   timestamp: z.string(),
 });
 
-const eventoZernio = z.discriminatedUnion("event", [comentarioRecebido, mensagemRecebida, contaConectada, contaDesconectada]);
+const eventoZernio = z.discriminatedUnion("event", [comentarioRecebido, mensagemRecebida, mensagemEnviada, contaConectada, contaDesconectada]);
 
 export type EventoZernio = z.infer<typeof eventoZernio>;
 export type ComentarioRecebido = z.infer<typeof comentarioRecebido>;
 export type MensagemRecebida = z.infer<typeof mensagemRecebida>;
+export type MensagemEnviada = z.infer<typeof mensagemEnviada>;
 export type ContaConectada = z.infer<typeof contaConectada>;
 export type ContaDesconectada = z.infer<typeof contaDesconectada>;
 

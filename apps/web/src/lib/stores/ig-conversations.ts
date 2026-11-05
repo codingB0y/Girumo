@@ -29,6 +29,11 @@ const COLS =
 
 export const PAGE_SIZE = 50;
 
+/** Mantém o `code` do PostgREST: quem chama separa falha passageira de erro que se repete. */
+function erroDoBanco(error: { message: string; code?: string }): Error {
+  return Object.assign(new Error(error.message), { code: error.code });
+}
+
 export type TouchInput = {
   zernioConversationId: string;
   igUserId: string;
@@ -42,6 +47,8 @@ export type TouchInput = {
   preview: string | null;
   /** Situação já decidida pelo servidor; `null` mantém a atual. */
   status: StatusConversa | null;
+  /** Id da mensagem recebida: a mesma entrega repetida não soma não lida de novo (só em `in`). */
+  messageId?: string | null;
 };
 
 /** Upsert atômico do índice (`ig_conversation_touch`): soma 1 não lida quando a direção é `in`. */
@@ -57,14 +64,15 @@ export async function touchConversation(tenantId: string, input: TouchInput): Pr
     p_at: input.at,
     p_preview: input.preview,
     p_status: input.status,
+    p_message_id: input.messageId ?? null,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   return data as unknown as IgConversationRow;
 }
 
 async function getOne(tenantId: string, coluna: string, valor: string): Promise<IgConversationRow | null> {
   const { data, error } = await getSupabaseAdmin().from("ig_conversations").select(COLS).eq("tenant_id", tenantId).eq(coluna, valor).maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   return (data as unknown as IgConversationRow | null) ?? null;
 }
 
@@ -80,7 +88,7 @@ export async function getConversationByIgUserId(tenantId: string, igUserId: stri
     .eq("ig_user_id", igUserId)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(1);
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   return ((data as unknown as IgConversationRow[] | null) ?? [])[0] ?? null;
 }
 
@@ -123,7 +131,7 @@ export async function listConversations(tenantId: string, filters: ListFilters =
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .order("id", { ascending: false })
     .range(de, de + PAGE_SIZE);
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   const linhas = (data as unknown as IgConversationRow[] | null) ?? [];
   return { items: linhas.slice(0, PAGE_SIZE), nextCursor: linhas.length > PAGE_SIZE ? String(de + PAGE_SIZE) : null };
 }
@@ -133,7 +141,7 @@ export type ConversationPatch = Partial<{ status: StatusConversa; bot_paused_unt
 /** `null` = a conversa não existe nesta loja. */
 export async function updateConversation(tenantId: string, id: string, patch: ConversationPatch): Promise<IgConversationRow | null> {
   const { data, error } = await getSupabaseAdmin().from("ig_conversations").update(patch).eq("tenant_id", tenantId).eq("id", id).select(COLS);
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   return ((data as unknown as IgConversationRow[] | null) ?? [])[0] ?? null;
 }
 
@@ -162,18 +170,22 @@ export type ConversationEventInput = {
 
 /** Registro SEM texto do que o robô e a loja fizeram. */
 export async function recordConversationEvent(tenantId: string, e: ConversationEventInput): Promise<void> {
+  // Reentrega do mesmo envio: o par (conversa, id da mensagem) é único; o duplicado é ignorado.
   const { error } = await getSupabaseAdmin()
     .from("ig_conversation_events")
-    .insert({
-      tenant_id: tenantId,
-      conversation_id: e.conversationId,
-      kind: e.kind,
-      zernio_message_id: e.zernioMessageId ?? null,
-      run_id: e.runId ?? null,
-      detail: e.detail ?? null,
-      ...(e.occurredAt ? { occurred_at: e.occurredAt } : {}),
-    });
-  if (error) throw new Error(error.message);
+    .upsert(
+      {
+        tenant_id: tenantId,
+        conversation_id: e.conversationId,
+        kind: e.kind,
+        zernio_message_id: e.zernioMessageId ?? null,
+        run_id: e.runId ?? null,
+        detail: e.detail ?? null,
+        ...(e.occurredAt ? { occurred_at: e.occurredAt } : {}),
+      },
+      { onConflict: "conversation_id,zernio_message_id", ignoreDuplicates: true },
+    );
+  if (error) throw erroDoBanco(error);
 }
 
 export async function listConversationEvents(tenantId: string, conversationId: string): Promise<ConversationEventRow[]> {
@@ -184,7 +196,7 @@ export async function listConversationEvents(tenantId: string, conversationId: s
     .eq("conversation_id", conversationId)
     .order("occurred_at", { ascending: true })
     .limit(1000);
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   return (data as unknown as ConversationEventRow[] | null) ?? [];
 }
 
@@ -199,7 +211,7 @@ export async function deleteConversationsOf(tenantId: string, igUserId: string):
     .eq("tenant_id", tenantId)
     .eq("ig_user_id", igUserId)
     .select("zernio_conversation_id, ig_account_id");
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   return ((data as unknown as Array<{ zernio_conversation_id: string; ig_account_id: string | null }> | null) ?? []).map((r) => ({
     zernioConversationId: r.zernio_conversation_id,
     igAccountId: r.ig_account_id,
@@ -211,7 +223,7 @@ export async function addTombstone(tenantId: string, igUserId: string): Promise<
   const { error } = await getSupabaseAdmin()
     .from("ig_contact_tombstones")
     .upsert({ tenant_id: tenantId, ig_user_hash: tombstoneHash(tenantId, igUserId), deleted_at: new Date().toISOString() }, { onConflict: "tenant_id,ig_user_hash" });
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
 }
 
 export async function hasTombstone(tenantId: string, igUserId: string): Promise<boolean> {
@@ -221,7 +233,7 @@ export async function hasTombstone(tenantId: string, igUserId: string): Promise<
     .eq("tenant_id", tenantId)
     .eq("ig_user_hash", tombstoneHash(tenantId, igUserId))
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   return data !== null;
 }
 
@@ -236,7 +248,7 @@ export type ConversationRoutineResult = {
 /** Rotina de hora em hora: fecha conversas e apaga o que passou do prazo, em todas as lojas. */
 export async function runConversationRoutine(nowIso: string): Promise<ConversationRoutineResult> {
   const { data, error } = await getSupabaseAdmin().rpc("ig_conversations_rotina", { p_now: nowIso });
-  if (error) throw new Error(error.message);
+  if (error) throw erroDoBanco(error);
   const r = (data ?? {}) as Partial<Record<string, number>>;
   return {
     resolvidasParada24h: r.resolvidas_parada_24h ?? 0,

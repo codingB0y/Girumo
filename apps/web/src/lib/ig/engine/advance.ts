@@ -56,6 +56,8 @@ export type Deps = {
    * (a etiqueta de agora poderia levar a outro ramo e mandar outra mensagem).
    */
   saidasGravadas?: ReadonlyMap<string, FlowOut>;
+  /** Cada mensagem que o robô mandou (id da plataforma; `null` = saiu, mas a Zernio não devolveu id). Só o tipo do bloco, nunca o texto. */
+  enviado?: (nodeId: string, messageId: string | null, tipo: string) => void;
 };
 
 /**
@@ -70,7 +72,7 @@ const MAX_ERRO = 200;
 /** O que volta em `metadata.postbackPayload` quando a pessoa toca o botão de um direct que espera. */
 export const payloadDoBotao = (runId: string, nodeId: string) => `${runId}:${nodeId}`;
 
-type Envio = { ok: true } | { ok: false; code: string; message: string | null };
+type Envio = { ok: true; messageId: string | null } | { ok: false; code: string; message: string | null };
 type Direct = { texto: string; botao: MessageButton | null; respostas?: QuickReply[] };
 
 /** Texto e botão do bloco. Na resposta privada não vai botão: o link volta pro fim do texto. */
@@ -95,24 +97,23 @@ async function enviar(run: RunState, nodeId: string, direct: Direct, viaPrivada:
   try {
     if (viaPrivada) {
       if (!run.comment) return { ok: false, code: "no_comment", message: null };
-      await transport.privateReply({ accountId: run.providerAccountId, platformPostId: run.comment.platformPostId, commentId: run.comment.commentId, message: direct.texto, idempotencyKey });
-      return { ok: true };
+      const feito = await transport.privateReply({ accountId: run.providerAccountId, platformPostId: run.comment.platformPostId, commentId: run.comment.commentId, message: direct.texto, idempotencyKey });
+      return { ok: true, messageId: feito.messageId };
     }
     if (!run.conversationId) return { ok: false, code: "no_conversation", message: null };
     const conversationId = run.conversationId;
     const mandar = (extra: Partial<ConversationMessageInput>, chave: string) => transport.sendMessage({ accountId: run.providerAccountId, conversationId, message: direct.texto, ...extra, idempotencyKey: chave });
     try {
-      await mandar(direct.respostas ? { quickReplies: direct.respostas } : direct.botao ? { buttons: [direct.botao] } : {}, idempotencyKey);
+      return { ok: true, messageId: (await mandar(direct.respostas ? { quickReplies: direct.respostas } : direct.botao ? { buttons: [direct.botao] } : {}, idempotencyKey)).messageId };
     } catch (e) {
       // A Zernio recusou o formato das respostas rápidas (não documentado): manda só o texto; a escolha também vale digitando.
       if (!direct.respostas || !(e instanceof ZernioError) || (e.status !== 400 && e.status !== 422)) throw e;
-      await mandar({}, `${idempotencyKey}:texto`);
+      return { ok: true, messageId: (await mandar({}, `${idempotencyKey}:texto`)).messageId };
     }
-    return { ok: true };
   } catch (e) {
     if (!(e instanceof ZernioError)) throw e;
     // Reenvio da Zernio depois de a privada já ter saído: está enviado.
-    if (e.privateReplyConsumed) return { ok: true };
+    if (e.privateReplyConsumed) return { ok: true, messageId: null };
     // Rede, 429, 5xx: quem chama devolve 500 e a Zernio tenta de novo (Idempotency-Key segura).
     if (e.transient) throw e;
     return { ok: false, code: e.code, message: e.message.slice(0, MAX_ERRO) };
@@ -201,6 +202,7 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
     }
     if (!envio.ok) return falha(no.id, envio.code, envio.message);
     directsSent += 1;
+    deps.enviado?.(no.id, envio.messageId, no.type);
 
     if (no.type === "message" && no.wait) {
       return resultado("active", no.id, { waiting: "reply", wakeAt: new Date(deps.now().getTime() + no.wait.minutes * 60_000).toISOString() });

@@ -1,7 +1,9 @@
+import { falhaPassageira, gravarEnvios, lerConversa, registrarEnviada, registrarFalha, registrarRecebida, robotPausado, type Conversas, type EnvioDoRobo, type ModoDaSituacao } from "@/lib/ig/conversas/indice";
 import type { FlowOut } from "@/lib/ig/flow/types";
 import { TETO_RUNS_POR_HORA } from "@/lib/ig/limites";
 import { ZernioError, type Transport } from "@/lib/ig/transport/types";
 import type { ComentarioRecebido, EventoZernio, MensagemRecebida } from "@/lib/ig/webhook/events";
+import type { IgConversationRow } from "@/lib/stores/ig-conversations";
 import type { AccountStatus, IgAccountComLoja } from "@/lib/stores/ig-accounts";
 import type { NovoRun, RunPatch, RunRow, SourceKind } from "@/lib/stores/ig-runs";
 import { advance, EsperaIncerta, type Deps, type Resultado, type RunState } from "./advance";
@@ -34,6 +36,8 @@ export type Ambiente = {
   link: (tenantId: string, slug: string, ref: string) => Promise<string>;
   /** A ficha da pessoa (`ig_contacts`). */
   contatos: Contatos;
+  /** O índice das Conversas (`ig_conversations`) e seus eventos. */
+  conversas: Conversas;
   /** Quanto o ack espera a gravação da ficha (padrão 1,5 s: a Zernio reenvia depois de 5 s). */
   tetoDaFichaMs?: number;
 };
@@ -103,18 +107,62 @@ function deMensagem(ev: MensagemRecebida, agoraMs: number): Entrada | null {
   };
 }
 
+/** O que um evento deixa pelo caminho: gravações em andamento, o que o robô mandou e a conversa da pessoa. */
+type Contexto = {
+  /** Gravações (ficha, índice) em paralelo com o motor; o ack só sai depois delas (as promessas nunca rejeitam). */
+  pendentes: Promise<unknown>[];
+  envios: EnvioDoRobo[];
+  /** Preenchido depois dos portões (conta ativa, loja liberada): sem ele o evento não toca o índice. */
+  tenantId: string | null;
+  igAccountId: string;
+  pausado: boolean;
+  /** Só no comentário: a conversa já conhecida da pessoa, onde a resposta privada deixa o evento. */
+  conversaDoComentario: IgConversationRow | null;
+};
+
+/**
+ * Todo direct chega ao índice, inclusive o que o robô não conseguiu tratar (retry, exceção: Aguardando você) e a
+ * reentrega (`manter`: não rebaixa uma Aberta). O id da mensagem evita somar a mesma não lida duas vezes.
+ */
+function modoDaSituacao(d: Desfecho): ModoDaSituacao {
+  if (d.kind === "retry") return "waiting";
+  return d.kind === "ignored" && (d.reason === "duplicado" || d.reason === "fluxo mudou") ? "manter" : "auto";
+}
+
+function registrarNoIndice(ev: EventoZernio, d: Desfecho, ctx: Contexto, amb: Ambiente): void {
+  const { tenantId } = ctx;
+  if (!tenantId) return;
+  const agora = amb.now();
+  if (ev.event === "message.received" && ev.message.platform === "instagram" && ev.message.direction === "incoming") {
+    ctx.pendentes.push(registrarRecebida(amb.conversas, tenantId, ev, { igAccountId: ctx.igAccountId, envios: ctx.envios, pausado: ctx.pausado, runId: d.kind === "handled" ? d.runId : null, agora, situacao: modoDaSituacao(d) }));
+  } else if (ev.event === "comment.received" && d.kind === "handled") {
+    // A resposta privada não devolve a conversa: sem conversa conhecida, não há onde gravar.
+    ctx.pendentes.push(gravarEnvios(amb.conversas, tenantId, ctx.conversaDoComentario?.id ?? null, ctx.envios, d.runId, agora));
+  } else if (ev.event === "message.sent" && ev.message.platform === "instagram") {
+    ctx.pendentes.push(registrarEnviada(amb.conversas, tenantId, ev, agora));
+  }
+}
+
 /**
  * Traduz o evento, acha a loja, escolhe o fluxo, aplica as proteções, grava o
  * run (idempotente por source_id) e executa o primeiro passo na mesma chamada.
- * Nada que não casa deixa rastro no banco.
+ * Nada que não casa deixa rastro no banco, fora a ficha e o índice das Conversas.
  */
 export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Desfecho> {
-  // A ficha grava em paralelo com o motor; o ack só sai depois que ela termina (as promessas nunca rejeitam).
-  const pendentes: Promise<unknown>[] = [];
+  const ctx: Contexto = { pendentes: [], envios: [], tenantId: null, igAccountId: "", pausado: false, conversaDoComentario: null };
   try {
-    return await processar(ev, amb, pendentes);
+    let d: Desfecho;
+    try {
+      d = await processar(ev, amb, ctx);
+    } catch (e) {
+      // Exceção: a Zernio reenvia, mas o direct já fica na lista como Aguardando você.
+      registrarNoIndice(ev, { kind: "retry", reason: "erro" }, ctx, amb);
+      throw e;
+    }
+    registrarNoIndice(ev, d, ctx, amb);
+    return d;
   } finally {
-    await esperarFicha(pendentes, amb.tetoDaFichaMs ?? TETO_FICHA_MS);
+    await esperarFicha(ctx.pendentes, amb.tetoDaFichaMs ?? TETO_FICHA_MS);
   }
 }
 
@@ -127,7 +175,7 @@ async function esperarFicha(pendentes: Promise<unknown>[], tetoMs: number): Prom
   if (r === "teto") console.error("[ig/ficha] gravação passou do teto; o atendimento segue");
 }
 
-async function processar(ev: EventoZernio, amb: Ambiente, pendentes: Promise<unknown>[]): Promise<Desfecho> {
+async function processar(ev: EventoZernio, amb: Ambiente, ctx: Contexto): Promise<Desfecho> {
   const conta = await amb.contaPorIdDaZernio(ev.account.accountId);
   if (!conta) return { kind: "ignored", reason: "conta desconhecida" };
   const tenantId = conta.tenant_id;
@@ -142,24 +190,49 @@ async function processar(ev: EventoZernio, amb: Ambiente, pendentes: Promise<unk
   }
   if (conta.status !== "active") return { kind: "ignored", reason: "conta inativa" };
   if (!(await amb.lojaLiberada(tenantId))) return { kind: "ignored", reason: "loja sem liberação" };
+  ctx.tenantId = tenantId;
+  ctx.igAccountId = conta.id;
+  // O que a conta mandou só atualiza o índice (feito por quem chama); não dispara fluxo nem pausa o robô.
+  if (ev.event === "message.sent") return { kind: "ignored", reason: "enviada" };
 
   const agora = amb.now();
   // Todo direct recebido grava a ficha, tenha fluxo ou não (spec §5.3).
   const fichaDoDirect = ev.event === "message.received" ? gravarDirect(ev, tenantId, agora, amb) : null;
-  if (fichaDoDirect) pendentes.push(fichaDoDirect);
+  if (fichaDoDirect) ctx.pendentes.push(fichaDoDirect);
   const entrada = ev.event === "comment.received" ? deComentario(ev, agora.getTime()) : deMensagem(ev, agora.getTime());
   if (!entrada) return { kind: "ignored", reason: "evento sem gatilho" };
+
+  // Robô pausado (a loja respondeu pelo painel): nada abre nem retoma para essa pessoa. Comentário só confere depois de casar um fluxo.
+  if (ev.event === "message.received") {
+    // Falha passageira: sem saber se está pausado, o robô não responde e a Zernio reenvia. Erro que se repete
+    // (tabela ausente, permissão) não pode emudecer o robô em loop: segue como não pausado.
+    let conversa: Awaited<ReturnType<Conversas["ler"]>> = null;
+    try {
+      conversa = await amb.conversas.ler(tenantId, entrada.igUserId);
+    } catch (e) {
+      registrarFalha("ler", e);
+      if (falhaPassageira(e)) return { kind: "retry", reason: "conversa" };
+    }
+    if (robotPausado(conversa, agora)) {
+      ctx.pausado = true;
+      return { kind: "ignored", reason: "robô pausado" };
+    }
+  }
 
   const fluxos = await amb.fluxosNoAr(tenantId);
   let contato = contatoDaPessoa(amb.contatos, tenantId, entrada.igUserId, entrada.username, agora.toISOString(), fichaDoDirect);
   // Direct de quem tem run esperando resposta avança aquele run em vez de abrir outro.
   if (ev.event === "message.received") {
-    const retomado = await retomarSeEsperando(ev, entrada, conta.id, tenantId, fluxos, contato, amb);
+    const retomado = await retomarSeEsperando(ev, entrada, conta.id, tenantId, fluxos, contato, amb, ctx);
     if (retomado) return retomado;
   }
 
   const escolha = escolherFluxo(fluxos, entrada.origem);
   if (!escolha) return { kind: "ignored", reason: "sem fluxo" };
+  if (ev.event === "comment.received") {
+    ctx.conversaDoComentario = await lerConversa(amb.conversas, tenantId, entrada.igUserId);
+    if (robotPausado(ctx.conversaDoComentario, agora)) return { kind: "ignored", reason: "robô pausado" };
+  }
 
   // Reenvio primeiro: o run da 1ª tentativa casaria a trava de 24 h e o reenvio seria descartado.
   const existente = await amb.runs.porOrigem(tenantId, entrada.sourceId);
@@ -196,7 +269,7 @@ async function processar(ev: EventoZernio, amb: Ambiente, pendentes: Promise<unk
   // Comentário que entrou num fluxo (passou as travas) cria a pessoa, sem abrir a janela do direct.
   if (ev.event === "comment.received") {
     const gravando = gravarEntradaPorComentario(entrada, escolha.flowId, tenantId, agora, amb);
-    pendentes.push(gravando);
+    ctx.pendentes.push(gravando);
     contato = contatoDaPessoa(amb.contatos, tenantId, entrada.igUserId, entrada.username, agora.toISOString(), gravando);
   }
   // Reenvio de run na fila: cada Se… repete a saída que a 1ª tentativa tomou.
@@ -214,7 +287,7 @@ async function processar(ev: EventoZernio, amb: Ambiente, pendentes: Promise<unk
     directsSent: 0,
   };
   try {
-    const r = await advance(escolha.def, estado, depsDoRun(tenantId, run, contato, amb, saidas));
+    const r = await advance(escolha.def, estado, depsDoRun(tenantId, run, contato, amb, ctx, saidas));
     await gravar(tenantId, run.id, r, amb);
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {
@@ -267,9 +340,10 @@ function saidasReusaveis(passos: Array<{ node_id: string; out: string }>, aposNo
   return saidas;
 }
 
-function depsDoRun(tenantId: string, run: RunRow, contato: Contato, amb: Ambiente, saidasGravadas?: ReadonlyMap<string, FlowOut>): Deps {
+function depsDoRun(tenantId: string, run: RunRow, contato: Contato, amb: Ambiente, ctx: Contexto, saidasGravadas?: ReadonlyMap<string, FlowOut>): Deps {
   return {
     saidasGravadas,
+    enviado: (nodeId, messageId, tipo) => { ctx.envios.push({ nodeId, messageId, tipo }); },
     transport: amb.transport,
     now: amb.now,
     contato,
@@ -322,7 +396,7 @@ async function acharRetomada(entrada: Entrada, igAccountId: string, tenantId: st
  * Retoma o run que esperava resposta desta pessoa. `null` = não havia o que
  * retomar (ou a resposta não liberou o bloco): o direct segue o caminho normal.
  */
-async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAccountId: string, tenantId: string, fluxos: readonly FluxoNoAr[], contato: Contato, amb: Ambiente): Promise<Desfecho | null> {
+async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAccountId: string, tenantId: string, fluxos: readonly FluxoNoAr[], contato: Contato, amb: Ambiente, ctx: Contexto): Promise<Desfecho | null> {
   const achado = await acharRetomada(entrada, igAccountId, tenantId, amb);
   if (!achado || "kind" in achado) return achado;
   const { run } = achado;
@@ -359,7 +433,7 @@ async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAcco
   try {
     // Primeira tentativa nunca reusa: o passo deste bloco ainda não foi gravado e `nodeId` acharia uma passagem velha de um ciclo.
     const saidas = achado.reenvio ? saidasReusaveis(await amb.runs.passos(tenantId, run.id), nodeId) : undefined;
-    const r = await advance(def, estado, depsDoRun(tenantId, run, contato, amb, saidas), retomada);
+    const r = await advance(def, estado, depsDoRun(tenantId, run, contato, amb, ctx, saidas), retomada);
     await gravar(tenantId, run.id, r, amb);
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {
