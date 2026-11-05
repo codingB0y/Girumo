@@ -5,6 +5,8 @@ import type { MensagemRecebida } from "@/lib/ig/webhook/events";
 import { payloadDoBotao, type Retomada } from "./advance";
 
 const MAX_VALOR = 200;
+/** Formato do payload das nossas respostas rápidas: `<run>:<bloco>:<i>`. */
+const RESPOSTA_RAPIDA = /^[^:]+:[^:]+:\d+$/;
 
 /**
  * Qual saída a resposta da pessoa toma no bloco que esperava (spec §4.1), ou `null` = não libera
@@ -17,7 +19,10 @@ export function decidirRetomada(def: FlowDef, no: MessageNode, runId: string, ev
 
   if (choices.length > 0) {
     const payload = ev.metadata?.postbackPayload;
-    const i = (payload ? choiceFromPayload(payload, runId, no.id) : null) ?? matchChoice(texto, choices);
+    const doToque = payload ? choiceFromPayload(payload, runId, no.id) : null;
+    // Toque numa resposta rápida de outro run ou bloco (chip velho): não é resposta a esta pergunta.
+    if (payload && doToque === null && RESPOSTA_RAPIDA.test(payload)) return null;
+    const i = doToque ?? matchChoice(texto, choices);
     if (i !== null) return { nodeId: no.id, out: choiceOut(i), guardar: guardar(choices[i]) };
     // `other` sem ligação: o robô continua esperando uma resposta que case.
     if (!def.edges.some((e) => e.from === no.id && e.out === "other")) return null;

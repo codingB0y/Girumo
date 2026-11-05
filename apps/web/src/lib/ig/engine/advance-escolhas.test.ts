@@ -12,10 +12,10 @@ const agora = () => new Date("2026-10-06T12:00:00Z");
 const dm: RunState = { id: "run-1", flowId: "f1", ref: "ref123456789", sourceKind: "dm", providerAccountId: "z1", comment: null, conversationId: "conv-1", windowExpiresAt: "2026-10-07T12:00:00Z", directsSent: 0 };
 const comentario: RunState = { ...dm, sourceKind: "comment", comment: { platformPostId: "post", commentId: "com" }, conversationId: null, windowExpiresAt: "2026-10-13T12:00:00Z" };
 
-function montar(opts: Parameters<typeof createFakeTransport>[0] = {}, inicial: Partial<IgContactRow> = {}) {
+function montar(opts: Parameters<typeof createFakeTransport>[0] = {}, inicial: Partial<IgContactRow> = {}, falharAplicar = false) {
   const { transport, chamadas } = createFakeTransport(opts);
   const passos: Array<[string, FlowOut]> = [];
-  const { contatos, aplicacoes } = criarContatosFalsos({ inicial: { ig_user_id: "u1", ...inicial } });
+  const { contatos, aplicacoes } = criarContatosFalsos({ falharAplicar, inicial: { ig_user_id: "u1", ...inicial } });
   const contato = contatoDaPessoa(contatos, "loja-a", "u1", null, agora().toISOString());
   const deps: Deps = { transport, now: agora, contato, link: async (slug, ref) => `https://app/r/${slug}?ig=${ref}`, step: async (n, o) => { passos.push([n, o]); } };
   return { deps, chamadas, passos, aplicacoes };
@@ -121,4 +121,31 @@ test("Se… segue/clicou ainda não rodam; laço só de etiquetas para em 2 visi
   const laco = flow([gatilho("dm"), { id: "a", type: "tag", add: ["x"], remove: [] }, { id: "b", type: "tag", add: ["y"], remove: [] }], [lig("gatilho", "next", "a"), lig("a", "next", "b"), lig("b", "next", "a")]);
   const rl = await advance(laco, dm, montar().deps);
   assert.deepEqual([rl.status, rl.errorCode], ["failed", "cycle"]);
+});
+
+test("a gravação do Guardar em falha: a resposta não se perde, o run segue e o Se… seguinte ainda enxerga o valor", async () => {
+  const def = flow(
+    [gatilho("dm"), pergunta({ saveTo: "cidade", choices: ["Goiânia", "Rio"] }), { id: "c", type: "condition", check: "field", field: "cidade", values: ["goiania", "rio"] }, { ...convite, id: "i0" }, { ...convite, id: "i1" }],
+    [lig("q", "v0", "c"), lig("q", "v1", "c"), lig("c", "v0", "i0"), lig("c", "v1", "i1")],
+  );
+  const { deps, passos } = montar({}, {}, true);
+  const erro = console.error;
+  const logs: unknown[][] = [];
+  console.error = (...a: unknown[]) => { logs.push(a); };
+  try {
+    const r = await advance(def, { ...dm, directsSent: 1 }, deps, { nodeId: "q", out: "v1", guardar: { campo: "cidade", valor: "Rio" } });
+    assert.deepEqual([r.status, r.nodeId], ["done", "i1"]);
+    assert.deepEqual(passos, [["q", "v1"], ["c", "v1"]]);
+  } finally {
+    console.error = erro;
+  }
+  assert.equal(logs.length, 1, "registra a falha uma vez");
+});
+
+test("Se… com saída já gravada neste run reusa a saída em vez de reavaliar, e não grava o passo de novo", async () => {
+  const def = flow([gatilho("dm"), { id: "c", type: "condition", check: "tag", tag: "vip" }, { ...convite, id: "sim" }, { ...convite, id: "nao" }], [lig("gatilho", "next", "c"), lig("c", "yes", "sim"), lig("c", "no", "nao")]);
+  const { deps, passos } = montar({}, { tags: ["vip"] });
+  const r = await advance(def, dm, { ...deps, saidasGravadas: new Map<string, FlowOut>([["c", "no"]]) });
+  assert.equal(r.nodeId, "nao");
+  assert.deepEqual(passos, [["gatilho", "next"]]);
 });

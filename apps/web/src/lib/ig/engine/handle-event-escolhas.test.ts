@@ -39,16 +39,13 @@ test("toque na resposta rápida: v0, guarda a escolha inteira na ficha, convite 
   assert.equal((patches[0][1] as { node_id: string }).node_id, "convite");
 });
 
-test("toque sem texto vale pelo payload; payload de outro run cai no texto", async () => {
+test("toque sem texto vale pelo payload", async () => {
   const semTexto = ambiente({ fluxos: flux(comOutro), esperando });
   assert.equal((await tratarEvento(resposta(null, "run-esp:q:1"), semTexto.amb)).kind, "handled");
   assert.deepEqual(semTexto.fichas.linhas.get("loja-a:u1")?.tags, ["nao-quer"], "v1 → Etiqueta");
   assert.equal(semTexto.fichas.linhas.get("loja-a:u1")?.fields.interesse, "Não");
   assert.equal(semTexto.chamadas.length, 0, "Etiqueta não manda mensagem");
 
-  const velho = ambiente({ fluxos: flux(comOutro), esperando });
-  await tratarEvento(resposta("Não", "run-velho:q:0"), velho.amb);
-  assert.equal(velho.fichas.linhas.get("loja-a:u1")?.fields.interesse, "Não", "o texto decide: v1");
 });
 
 test("digitando: a escolha casa por texto, e qualquer alternativa separada por vírgula vale", async () => {
@@ -78,7 +75,7 @@ test("todo direct recebido grava a ficha, mesmo sem fluxo: dm, hora de chegada e
   const { amb, fichas } = ambiente({ fluxos: async () => [] });
   assert.deepEqual(await tratarEvento(direct, amb), { kind: "ignored", reason: "sem fluxo" });
   assert.equal(fichas.aplicacoes.length, 1);
-  assert.deepEqual(fichas.aplicacoes[0], { igUserId: "u1", username: "igortoled0", seenAt: T0.toISOString(), dm: true });
+  assert.deepEqual(fichas.aplicacoes[0], { igUserId: "u1", username: "igortoled0", seenAt: "2026-10-06T11:59:58.000Z", dm: true });
 });
 
 test("erro ao gravar a ficha não derruba o atendimento", async () => {
@@ -103,3 +100,75 @@ test("comentário que entra num fluxo grava a ficha sem abrir a janela; o que n�
   await tratarEvento({ ...comentario, comment: { ...(comentario as Extract<EventoZernio, { event: "comment.received" }>).comment, text: "lindo" } }, naoCasa.amb);
   assert.equal(naoCasa.fichas.aplicacoes.length, 0);
 });
+
+test("toque de run ou bloco velho: ignora, não reivindica nem consome a espera, mesmo com other ligado e texto que casa", async () => {
+  for (const payload of ["run-velho:q:1", "run-esp:outro:1"]) {
+    const { amb, chamadas, patches, reivindicacoes, fichas } = ambiente({ fluxos: flux(comOutro), esperando });
+    assert.equal((await tratarEvento(resposta("Não", payload), amb)).kind, "ignored", payload);
+    assert.deepEqual([chamadas.length, patches.length, reivindicacoes.length], [0, 0, 0], payload);
+    assert.equal(fichas.linhas.get("loja-a:u1")?.fields.interesse, undefined);
+  }
+});
+
+test("texto ambíguo entre escolhas ('não quero') não vira Sim: cai em other", async () => {
+  const { amb, fichas, chamadas } = ambiente({ fluxos: flux(comOutro), esperando });
+  assert.equal((await tratarEvento(resposta("não quero"), amb)).kind, "handled");
+  assert.equal(fichas.linhas.get("loja-a:u1")?.fields.interesse, "não quero");
+  assert.equal(chamadas[0].metodo === "sendMessage" && chamadas[0].args.message, "Posso ajudar com algo?");
+});
+
+test("a ficha grava em paralelo com o motor: o envio sai sem esperar o banco da ficha, e o ack só vem depois dela", async () => {
+  let soltar: () => void = () => {};
+  const segurar = new Promise<void>((ok) => { soltar = ok; });
+  const { amb, chamadas } = ambiente({ contatos: { segurar } });
+  let respondeu = false;
+  const p = tratarEvento(direct, amb).then((d) => { respondeu = true; return d; });
+  for (let i = 0; i < 50 && chamadas.length === 0; i++) await new Promise((ok) => setImmediate(ok));
+  assert.equal(chamadas.length, 1, "o motor não esperou a gravação da ficha");
+  assert.equal(respondeu, false, "mas o ack espera ela terminar");
+  soltar();
+  assert.equal((await p).kind, "handled");
+});
+
+test("comentário barrado pelas travas (24 h ou teto) não cria pessoa", async () => {
+  for (const opts of [{ recente: true }, { iniciados: 700 }]) {
+    const { amb, fichas } = ambiente(opts);
+    assert.equal((await tratarEvento(comentario, amb)).kind, "ignored");
+    assert.equal(fichas.aplicacoes.length, 0);
+  }
+});
+
+test("o log de falha da ficha traz só o tipo do erro, nunca a mensagem do banco", async () => {
+  const erro = console.error;
+  const logs: string[] = [];
+  console.error = (...a: unknown[]) => { logs.push(a.map(String).join(" ")); };
+  try {
+    const { amb } = ambiente({ contatos: { falharAplicar: "duplicate key Key (tenant_id, ig_user_id)=(loja-a, u1)" } });
+    await tratarEvento(direct, amb);
+  } finally {
+    console.error = erro;
+  }
+  assert.equal(logs.length, 1);
+  assert.ok(!/loja-a|u1|Key \(/.test(logs[0]), logs[0]);
+});
+
+const comSe: FlowDef = {
+  v: 1,
+  nodes: [
+    { id: "gatilho", type: "trigger", on: "comment", keywords: ["quero"], postId: null, publicReply: null, storyReplies: false },
+    { id: "t", type: "tag", add: ["vip"], remove: [] },
+    { id: "c", type: "condition", check: "tag", tag: "vip" },
+    { id: "a", type: "message", text: "Mensagem A", button: null, wait: null },
+    { id: "b", type: "message", text: "Mensagem B", button: null, wait: null },
+  ],
+  edges: [{ from: "gatilho", out: "next", to: "t" }, { from: "t", out: "next", to: "c" }, { from: "c", out: "yes", to: "a" }, { from: "c", out: "no", to: "b" }],
+};
+
+test("reenvio de run na fila: o Se… reusa a saída que a 1ª tentativa gravou e a pessoa recebe a mesma mensagem", async () => {
+  const velho: RunRow = { ...esperando, status: "queued", flow_id: "f-esc", node_id: null, waiting: null, wake_at: null, started_at: "2026-10-06T11:57:00Z", updated_at: "2026-10-06T11:57:00Z" };
+  // A 1ª tentativa decidiu "no" (antes de a etiqueta existir); a ficha agora já tem a etiqueta.
+  const { amb, chamadas } = ambiente({ fluxos: flux(comSe), existente: velho, recente: true, passos: [{ node_id: "gatilho", out: "next" }, { node_id: "t", out: "next" }, { node_id: "c", out: "no" }], contatos: { inicial: { ig_user_id: "u1", tags: ["vip"] } } });
+  assert.equal((await tratarEvento(comentario, amb)).kind, "handled");
+  assert.ok(chamadas[chamadas.length - 1].metodo === "privateReply" && (chamadas[chamadas.length - 1] as { args: { message: string } }).args.message === "Mensagem B");
+});
+

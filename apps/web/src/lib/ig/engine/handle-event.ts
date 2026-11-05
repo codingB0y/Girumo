@@ -5,7 +5,7 @@ import type { ComentarioRecebido, EventoZernio, MensagemRecebida } from "@/lib/i
 import type { AccountStatus, IgAccountComLoja } from "@/lib/stores/ig-accounts";
 import type { NovoRun, RunPatch, RunRow, SourceKind } from "@/lib/stores/ig-runs";
 import { advance, EsperaIncerta, type Deps, type Resultado, type RunState } from "./advance";
-import { contatoDaPessoa, type Contato, type Contatos, type Ficha } from "./ficha";
+import { contatoDaPessoa, registrarFalhaDaFicha, type Contato, type Contatos, type Ficha } from "./ficha";
 import { decidirRetomada, saidaDeReserva } from "./resposta";
 import { escolherFluxo, type FluxoNoAr, type Origem } from "./select-flow";
 
@@ -27,6 +27,7 @@ export type Ambiente = {
     entradaRecente: (tenantId: string, flowId: string, igUserId: string, sinceIso: string) => Promise<boolean>;
     esperando: (tenantId: string, igAccountId: string, igUserId: string, username: string | null, agoraIso: string) => Promise<RunRow | null>;
     reivindicar: (tenantId: string, id: string, nodeId: string, messageId: string) => Promise<boolean>;
+    passos: (tenantId: string, runId: string) => Promise<Array<{ node_id: string; out: string }>>;
     retomadoPor: (tenantId: string, messageId: string) => Promise<RunRow | null>;
     retomarParado: (tenantId: string, id: string, updatedAt: string) => Promise<boolean>;
   };
@@ -105,6 +106,16 @@ function deMensagem(ev: MensagemRecebida, agoraMs: number): Entrada | null {
  * Nada que não casa deixa rastro no banco.
  */
 export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Desfecho> {
+  // A ficha grava em paralelo com o motor; o ack só sai depois que ela termina (as promessas nunca rejeitam).
+  const pendentes: Promise<unknown>[] = [];
+  try {
+    return await processar(ev, amb, pendentes);
+  } finally {
+    await Promise.all(pendentes);
+  }
+}
+
+async function processar(ev: EventoZernio, amb: Ambiente, pendentes: Promise<unknown>[]): Promise<Desfecho> {
   const conta = await amb.contaPorIdDaZernio(ev.account.accountId);
   if (!conta) return { kind: "ignored", reason: "conta desconhecida" };
   const tenantId = conta.tenant_id;
@@ -122,22 +133,21 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
 
   const agora = amb.now();
   // Todo direct recebido grava a ficha, tenha fluxo ou não (spec §5.3).
-  const fichaDoDirect = ev.event === "message.received" ? await gravarDirect(ev, tenantId, agora, amb) : null;
+  const fichaDoDirect = ev.event === "message.received" ? gravarDirect(ev, tenantId, agora, amb) : null;
+  if (fichaDoDirect) pendentes.push(fichaDoDirect);
   const entrada = ev.event === "comment.received" ? deComentario(ev, agora.getTime()) : deMensagem(ev, agora.getTime());
   if (!entrada) return { kind: "ignored", reason: "evento sem gatilho" };
 
   const fluxos = await amb.fluxosNoAr(tenantId);
-  const contatoDoDirect = contatoDaPessoa(amb.contatos, tenantId, entrada.igUserId, entrada.username, agora.toISOString(), fichaDoDirect);
+  let contato = contatoDaPessoa(amb.contatos, tenantId, entrada.igUserId, entrada.username, agora.toISOString(), fichaDoDirect);
   // Direct de quem tem run esperando resposta avança aquele run em vez de abrir outro.
   if (ev.event === "message.received") {
-    const retomado = await retomarSeEsperando(ev, entrada, conta.id, tenantId, fluxos, contatoDoDirect, amb);
+    const retomado = await retomarSeEsperando(ev, entrada, conta.id, tenantId, fluxos, contato, amb);
     if (retomado) return retomado;
   }
 
   const escolha = escolherFluxo(fluxos, entrada.origem);
   if (!escolha) return { kind: "ignored", reason: "sem fluxo" };
-  // Comentário que entra num fluxo cria a pessoa (sem abrir a janela do direct); o que não casa não deixa rastro.
-  const contato = ev.event === "comment.received" ? contatoDaPessoa(amb.contatos, tenantId, entrada.igUserId, entrada.username, agora.toISOString(), await gravarEntradaPorComentario(entrada, escolha.flowId, tenantId, agora, amb)) : contatoDoDirect;
 
   // Reenvio primeiro: o run da 1ª tentativa casaria a trava de 24 h e o reenvio seria descartado.
   const existente = await amb.runs.porOrigem(tenantId, entrada.sourceId);
@@ -171,6 +181,15 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
     if (!run) return { kind: "retry", reason: "corrida" };
   }
 
+  // Comentário que entrou num fluxo (passou as travas) cria a pessoa, sem abrir a janela do direct.
+  if (ev.event === "comment.received") {
+    const gravando = gravarEntradaPorComentario(entrada, escolha.flowId, tenantId, agora, amb);
+    pendentes.push(gravando);
+    contato = contatoDaPessoa(amb.contatos, tenantId, entrada.igUserId, entrada.username, agora.toISOString(), gravando);
+  }
+  // Reenvio de run na fila: cada Se… repete a saída que a 1ª tentativa tomou.
+  const saidas = existente ? saidasReusaveis(await amb.runs.passos(tenantId, run.id), null) : undefined;
+
   const estado: RunState = {
     id: run.id,
     flowId: run.flow_id,
@@ -183,7 +202,7 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
     directsSent: 0,
   };
   try {
-    const r = await advance(escolha.def, estado, depsDoRun(tenantId, run, contato, amb));
+    const r = await advance(escolha.def, estado, depsDoRun(tenantId, run, contato, amb, saidas));
     await gravar(tenantId, run.id, r, amb);
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {
@@ -206,9 +225,9 @@ async function gravarDirect(ev: MensagemRecebida, tenantId: string, agora: Date,
   const m = ev.message;
   if (m.platform !== "instagram" || m.direction !== "incoming") return null;
   try {
-    return await amb.contatos.aplicar(tenantId, { igUserId: m.sender.id, username: m.sender.username ?? null, seenAt: agora.toISOString(), dm: true });
+    return await amb.contatos.aplicar(tenantId, { igUserId: m.sender.id, username: m.sender.username ?? null, seenAt: iso(ou(m.sentAt, agora.getTime())), dm: true });
   } catch (e) {
-    console.error("[ig/ficha]", e instanceof Error ? e.message : "erro");
+    registrarFalhaDaFicha(e);
     return null;
   }
 }
@@ -217,13 +236,28 @@ async function gravarEntradaPorComentario(entrada: Entrada, flowId: string, tena
   try {
     return await amb.contatos.aplicar(tenantId, { igUserId: entrada.igUserId, username: entrada.username, seenAt: agora.toISOString(), dm: false, sourceFlowId: flowId });
   } catch (e) {
-    console.error("[ig/ficha]", e instanceof Error ? e.message : "erro");
+    registrarFalhaDaFicha(e);
     return null;
   }
 }
 
-function depsDoRun(tenantId: string, run: RunRow, contato: Contato, amb: Ambiente): Deps {
+/** Saídas dos Se… registradas depois do bloco da retomada (`aposNo`) ou, sem ele, desde o início do run. */
+function saidasReusaveis(passos: Array<{ node_id: string; out: string }>, aposNo: string | null): Map<string, FlowOut> {
+  let desde = 0;
+  if (aposNo !== null) {
+    const i = passos.map((p) => p.node_id).lastIndexOf(aposNo);
+    if (i < 0) return new Map();
+    desde = i + 1;
+  }
+  const saidas = new Map<string, FlowOut>();
+  // O banco guarda a saída como texto; só entram `FlowOut`s que o próprio motor gravou.
+  for (const p of passos.slice(desde)) if (!saidas.has(p.node_id)) saidas.set(p.node_id, p.out as FlowOut);
+  return saidas;
+}
+
+function depsDoRun(tenantId: string, run: RunRow, contato: Contato, amb: Ambiente, saidasGravadas?: ReadonlyMap<string, FlowOut>): Deps {
   return {
+    saidasGravadas,
     transport: amb.transport,
     now: amb.now,
     contato,
@@ -310,7 +344,8 @@ async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAcco
     directsSent: 1,
   };
   try {
-    const r = await advance(def, estado, depsDoRun(tenantId, run, contato, amb), retomada);
+    const saidas = saidasReusaveis(await amb.runs.passos(tenantId, run.id), nodeId);
+    const r = await advance(def, estado, depsDoRun(tenantId, run, contato, amb, saidas), retomada);
     await gravar(tenantId, run.id, r, amb);
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {

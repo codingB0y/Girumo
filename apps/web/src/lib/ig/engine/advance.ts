@@ -51,6 +51,11 @@ export type Deps = {
   now: () => Date;
   /** A ficha da pessoa: o Se… lê, a Etiqueta e o Guardar em gravam. */
   contato: Contato;
+  /**
+   * Reenvio de um run que já andou: a saída que cada Se… tomou na 1ª tentativa. O Se… reusa essa saída
+   * (a etiqueta de agora poderia levar a outro ramo e mandar outra mensagem).
+   */
+  saidasGravadas?: ReadonlyMap<string, FlowOut>;
 };
 
 /**
@@ -144,8 +149,8 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
 
   let atualId: string | null;
   if (retomar) {
-    // Gravar a resposta é idempotente: se o reenvio repetir o passo, o campo fica com o mesmo valor.
-    if (retomar.guardar) await deps.contato.aplicar({ set: { [retomar.guardar.campo]: retomar.guardar.valor } });
+    // Gravar a resposta é idempotente e não pode perder a resposta se o banco da ficha falhar.
+    if (retomar.guardar) await deps.contato.guardar({ set: { [retomar.guardar.campo]: retomar.guardar.valor } });
     await deps.step(retomar.nodeId, retomar.out);
     atualId = proximo(retomar.nodeId, retomar.out);
     if (!atualId) return fim(retomar.nodeId);
@@ -175,9 +180,10 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
     if (no.type === "trigger") return falha(no.id, "trigger_in_middle", null);
     // Etiqueta e Se… não mandam nada: não gastam direct nem dependem da janela da Meta.
     if (no.type === "tag" || no.type === "condition") {
-      const out = await semEnvio(no, deps.contato);
+      const reuso = no.type === "condition" && vez === 1 ? deps.saidasGravadas?.get(no.id) : undefined;
+      const out = reuso ?? (await semEnvio(no, deps.contato));
       if (out === null) return falha(no.id, "unsupported_node", null);
-      await deps.step(no.id, out);
+      if (!reuso) await deps.step(no.id, out);
       const seguinte = proximo(no.id, out);
       if (!seguinte) return fim(no.id);
       atualId = seguinte;

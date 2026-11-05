@@ -15,6 +15,15 @@ test("alternativas: vírgula separa, espaço e vazias saem", () => {
   assert.deepEqual(alternativesOf("Até 4 anos"), ["Até 4 anos"]);
 });
 
+test("matchChoice: alternativas de escolhas diferentes no mesmo texto são ambíguas (null); da mesma escolha, vale", () => {
+  const escolhas = ["Sim, quero", "Não"];
+  for (const texto of ["não quero", "quero não", "sim, não sei"]) assert.equal(matchChoice(texto, escolhas), null, texto);
+  assert.equal(matchChoice("sim", escolhas), 0);
+  assert.equal(matchChoice("não", escolhas), 1);
+  assert.equal(matchChoice("Sim, quero", escolhas), 0);
+  assert.equal(matchChoice("sim quero", escolhas), 0);
+});
+
 test("matchChoice: sem acento, palavra inteira, qualquer alternativa, a mais longa ganha", () => {
   const escolhas = ["Sim, quero", "Não"];
   assert.equal(matchChoice("QUERO!", escolhas), 0);

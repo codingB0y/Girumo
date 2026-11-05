@@ -10,7 +10,7 @@ export const T0 = new Date("2026-10-06T12:00:00Z");
 export const comentario: Extract<EventoZernio, { event: "comment.received" }> = { id: "e1", event: "comment.received", comment: { id: "c-1", platformPostId: "post-1", platform: "instagram", text: "quero", author: { id: "u1", username: "igortoled0", isOwnAccount: false }, createdAt: "2026-10-06T11:59:58Z", isReply: false }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 export const direct: Extract<EventoZernio, { event: "message.received" }> = { id: "e2", event: "message.received", message: { platformMessageId: "m-1", platform: "instagram", direction: "incoming", text: "quero", sender: { id: "u1", username: "igortoled0" }, sentAt: "2026-10-06T11:59:58Z" }, conversation: { id: "conv-1", participantId: "u1" }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 
-export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null; esperando?: RunRow | null; reivindicado?: boolean; retomado?: RunRow | null; parado?: boolean; contatos?: Parameters<typeof criarContatosFalsos>[0] } = {}) {
+export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null; esperando?: RunRow | null; reivindicado?: boolean; retomado?: RunRow | null; parado?: boolean; passos?: Array<{ node_id: string; out: string }>; contatos?: Parameters<typeof criarContatosFalsos>[0] } = {}) {
   const { transport, chamadas } = createFakeTransport({ falhar: opts.falhar });
   const criados: unknown[] = [];
   const patches: Array<[string, unknown]> = [];
@@ -46,6 +46,7 @@ export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFa
       esperando: async (_t, _conta, igUserId, username, agoraIso) => { buscas.push([igUserId, username, agoraIso]); return opts.esperando ?? null; },
       reivindicar: async (_t, _id, _no, messageId) => { reivindicacoes.push(messageId); return opts.reivindicado ?? true; },
       retomadoPor: async () => opts.retomado ?? null,
+      passos: async () => opts.passos ?? [],
       retomarParado: async () => opts.parado ?? true,
     },
     link: async (_t, slug, ref) => `https://app/r/${slug}?ig=${ref}`,
