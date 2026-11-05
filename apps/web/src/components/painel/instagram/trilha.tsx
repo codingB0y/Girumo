@@ -25,7 +25,7 @@ const focarRoteiro = () => requestAnimationFrame(() => document.getElementById("
 function Bloco({ ctx, node, indice, ramos, fim }: { ctx: Contexto; node: FlowNode; indice: number | null; ramos: Ramo[]; fim?: Passo["proximo"] }) {
   const { def, editar } = ctx;
   const Icone = ICONE[node.type];
-  const removivel = node.type === "tag" || node.type === "message" || (node.type === "condition" && (node.check === "field" || node.check === "tag"));
+  const removivel = node.type === "tag" || node.type === "message" || node.type === "handoff" || (node.type === "condition" && (node.check === "field" || node.check === "tag"));
   const podeAdicionar = fim && (fim.out === "next" || fim.out === "replied" || fim.out === "v0");
   const remover = async () => {
     const { loose } = planRemoveBlock(def, node.id);
@@ -58,7 +58,7 @@ function Bloco({ ctx, node, indice, ramos, fim }: { ctx: Contexto; node: FlowNod
             editarDef={editar}
           />
           {temLigacaoLivre(node) && <Ligacoes def={def} node={node} editar={editar} />}
-          {podeAdicionar && <AdicionarBloco depoisDe={node.id} naPrimeiraResposta={fim?.out === "v0"} editar={editar} />}
+          {podeAdicionar && <AdicionarBloco depoisDe={node.id} naPrimeiraResposta={fim?.out === "v0"} fimDeCaminho={!fim?.to} editar={editar} />}
           {removivel && (
             <button
               type="button"

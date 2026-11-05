@@ -29,6 +29,7 @@ export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFa
     transport,
     contatos: fichas.contatos,
     conversas: indice.conversas,
+    atualizarConversa: indice.atualizar,
     now: () => T0,
     novoRef: () => "ref-fixo-12345",
     contaPorIdDaZernio: async (id) => (opts.conta === null || id !== "z1" ? null : { id: "a1", tenant_id: "loja-a", username: "vireimoda", status: "active", provider: "zernio", provider_account_id: "z1", provider_profile_id: "p1", connected_at: "t", ...opts.conta } as never),

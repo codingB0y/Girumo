@@ -1,7 +1,8 @@
 import { normalizeForMatch } from "@/lib/ig/match-keyword";
 import { alternativesOf } from "./choices";
 import { TAG_RE, isValidFieldKey } from "./names";
-import { MAX_CHOICE_LENGTH, MAX_CHOICES, type ConditionNode, type MessageNode, type TagNode } from "./types";
+import { utf8Bytes } from "./bytes";
+import { MAX_CHOICE_LENGTH, MAX_CHOICES, MAX_MESSAGE_BYTES, type ConditionNode, type HandoffNode, type MessageNode, type TagNode } from "./types";
 import type { IssueCode } from "./validate";
 
 export type AddIssue = (code: IssueCode, nodeId: string | null, text: string) => void;
@@ -68,4 +69,11 @@ export function validateCondition(node: ConditionNode, add: AddIssue): void {
     if (!node.tag) add("condicao_incompleta", node.id, "Escolha a etiqueta que o Se… confere.");
     else if (!TAG_RE.test(node.tag)) add("etiqueta_invalida", node.id, `“${node.tag}” não é uma etiqueta válida.`);
   }
+}
+
+/** O texto é opcional; se existe, não pode ser em branco nem passar do limite de um direct. */
+export function validateHandoff(node: HandoffNode, add: AddIssue): void {
+  if (node.text === null) return;
+  if (node.text.trim() === "") add("texto_vazio", node.id, "Escreva a mensagem ou tire o texto: o bloco também funciona sem mensagem.");
+  else if (utf8Bytes(node.text) > MAX_MESSAGE_BYTES) add("texto_longo", node.id, `Mensagem longa demais: ${utf8Bytes(node.text)} de ${MAX_MESSAGE_BYTES} bytes.`);
 }

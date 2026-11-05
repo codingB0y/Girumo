@@ -13,6 +13,7 @@ import {
 } from "@/lib/ig/flow/types";
 import { ajuda, botaoTexto, campo, nomeAcessivel, Problemas, rotulo, type FormProps } from "./bloco-comum";
 import { BlocoEtiqueta } from "./bloco-etiqueta";
+import { BlocoLoja } from "./bloco-loja";
 import { BlocoMensagem } from "./bloco-pergunta";
 import { BlocoSe } from "./bloco-se";
 import { ContadorBytes } from "./contador-bytes";
@@ -128,6 +129,7 @@ export function BlocoForm({ node, def, confirmar, primeiroDepoisDoComentario, ca
     );
   }
 
+  if (node.type === "handoff") return <BlocoLoja node={node} issues={issues} aoMudar={aoMudar} />;
   if (node.type === "tag") return <BlocoEtiqueta node={node} issues={issues} aoMudar={aoMudar} />;
   return <BlocoSe node={node} def={def} confirmar={confirmar} issues={issues} chaves={chaves} aoMudar={aoMudar} editarDef={editarDef} />;
 }

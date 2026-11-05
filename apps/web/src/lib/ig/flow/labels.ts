@@ -18,6 +18,8 @@ export function tituloDoBloco(node: FlowNode): string {
       return "Convite pro grupo";
     case "tag":
       return "Etiqueta";
+    case "handoff":
+      return "Passar pra loja";
     case "condition":
       if (node.check === "clicked") return "Clicou no link?";
       if (node.check === "field") return node.field ? `Se ${fieldLabel(node.field)} for…` : "Se o campo for…";
@@ -38,6 +40,8 @@ export function resumoDoBloco(node: FlowNode): string {
       const partes = [node.add.length ? `Põe: ${node.add.join(", ")}` : "", node.remove.length ? `Tira: ${node.remove.join(", ")}` : ""].filter(Boolean);
       return partes.length ? partes.join(" · ") : "sem etiqueta ainda";
     }
+    case "handoff":
+      return node.text?.trim() ? (node.text.length > 90 ? `${node.text.slice(0, 90)}…` : node.text) : "Passa a conversa pra loja, sem mensagem";
     case "condition":
       if (node.check === "clicked") return "Confere se a pessoa já clicou em algum convite";
       if (node.check === "field") return node.values?.length ? node.values.join(", ") : "sem valores ainda";

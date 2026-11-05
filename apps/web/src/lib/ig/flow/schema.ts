@@ -59,11 +59,13 @@ const conditionNode = z.strictObject({
   tag: z.string().max(64).optional(),
 });
 
+const handoffNode = z.strictObject({ id, type: z.literal("handoff"), text: texto.nullable() });
+
 export const flowOutSchema = z.enum([
   "next", "replied", "timeout", "yes", "no", "clicked", "not_clicked", "other",
   "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12",
 ]);
-export const flowNodeSchema = z.discriminatedUnion("type", [triggerNode, messageNode, inviteNode, tagNode, conditionNode]);
+export const flowNodeSchema = z.discriminatedUnion("type", [triggerNode, messageNode, inviteNode, tagNode, conditionNode, handoffNode]);
 export const flowEdgeSchema = z.strictObject({ from: id, out: flowOutSchema, to: id });
 export const flowDefSchema = z.strictObject({
   v: z.literal(1),
