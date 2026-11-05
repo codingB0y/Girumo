@@ -82,7 +82,7 @@ export default function PrivacidadePage() {
             texto, do que o robô e a loja fizeram em cada conversa. As mensagens e os anexos ficam
             na Zernio e no Instagram. O índice some 12 meses depois da última mensagem e 30 dias
             depois de a loja cancelar o add-on. Quando a loja apaga uma pessoa da lista, guardamos
-            por 12 meses só um código cifrado (não o @ nem o id) para não trazê-la de volta numa
+            por 12 meses só um código gerado a partir do id (não o @ nem o id) para não trazê-la de volta numa
             nova importação.
           </li>
           <li>
