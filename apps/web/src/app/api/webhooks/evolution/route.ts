@@ -101,8 +101,8 @@ const CODIGOS_DE_DERRUBADA: ReadonlySet<number> = new Set([401, 403]);
  */
 const DERRUBADA_MINUTOS_MINIMOS = 30;
 
-function horaDaDerrubada(metadata: Record<string, unknown>): string | null {
-  const v = metadata.lastLoggedOutAt;
+function horaDaDerrubada(metadata: Record<string, unknown> | null | undefined): string | null {
+  const v = metadata?.lastLoggedOutAt;
   return typeof v === "string" && Number.isFinite(new Date(v).getTime()) ? v : null;
 }
 
