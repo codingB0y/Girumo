@@ -1,6 +1,6 @@
 import { MAX_WAIT_MINUTES, type FlowDef } from "./types";
 
-export type RecipeId = "comment_invite" | "comment_confirm_invite" | "comment_follow_invite" | "dm_invite" | "blank";
+export type RecipeId = "comment_invite" | "comment_confirm_invite" | "comment_choose_group" | "comment_follow_invite" | "dm_invite" | "blank";
 
 export type Recipe = {
   id: RecipeId;
@@ -24,7 +24,13 @@ export const DEFAULT_TEXTS = {
   confirma: "Oi! Você pediu o link para entrar no nosso grupo VIP do WhatsApp. Quer que eu te envie aqui? Responde SIM, QUERO.",
   conviteComBotao: "Clique no botão abaixo e entre no grupo VIP.",
   botaoConvite: "Entrar no grupo VIP",
+  escolheConfirma: "Oi! Vi seu comentário. Quer que eu te envie o link do grupo? Responde SIM.",
+  escolheIdade: "É pra qual idade?",
+  conviteGrupo: "Aqui está o link do grupo VIP:",
 } as const;
+
+/** Escolhas de exemplo da receita "Comentou, escolhe o grupo"; o lojista troca pelas dele. */
+export const ESCOLHAS_EXEMPLO = ["Até 4 anos", "5 a 8 anos", "9 a 12 anos"] as const;
 
 /** Respostas que liberam o convite na receita de confirmação. */
 export const RESPOSTAS_CONFIRMA = ["sim", "quero"];
@@ -65,6 +71,29 @@ export const RECIPES: Record<RecipeId, Recipe> = {
       edges: [
         { from: "gatilho", out: "next", to: "pergunta" },
         { from: "pergunta", out: "replied", to: "convite" },
+      ],
+    }),
+  },
+  comment_choose_group: {
+    id: "comment_choose_group",
+    titulo: "Comentou, escolhe o grupo",
+    descricao: "Pergunta se a pessoa quer o link e em qual grupo ela entra; cada escolha leva ao convite certo.",
+    cadeia: ["Comentário", "Pergunta: quer o link?", "Pergunta: qual grupo?", "Um convite por escolha"],
+    gatilho: "Comentário",
+    build: () => ({
+      v: 1,
+      nodes: [
+        gatilhoComentario(["quero", "eu quero"]),
+        { id: "pergunta", type: "message", text: DEFAULT_TEXTS.escolheConfirma, button: null, wait: { minutes: MAX_WAIT_MINUTES }, choices: ["Sim, quero"] },
+        { id: "idade", type: "message", text: DEFAULT_TEXTS.escolheIdade, button: null, wait: { minutes: MAX_WAIT_MINUTES }, choices: [...ESCOLHAS_EXEMPLO], saveTo: "tamanho" },
+        ...ESCOLHAS_EXEMPLO.map((_, i) => ({ id: `convite_${i + 1}`, type: "invite" as const, text: DEFAULT_TEXTS.conviteGrupo, campaignSlug: null, remindAfterMinutes: null })),
+      ],
+      edges: [
+        { from: "gatilho", out: "next", to: "pergunta" },
+        { from: "pergunta", out: "v0", to: "idade" },
+        { from: "idade", out: "v0", to: "convite_1" },
+        { from: "idade", out: "v1", to: "convite_2" },
+        { from: "idade", out: "v2", to: "convite_3" },
       ],
     }),
   },
@@ -123,7 +152,7 @@ export const RECIPES: Record<RecipeId, Recipe> = {
   },
 };
 
-export const RECIPE_ORDER: RecipeId[] = ["comment_invite", "comment_confirm_invite", "comment_follow_invite", "dm_invite", "blank"];
+export const RECIPE_ORDER: RecipeId[] = ["comment_invite", "comment_confirm_invite", "comment_choose_group", "comment_follow_invite", "dm_invite", "blank"];
 
 export function isRecipeId(value: unknown): value is RecipeId {
   return typeof value === "string" && (RECIPE_ORDER as string[]).includes(value);

@@ -6,11 +6,13 @@ import {
   MAX_MESSAGE_BYTES,
   MAX_TEXT_WITH_BUTTON,
   MAX_WAIT_MINUTES,
+  choiceIndex,
   outsOf,
   type FlowDef,
   type FlowOut,
   type TriggerNode,
 } from "./types";
+import { validateChoices, validateCondition, validateTag } from "./validate-nodes";
 
 export type IssueCode =
   | "sem_gatilho"
@@ -34,6 +36,10 @@ export type IssueCode =
   | "condicao_cedo"
   | "ciclo_sem_condicao"
   | "sem_conta"
+  | "escolhas_invalidas"
+  | "campo_invalido"
+  | "etiqueta_invalida"
+  | "condicao_incompleta"
   | "fase_seguinte";
 
 export type Issue = { code: IssueCode; nodeId: string | null; text: string };
@@ -117,8 +123,11 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
       if (utf8Bytes(node.text) > MAX_MESSAGE_BYTES) {
         add("texto_longo", node.id, `Mensagem longa demais: ${utf8Bytes(node.text)} de ${MAX_MESSAGE_BYTES} bytes.`);
       }
+      validateChoices(node, add);
       if (node.wait && (node.wait.minutes < 1 || node.wait.minutes > MAX_WAIT_MINUTES)) add("espera_longa", node.id, "A espera vai de 1 minuto a 23 horas.");
     }
+    if (node.type === "tag") validateTag(node, add);
+    if (node.type === "condition") validateCondition(node, add);
     if (node.type === "invite") {
       if (node.text.trim() === "") add("texto_vazio", node.id, "Escreva o texto do convite.");
       if (node.button != null) {
@@ -140,12 +149,12 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
   // Regras da Meta para quem chegou por comentário: 1 direct, sem botão, e
   // "segue a loja?" só depois de a pessoa mandar mensagem.
   if (trigger?.on === "comment") {
-    const primeiroId = targetOf(def, trigger.id, "next");
+    const primeiroId = primeiroDirectId(def, trigger.id);
     const primeiro = primeiroId ? def.nodes.find((n) => n.id === primeiroId) : undefined;
     if ((primeiro?.type === "message" || primeiro?.type === "invite") && primeiro.button != null) {
       add("botao_no_primeiro_direct", primeiro.id, "O primeiro direct depois de um comentário não pode ter botão: o Instagram recusa pra quem não segue a loja, e a recusa gasta o único direct do comentário.");
     }
-    for (const id of alcancavelSem(def, trigger.id, "replied")) {
+    for (const id of alcancavelSem(def, trigger.id, esperaResposta)) {
       if (id === trigger.id) continue;
       const node = def.nodes.find((n) => n.id === id);
       if (!node) continue;
@@ -154,7 +163,7 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
       if (node.type === "message" || node.type === "invite") {
         add("segundo_direct_sem_resposta", id, "Depois de um comentário só sai um direct. Este só pode vir depois de a pessoa responder.");
       }
-      if (node.type === "condition") {
+      if (node.type === "condition" && node.check === "follows") {
         add("condicao_cedo", id, "“Segue a loja?” só funciona depois de a pessoa responder: o Instagram só revela quem segue depois da primeira mensagem.");
       }
     }
@@ -176,8 +185,22 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
   return issues;
 }
 
+/** O primeiro bloco depois do gatilho que manda mensagem: etiqueta não manda, então é pulada. */
+function primeiroDirectId(def: FlowDef, triggerId: string): string | null {
+  const visto = new Set<string>();
+  let id = targetOf(def, triggerId, "next");
+  while (id && !visto.has(id) && def.nodes.find((n) => n.id === id)?.type === "tag") {
+    visto.add(id);
+    id = targetOf(def, id, "next");
+  }
+  return id;
+}
+
+/** As saídas que só disparam depois de a pessoa responder: `replied`, uma escolha ou `other`. */
+const esperaResposta = (out: FlowOut): boolean => out === "replied" || out === "other" || choiceIndex(out) !== null;
+
 /** Ids alcançáveis a partir de `start` sem atravessar uma aresta `bloqueada`. */
-function alcancavelSem(def: FlowDef, start: string, bloqueada: FlowOut): Set<string> {
+function alcancavelSem(def: FlowDef, start: string, bloqueada: (out: FlowOut) => boolean): Set<string> {
   const seen = new Set<string>();
   const stack = [start];
   while (stack.length > 0) {
@@ -185,7 +208,7 @@ function alcancavelSem(def: FlowDef, start: string, bloqueada: FlowOut): Set<str
     if (seen.has(id)) continue;
     seen.add(id);
     for (const e of def.edges) {
-      if (e.from === id && e.out !== bloqueada && !seen.has(e.to)) stack.push(e.to);
+      if (e.from === id && !bloqueada(e.out) && !seen.has(e.to)) stack.push(e.to);
     }
   }
   return seen;
@@ -217,10 +240,10 @@ export type ChecklistItem = { chave: GrupoChave; rotulo: string; ok: boolean };
 
 const GRUPOS: { chave: GrupoChave; rotulo: string; codes: IssueCode[] }[] = [
   { chave: "palavras", rotulo: "Palavras que disparam", codes: ["sem_gatilho", "gatilhos_demais", "sem_palavra", "palavra_repetida", "palavra_em_uso"] },
-  { chave: "textos", rotulo: "Texto de cada direct", codes: ["texto_vazio", "texto_longo", "botao_vazio", "botao_sem_espera"] },
+  { chave: "textos", rotulo: "Texto de cada direct", codes: ["texto_vazio", "texto_longo", "botao_vazio", "botao_sem_espera", "escolhas_invalidas"] },
   { chave: "campanha", rotulo: "Campanha do convite", codes: ["sem_convite", "sem_campanha", "campanha_inexistente"] },
   { chave: "regras", rotulo: "Regras do Instagram", codes: ["botao_no_primeiro_direct", "segundo_direct_sem_resposta", "condicao_cedo", "espera_longa", "fase_seguinte"] },
-  { chave: "ligacoes", rotulo: "Blocos ligados", codes: ["bloco_solto", "ciclo_sem_condicao", "aresta_invalida", "id_duplicado"] },
+  { chave: "ligacoes", rotulo: "Blocos ligados", codes: ["bloco_solto", "ciclo_sem_condicao", "aresta_invalida", "id_duplicado", "campo_invalido", "etiqueta_invalida", "condicao_incompleta"] },
   { chave: "conta", rotulo: "Conta do Instagram conectada", codes: ["sem_conta"] },
 ];
 

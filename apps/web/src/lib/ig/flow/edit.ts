@@ -1,7 +1,7 @@
 import { nodeById, targetOf, triggerOf } from "./graph";
 import { linearize } from "./linearize";
 import { DEFAULT_TEXTS } from "./recipes";
-import { MAX_WAIT_MINUTES, type FlowDef, type FlowEdge, type FlowNode, type FlowOut, type InviteNode, type MessageNode, type TriggerNode } from "./types";
+import { MAX_WAIT_MINUTES, type ConditionNode, type FlowDef, type FlowEdge, type FlowNode, type FlowOut, type InviteNode, type MessageNode, type TagNode, type TriggerNode } from "./types";
 
 /**
  * Edição por operações nomeadas (spec §6): o painel não mexe no grafo à mão,
@@ -10,7 +10,9 @@ import { MAX_WAIT_MINUTES, type FlowDef, type FlowEdge, type FlowNode, type Flow
 export type NodePatch =
   | Partial<Omit<TriggerNode, "id" | "type">>
   | Partial<Omit<MessageNode, "id" | "type">>
-  | Partial<Omit<InviteNode, "id" | "type">>;
+  | Partial<Omit<InviteNode, "id" | "type">>
+  | Partial<Omit<TagNode, "id" | "type">>
+  | Partial<Omit<ConditionNode, "id" | "type">>;
 
 export function updateNode(def: FlowDef, id: string, patch: NodePatch): FlowDef {
   let nodes = def.nodes.map((n) => (n.id === id ? ({ ...n, ...patch, id: n.id, type: n.type } as FlowNode) : n));
