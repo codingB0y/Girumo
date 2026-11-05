@@ -6,6 +6,7 @@ import { assinaturaConfere } from "@/lib/ig/transport/signature";
 import { createZernioTransport } from "@/lib/ig/transport/zernio";
 import { lerEvento } from "@/lib/ig/webhook/events";
 import { getAccountByProviderId, setAccountStatus } from "@/lib/stores/ig-accounts";
+import { getConversationByIgUserId, recordConversationEvent, touchConversation } from "@/lib/stores/ig-conversations";
 import { applyContact, getContactByIgUserId } from "@/lib/stores/ig-contacts";
 import { listLiveFlows } from "@/lib/stores/ig-flows";
 import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getRunResumedBy, getWaitingRun, hasRecentRun, listRunSteps, purgeOldRuns, recordStep, retakeStalledRun, updateRun } from "@/lib/stores/ig-runs";
@@ -28,6 +29,7 @@ function ambiente(): Ambiente {
     runs: { criar: createRun, porOrigem: getRunBySourceId, atualizar: updateRun, passo: recordStep, iniciadosDesde: countRunsStartedSince, entradaRecente: hasRecentRun, esperando: getWaitingRun, reivindicar: claimWaitingRun, passos: listRunSteps, retomadoPor: getRunResumedBy, retomarParado: retakeStalledRun },
     link: linkDoConvite,
     contatos: { ler: getContactByIgUserId, aplicar: applyContact },
+    conversas: { ler: getConversationByIgUserId, tocar: touchConversation, evento: recordConversationEvent },
   };
 }
 

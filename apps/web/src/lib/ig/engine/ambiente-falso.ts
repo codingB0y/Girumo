@@ -2,6 +2,7 @@ import { RECIPES } from "@/lib/ig/flow/recipes";
 import { createFakeTransport } from "@/lib/ig/transport/fake";
 import type { EventoZernio } from "@/lib/ig/webhook/events";
 import type { RunRow } from "@/lib/stores/ig-runs";
+import { criarConversasFalsas } from "./conversas-falsas";
 import { criarContatosFalsos } from "./ficha-falsa";
 import type { Ambiente } from "./handle-event";
 
@@ -10,7 +11,7 @@ export const T0 = new Date("2026-10-06T12:00:00Z");
 export const comentario: Extract<EventoZernio, { event: "comment.received" }> = { id: "e1", event: "comment.received", comment: { id: "c-1", platformPostId: "post-1", platform: "instagram", text: "quero", author: { id: "u1", username: "igortoled0", isOwnAccount: false }, createdAt: "2026-10-06T11:59:58Z", isReply: false }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 export const direct: Extract<EventoZernio, { event: "message.received" }> = { id: "e2", event: "message.received", message: { platformMessageId: "m-1", platform: "instagram", direction: "incoming", text: "quero", sender: { id: "u1", username: "igortoled0" }, sentAt: "2026-10-06T11:59:58Z" }, conversation: { id: "conv-1", participantId: "u1" }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 
-export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null; esperando?: RunRow | null; reivindicado?: boolean; retomado?: RunRow | null; parado?: boolean; passos?: Array<{ node_id: string; out: string }>; contatos?: Parameters<typeof criarContatosFalsos>[0] } = {}) {
+export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null; esperando?: RunRow | null; reivindicado?: boolean; retomado?: RunRow | null; parado?: boolean; passos?: Array<{ node_id: string; out: string }>; contatos?: Parameters<typeof criarContatosFalsos>[0]; conversas?: Parameters<typeof criarConversasFalsas>[0] } = {}) {
   const { transport, chamadas } = createFakeTransport({ falhar: opts.falhar });
   const criados: unknown[] = [];
   const patches: Array<[string, unknown]> = [];
@@ -23,9 +24,11 @@ export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFa
   const dmDef = RECIPES.dm_invite.build();
   const dmLive = { ...dmDef, nodes: dmDef.nodes.map((n) => (n.type === "invite" ? { ...n, campaignSlug: "vip" } : n)) };
   const fichas = criarContatosFalsos(opts.contatos);
+  const indice = criarConversasFalsas(opts.conversas);
   const amb: Ambiente = {
     transport,
     contatos: fichas.contatos,
+    conversas: indice.conversas,
     now: () => T0,
     novoRef: () => "ref-fixo-12345",
     contaPorIdDaZernio: async (id) => (opts.conta === null || id !== "z1" ? null : { id: "a1", tenant_id: "loja-a", username: "vireimoda", status: "active", provider: "zernio", provider_account_id: "z1", provider_profile_id: "p1", connected_at: "t", ...opts.conta } as never),
@@ -51,5 +54,5 @@ export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFa
     },
     link: async (_t, slug, ref) => `https://app/r/${slug}?ig=${ref}`,
   };
-  return { amb, chamadas, criados, patches, estados, buscas, reivindicacoes, fichas };
+  return { amb, chamadas, criados, patches, estados, buscas, reivindicacoes, fichas, indice };
 }
