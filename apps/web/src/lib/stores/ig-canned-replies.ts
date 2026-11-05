@@ -35,7 +35,7 @@ export async function createCannedReply(tenantId: string, input: { title: string
     .select(COLS)
     .single();
   if (error) {
-    if (error.message.includes("ig_canned_replies_limit")) throw new CannedRepliesLimitError();
+    if (error.code === "P0001" || error.message.includes("ig_canned_replies_limit")) throw new CannedRepliesLimitError();
     throw new Error(error.message);
   }
   return data as unknown as CannedReplyRow;

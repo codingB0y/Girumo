@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
-import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getRunResumedBy, getWaitingRun, hasRecentRun, listRunSteps, retakeStalledRun, listRuns, purgeOldRuns, recordStep, stopActiveRuns, updateRun } from "./ig-runs";
+import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getRunResumedBy, getWaitingRun, hasRecentRun, listRunSteps, retakeStalledRun, listRuns, purgeOldRuns, recordStep, stopActiveRuns, stopWaitingRunsOfPerson, updateRun } from "./ig-runs";
 
 type Pedido = { metodo: string; url: URL; prefer: string; corpo: unknown };
 const pedidos: Pedido[] = [];
@@ -121,4 +121,18 @@ test("reenvio da resposta: acha o run pelo direct que o retomou; retomada parada
   assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", resumed_by: "eq.m-9" });
   assert.equal(await retakeStalledRun("loja-a", "r1", "2026-10-06T00:00:00Z"), true);
   assert.deepEqual(filtros(pedidos[1].url), { tenant_id: "eq.loja-a", id: "eq.r1", status: "eq.active", waiting: "is.null", updated_at: "eq.2026-10-06T00:00:00Z" });
+});
+
+test("loja respondeu pelo painel: encerra o run que esperava a pessoa, por id e pelo @, só na espera de resposta", async () => {
+  pedidos.length = 0;
+  await stopWaitingRunsOfPerson("loja-a", { igUserId: "u1", username: "ana" }, "replied_by_store");
+  assert.equal(pedidos.length, 2);
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", status: "in.(queued,active)", waiting: "eq.reply", ig_user_id: "eq.u1" });
+  assert.deepEqual(filtros(pedidos[1].url), { tenant_id: "eq.loja-a", status: "in.(queued,active)", waiting: "eq.reply", username: "eq.ana" });
+  const corpo = pedidos[0].corpo as Record<string, unknown>;
+  assert.deepEqual([corpo.status, corpo.waiting, corpo.error_code], ["stopped", null, "replied_by_store"]);
+  assert.equal(typeof corpo.finished_at, "string");
+  pedidos.length = 0;
+  await stopWaitingRunsOfPerson("loja-a", { igUserId: "u1", username: null }, "replied_by_store");
+  assert.equal(pedidos.length, 1, "sem @ conhecido só procura pelo id");
 });

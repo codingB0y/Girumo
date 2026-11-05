@@ -196,6 +196,27 @@ export async function stopActiveRuns(tenantId: string, flowId?: string): Promise
   if (error) throw new Error(error.message);
 }
 
+/**
+ * A loja respondeu pelo painel: o run desta pessoa que esperava resposta encerra, para um "sim" depois da
+ * pausa não retomar um fluxo velho (spec §6). Procura pelo id e pelo @ (o id de quem comentou pode não ser o
+ * do direct), em duas atualizações porque o @ vem de fora e não entra num `.or()`. `reason` fica em `error_code`.
+ */
+export async function stopWaitingRunsOfPerson(tenantId: string, pessoa: { igUserId: string; username: string | null }, reason: string): Promise<void> {
+  const agora = new Date().toISOString();
+  const parar = async (coluna: "ig_user_id" | "username", valor: string) => {
+    const { error } = await getSupabaseAdmin()
+      .from("ig_runs")
+      .update({ status: "stopped", waiting: null, error_code: reason, finished_at: agora, updated_at: agora })
+      .eq("tenant_id", tenantId)
+      .in("status", ["queued", "active"])
+      .eq("waiting", "reply")
+      .eq(coluna, valor);
+    if (error) throw new Error(error.message);
+  };
+  await parar("ig_user_id", pessoa.igUserId);
+  if (pessoa.username) await parar("username", pessoa.username);
+}
+
 export async function listRuns(tenantId: string, flowId: string, limit = 50): Promise<RunRow[]> {
   const { data, error } = await getSupabaseAdmin().from("ig_runs").select(COLS).eq("tenant_id", tenantId).eq("flow_id", flowId).order("started_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);

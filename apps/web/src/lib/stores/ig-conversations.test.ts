@@ -4,8 +4,8 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { tombstoneHash } from "@/lib/ig/conversas/situacao";
 import {
-  addTombstone, deleteConversationsOf, getConversationById, getConversationByIgUserId, getConversationByZernioId, hasTombstone,
-  listConversationEvents, listConversations, recordConversationEvent, runConversationRoutine, touchConversation, updateConversation,
+  addTombstone, countConversations, deleteConversationsOf, getConversationById, listConversationsOf, settleImportedConversation, getConversationByIgUserId, getConversationByZernioId, hasTombstone,
+  listConversationEvents, listConversations, listIgUserIdsByTag, recordConversationEvent, runConversationRoutine, touchConversation, updateConversation,
 } from "./ig-conversations";
 
 type Pedido = { metodo: string; url: URL; prefer: string; corpo: unknown };
@@ -141,4 +141,42 @@ test("rotina chama a função e devolve as contagens (zero quando faltam)", asyn
   assert.deepEqual([pedidos[0].url.pathname, pedidos[0].corpo], ["/rest/v1/rpc/ig_conversations_rotina", { p_now: "2026-11-06T12:00:00Z" }]);
   proxima = { status: 200, body: {} };
   assert.equal((await runConversationRoutine("2026-11-06T12:00:00Z")).resolvidasParada24h, 0);
+});
+
+test("listar por pessoas (etiqueta): filtro in no índice; lista vazia nem vai ao banco", async () => {
+  pedidos.length = 0;
+  await listConversations("loja-a", { igUserIds: ["u1", "u2"] });
+  assert.equal(filtros(pedidos[0].url).ig_user_id, "in.(u1,u2)");
+  assert.deepEqual(await listConversations("loja-a", { igUserIds: [] }), { items: [], nextCursor: null });
+  assert.equal(pedidos.length, 1, "lista vazia não consulta");
+});
+
+test("contar por situação: count head filtrado pela loja", async () => {
+  pedidos.length = 0;
+  const n = await countConversations("loja-a", "waiting");
+  assert.equal(pedidos[0].metodo, "HEAD");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", status: "eq.waiting" });
+  assert.equal(typeof n, "number");
+});
+
+test("ids de quem tem a etiqueta: fichas da loja, mais recentes primeiro, com teto", async () => {
+  pedidos.length = 0;
+  proxima = { status: 200, body: [{ ig_user_id: "u1" }, { ig_user_id: "u2" }] };
+  assert.deepEqual(await listIgUserIdsByTag("loja-a", "vip", 2), ["u1", "u2"]);
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", tags: "cs.{vip}", order: "last_seen_at.desc", limit: "2" });
+});
+
+test("acerto da importação: só se não chegou mensagem mais nova, filtrando a loja", async () => {
+  pedidos.length = 0;
+  await settleImportedConversation("loja-a", "c1", "2026-11-06T10:00:00.000Z", "resolved");
+  assert.equal(pedidos[0].metodo, "PATCH");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.c1", last_message_at: "lte.2026-11-06T10:00:00.000Z" });
+  assert.deepEqual(pedidos[0].corpo, { status: "resolved", unread_count: 0 });
+});
+
+test("conversas da pessoa: ids da Zernio e conta de cada uma, filtrando a loja", async () => {
+  pedidos.length = 0;
+  proxima = { status: 200, body: [{ zernio_conversation_id: "z1", ig_account_id: "a1" }] };
+  assert.deepEqual(await listConversationsOf("loja-a", "u1"), [{ zernioConversationId: "z1", igAccountId: "a1" }]);
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", ig_user_id: "eq.u1" });
 });

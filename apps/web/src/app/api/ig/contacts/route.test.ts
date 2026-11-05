@@ -110,7 +110,8 @@ test("apagar: operador 403; dono apaga atendimentos e ficha da loja", async () =
   const r = await DELETE(pedir("DELETE", `/api/ig/contacts/${ID}`), comId(ID));
   assert.equal(r.status, 200);
   const apagadas = escritas().map((c) => [c.url.pathname, c.url.searchParams.get("tenant_id")]);
-  assert.deepEqual(apagadas, [["/rest/v1/ig_runs", "eq.loja-b"], ["/rest/v1/ig_contacts", "eq.loja-b"]]);
+  // Marcador (a loja vai no corpo, não na URL), índice de conversas, atendimentos e ficha.
+  assert.deepEqual(apagadas, [["/rest/v1/ig_contact_tombstones", null], ["/rest/v1/ig_conversations", "eq.loja-b"], ["/rest/v1/ig_runs", "eq.loja-b"], ["/rest/v1/ig_contacts", "eq.loja-b"]]);
 });
 
 test("CSV: operador 403; dono baixa, com aspas dobradas e fórmula neutralizada", async () => {
