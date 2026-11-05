@@ -276,6 +276,18 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
   },
 
   "/painel/instagram": {
+    // Subtitulo do cabecalho das Conversas (aba padrao); o estado "nao liberado" nao o tem.
+    ancora: /o robô cuida do que dá/,
+    indisponivel: instagramIndisponivel,
+    lista: {
+      api: "/api/ig/conversations",
+      // A API devolve `{ conversas: [...] }`; a lista mostra o @ de cada uma.
+      marca: (j) => primeiroTexto((j as { conversas?: unknown } | null)?.conversas, "username"),
+      vazio: /Nenhuma conversa ainda/i,
+    },
+  },
+
+  "/painel/instagram/fluxos": {
     // Subtitulo do cabecalho da lista liberada; o estado "nao liberado" nao o tem.
     ancora: /respondem comentário e direct/,
     indisponivel: instagramIndisponivel,

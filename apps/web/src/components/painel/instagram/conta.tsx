@@ -38,7 +38,7 @@ export function ContaDoInstagram() {
     if (conectado) toast("Instagram conectado.", "success");
     if (erro) toast(ERROS[erro] ?? ERROS.zernio, "error");
     recarregarInstagram();
-    router.replace("/painel/instagram");
+    router.replace("/painel/instagram/fluxos");
   }, [conectado, erro, toast, recarregarInstagram, router]);
 
   if (!instagram) return null;

@@ -68,7 +68,7 @@ export function NovoFluxo() {
   return (
     <section className="px-5 py-6 lg:px-8">
       <nav aria-label="Trilha" className="text-13 text-slate-600">
-        <Link href="/painel/instagram" className="text-cobalt-500">Instagram</Link> <span aria-hidden="true">›</span> <span aria-current="page">Novo fluxo</span>
+        <Link href="/painel/instagram/fluxos" className="text-cobalt-500">Fluxos</Link> <span aria-hidden="true">›</span> <span aria-current="page">Novo fluxo</span>
       </nav>
       <h1 className="mt-2 text-20 font-semibold text-volt-950">Novo fluxo</h1>
       <p className="mt-1 text-13 text-slate-600">Escolha por onde começar. Nada vai pro ar até você publicar.</p>

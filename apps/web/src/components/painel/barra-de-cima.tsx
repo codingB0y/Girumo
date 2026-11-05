@@ -8,7 +8,9 @@ import { useCasca } from "@/components/painel/casca-context";
 import { NotificationBell } from "@/components/painel/notification-bell";
 import { useRole } from "@/components/painel/role-provider";
 import { usePanelSession } from "@/components/painel/session-provider";
+import { useAguardandoNaBarra } from "@/components/painel/instagram/conversas/use-aguardando";
 import { acessoRestrito, type Acesso } from "@/lib/auth/modulos";
+import type { AoVivo } from "@/lib/ig/conversas/tela";
 import { iniciaisDaLoja } from "@/lib/painel/casca";
 import { numero } from "@/lib/painel/grupos";
 import { placarDaOferta, type EntradaLike } from "@/lib/painel/relampago";
@@ -21,6 +23,7 @@ import { MenuMais } from "./menu-mais";
 const DISPAROS = "/painel/disparos";
 const RELAMPAGO = "/painel/relampago";
 const RECUPERAR = "/painel/recuperar";
+const INSTAGRAM = "/painel/instagram";
 const CONECTAR = "/painel/conectar";
 const REFRESCO_MS = 60_000;
 
@@ -134,13 +137,26 @@ function SinalDoRecuperar({ precisaDeVoce }: { precisaDeVoce: number }) {
   );
 }
 
+/** Instagram ligado: quantas conversas esperam o lojista (spec Instagram §7.7); ninguém esperando, nada. */
+function SinalDoInstagram({ aguardando }: { aguardando: number }) {
+  if (aguardando <= 0) return null;
+  return (
+    <span className="pn-barra__contador">
+      {numero(aguardando)}
+      <span className="sr-only"> aguardando você</span>
+    </span>
+  );
+}
+
+type InstagramNaBarra = { aguardando: number; aoVivo: AoVivo };
+
 /**
  * Os módulos do acesso e o Mais; só no desktop (no celular a navegação é a barra
  * inferior). O acesso restrito (vendedora, papel desconhecido) vê só os dele e não tem Mais (spec 2026-10-07 §4).
  * O Recuperar só entra na barra a partir de 1280 px (`xl`); abaixo disso mora no Mais, que ganha um ponto.
  * A vendedora não tem Mais para acolhê-lo, então nela o item fica em toda largura.
  */
-function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acesso | null }) {
+function NavDaBarra({ relampago, instagram, acesso }: { relampago: Relampago; instagram: InstagramNaBarra; acesso: Acesso | null }) {
   const pathname = usePathname();
   const { liberacoes, recuperar } = useCasca();
   const restrito = acessoRestrito(acesso);
@@ -151,11 +167,13 @@ function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acess
           key={item.href}
           href={item.href}
           aria-current={isNavItemActive(pathname, item.href) ? "page" : undefined}
-          className={cn("pn-barra__item", item.href === RECUPERAR && !restrito && "max-xl:hidden")}
+          data-ao-vivo={item.href === INSTAGRAM ? instagram.aoVivo : undefined}
+          className={cn("pn-barra__item", !restrito && (item.href === RECUPERAR || (item.href === INSTAGRAM && liberacoes?.recuperar)) && "max-xl:hidden")}
         >
           {item.curto ?? item.label}
           {item.href === RELAMPAGO && <SinalDoRelampago {...relampago} />}
           {item.href === RECUPERAR && recuperar && <SinalDoRecuperar precisaDeVoce={recuperar.precisaDeVoce} />}
+          {item.href === INSTAGRAM && <SinalDoInstagram aguardando={instagram.aguardando} />}
         </Link>
       ))}
       {!restrito && <MenuMais />}
@@ -197,11 +215,13 @@ function SaidaDoAcessoRestrito({ vendedora }: { vendedora: boolean }) {
 export function BarraDeCima() {
   const pathname = usePathname();
   const { tenantName, carregado, acesso } = useRole();
-  const { foco } = useCasca();
+  const { foco, instagram } = useCasca();
   const vendedora = acesso?.role === "seller";
   const restrito = acessoRestrito(acesso);
   // Só depois de saber quem é: o acesso restrito não tem Relâmpago, e a leitura daria 403.
   const relampago = useRelampagoNaBarra(!foco && carregado && !restrito);
+  // Só para quem tem o Instagram ligado e acesso às Conversas (a vendedora não tem).
+  const conversas = useAguardandoNaBarra(!foco && carregado && !restrito && instagram?.enabled === true);
   const [postar, setPostar] = useState(false);
   const idPostar = useId();
   const fechar = useCallback(() => setPostar(false), []);
@@ -226,7 +246,7 @@ export function BarraDeCima() {
           <span role="status" aria-label="Carregando nome da loja" className="pn-skeleton inline-block h-4 w-24 rounded-[var(--radius-chip)]" />
         )}
         {/* Até o /api/auth/me responder, nada de módulo: com `role` nulo o menu do dono piscaria pra vendedora. */}
-        {carregado && <NavDaBarra relampago={relampago} acesso={acesso} />}
+        {carregado && <NavDaBarra relampago={relampago} instagram={conversas} acesso={acesso} />}
         <div className="pn-barra__direita">
           {carregado && !restrito && (
             <>

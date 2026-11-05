@@ -128,7 +128,7 @@ export function AssinarInstagram() {
   if (oferta.bloqueio === "ja_assinado") {
     return (
       <p className="text-13 text-slate-600">
-        O Instagram já está assinado nesta loja. <Link href="/painel/instagram" className="text-cobalt-500">Ir para os fluxos</Link>
+        O Instagram já está assinado nesta loja. <Link href="/painel/instagram/fluxos" className="text-cobalt-500">Ir para os fluxos</Link>
       </p>
     );
   }

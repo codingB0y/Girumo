@@ -3,7 +3,7 @@ import { after, before, beforeEach, test } from "node:test";
 import { chaveDeEnvio } from "@/lib/ig/conversas/fio";
 import { tombstoneHash } from "@/lib/ig/conversas/situacao";
 import { comId, CONV_ID, criarAmbiente, horasAtras, LOJA } from "@/test/ig-conversas-fake";
-import { PATCH } from "./[id]/route";
+import { GET as CONTATO, PATCH } from "./[id]/route";
 import { GET as MIDIA } from "./[id]/media/route";
 import { GET as FIO, POST as ENVIAR } from "./[id]/messages/route";
 import { POST as LIDA } from "./[id]/read/route";
@@ -33,6 +33,22 @@ test("conversa de outra loja é 404 em todo [id], sem gravar nada e sem falar co
   assert.equal(amb.pedidosZernio.length, 0);
   const leitura = amb.chamadas.find((c) => c.url.pathname === "/rest/v1/ig_conversations");
   assert.equal(leitura?.url.searchParams.get("tenant_id"), `eq.${LOJA}`, "a leitura filtra a loja da sessão");
+});
+
+test("GET [id]: devolve só o id da ficha da loja; outra loja é 404; sem ficha é null; vendedora é 403", async () => {
+  const pedir = () => CONTATO(amb.pedir("GET", `/api/ig/conversations/${CONV_ID}`), comId(CONV_ID));
+  const ok = await pedir();
+  assert.equal(ok.status, 200);
+  const corpo = await ok.json();
+  assert.deepEqual(corpo, { contatoId: "ficha-1" });
+  assert.doesNotMatch(JSON.stringify(corpo), /u1/);
+  e.ficha = null;
+  assert.deepEqual(await (await pedir()).json(), { contatoId: null });
+  e.donoDaConversa = "loja-a";
+  assert.equal((await pedir()).status, 404);
+  e.donoDaConversa = LOJA;
+  e.papel = "seller";
+  assert.equal((await pedir()).status, 403);
 });
 
 test("id que não é uuid é 404 sem ir ao banco", async () => {
