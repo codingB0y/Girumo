@@ -1,5 +1,7 @@
-import type { FlowDef, FlowNode, FlowOut } from "@/lib/ig/flow/types";
-import { ZernioError, type MessageButton, type Transport } from "@/lib/ig/transport/types";
+import { matchFieldValue } from "@/lib/ig/flow/choices";
+import { choiceOut, type FlowDef, type FlowNode, type FlowOut } from "@/lib/ig/flow/types";
+import { ZernioError, type ConversationMessageInput, type MessageButton, type QuickReply, type Transport } from "@/lib/ig/transport/types";
+import type { Contato } from "./ficha";
 
 export type RunState = {
   id: string;
@@ -47,10 +49,15 @@ export type Deps = {
   link: (slug: string, ref: string) => Promise<string>;
   step: (nodeId: string, out: FlowOut) => Promise<void>;
   now: () => Date;
+  /** A ficha da pessoa: o Se… lê, a Etiqueta e o Guardar em gravam. */
+  contato: Contato;
 };
 
-/** De onde o run continua quando a pessoa responde: o bloco que esperava e a saída que ela escolheu. */
-export type Retomada = { nodeId: string; out: FlowOut };
+/**
+ * De onde o run continua quando a pessoa responde: o bloco que esperava e a saída que ela escolheu.
+ * `guardar` = o que a Pergunta grava na ficha (`saveTo`), antes de seguir.
+ */
+export type Retomada = { nodeId: string; out: FlowOut; guardar?: { campo: string; valor: string } };
 
 const MAX_VISITAS = 2;
 const MAX_ERRO = 200;
@@ -59,7 +66,7 @@ const MAX_ERRO = 200;
 export const payloadDoBotao = (runId: string, nodeId: string) => `${runId}:${nodeId}`;
 
 type Envio = { ok: true } | { ok: false; code: string; message: string | null };
-type Direct = { texto: string; botao: MessageButton | null };
+type Direct = { texto: string; botao: MessageButton | null; respostas?: QuickReply[] };
 
 /** Texto e botão do bloco. Na resposta privada não vai botão: o link volta pro fim do texto. */
 async function montarDirect(no: FlowNode, run: RunState, viaPrivada: boolean, deps: Deps): Promise<Direct> {
@@ -68,6 +75,10 @@ async function montarDirect(no: FlowNode, run: RunState, viaPrivada: boolean, de
     const url = await deps.link(no.campaignSlug, run.ref);
     if (no.button && !viaPrivada) return { texto: no.text, botao: { type: "url", title: no.button, url } };
     return { texto: `${no.text}\n${url}`, botao: null };
+  }
+  // Escolhas viram respostas rápidas; no 1º direct depois de comentário (privada) valem só digitando.
+  if (no.type === "message" && no.choices?.length && !viaPrivada) {
+    return { texto: no.text, botao: null, respostas: no.choices.map((title, i) => ({ title, payload: `${run.id}:${no.id}:${i}` })) };
   }
   // O toque só vale onde há quem espere por ele; o payload leva o run pra um botão velho de outro fluxo não liberar este.
   if (no.type === "message" && no.button && no.wait && !viaPrivada) return { texto: no.text, botao: { type: "postback", title: no.button, payload: payloadDoBotao(run.id, no.id) } };
@@ -83,7 +94,15 @@ async function enviar(run: RunState, nodeId: string, direct: Direct, viaPrivada:
       return { ok: true };
     }
     if (!run.conversationId) return { ok: false, code: "no_conversation", message: null };
-    await transport.sendMessage({ accountId: run.providerAccountId, conversationId: run.conversationId, message: direct.texto, ...(direct.botao ? { buttons: [direct.botao] } : {}), idempotencyKey });
+    const conversationId = run.conversationId;
+    const mandar = (extra: Partial<ConversationMessageInput>, chave: string) => transport.sendMessage({ accountId: run.providerAccountId, conversationId, message: direct.texto, ...extra, idempotencyKey: chave });
+    try {
+      await mandar(direct.respostas ? { quickReplies: direct.respostas } : direct.botao ? { buttons: [direct.botao] } : {}, idempotencyKey);
+    } catch (e) {
+      // A Zernio recusou o formato das respostas rápidas (não documentado): manda só o texto; a escolha também vale digitando.
+      if (!direct.respostas || !(e instanceof ZernioError) || (e.status !== 400 && e.status !== 422)) throw e;
+      await mandar({}, `${idempotencyKey}:texto`);
+    }
     return { ok: true };
   } catch (e) {
     if (!(e instanceof ZernioError)) throw e;
@@ -93,6 +112,19 @@ async function enviar(run: RunState, nodeId: string, direct: Direct, viaPrivada:
     if (e.transient) throw e;
     return { ok: false, code: e.code, message: e.message.slice(0, MAX_ERRO) };
   }
+}
+
+/** Etiqueta aplica e segue; Se… confere a ficha. `null` = o motor ainda não executa essa conferência (`follows`, `clicked`). */
+async function semEnvio(no: Extract<FlowNode, { type: "tag" | "condition" }>, contato: Contato): Promise<FlowOut | null> {
+  if (no.type === "tag") {
+    await contato.aplicar({ add: no.add, remove: no.remove });
+    return "next";
+  }
+  if (no.check !== "field" && no.check !== "tag") return null;
+  const ficha = await contato.ler();
+  if (no.check === "tag") return ficha.tags.includes(no.tag ?? "") ? "yes" : "no";
+  const i = matchFieldValue(String(ficha.fields[no.field ?? ""] ?? ""), no.values ?? []);
+  return i === null ? "other" : choiceOut(i);
 }
 
 /**
@@ -112,6 +144,8 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
 
   let atualId: string | null;
   if (retomar) {
+    // Gravar a resposta é idempotente: se o reenvio repetir o passo, o campo fica com o mesmo valor.
+    if (retomar.guardar) await deps.contato.aplicar({ set: { [retomar.guardar.campo]: retomar.guardar.valor } });
     await deps.step(retomar.nodeId, retomar.out);
     atualId = proximo(retomar.nodeId, retomar.out);
     if (!atualId) return fim(retomar.nodeId);
@@ -138,9 +172,18 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
     const vez = (visitas.get(no.id) ?? 0) + 1;
     visitas.set(no.id, vez);
     if (vez > MAX_VISITAS) return falha(no.id, "cycle", null);
-    if (deps.now().getTime() > Date.parse(run.windowExpiresAt)) return falha(no.id, "window_expired", null);
     if (no.type === "trigger") return falha(no.id, "trigger_in_middle", null);
-    if (no.type === "condition" || no.type === "tag") return falha(no.id, "unsupported_node", null);
+    // Etiqueta e Se… não mandam nada: não gastam direct nem dependem da janela da Meta.
+    if (no.type === "tag" || no.type === "condition") {
+      const out = await semEnvio(no, deps.contato);
+      if (out === null) return falha(no.id, "unsupported_node", null);
+      await deps.step(no.id, out);
+      const seguinte = proximo(no.id, out);
+      if (!seguinte) return fim(no.id);
+      atualId = seguinte;
+      continue;
+    }
+    if (deps.now().getTime() > Date.parse(run.windowExpiresAt)) return falha(no.id, "window_expired", null);
 
     const viaPrivada = run.sourceKind === "comment" && directsSent === 0;
     let envio: Envio;

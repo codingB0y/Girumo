@@ -1,11 +1,12 @@
-import type { FlowOut, MessageNode } from "@/lib/ig/flow/types";
+import type { FlowOut } from "@/lib/ig/flow/types";
 import { TETO_RUNS_POR_HORA } from "@/lib/ig/limites";
-import { matchKeyword } from "@/lib/ig/match-keyword";
 import { ZernioError, type Transport } from "@/lib/ig/transport/types";
 import type { ComentarioRecebido, EventoZernio, MensagemRecebida } from "@/lib/ig/webhook/events";
 import type { AccountStatus, IgAccountComLoja } from "@/lib/stores/ig-accounts";
 import type { NovoRun, RunPatch, RunRow, SourceKind } from "@/lib/stores/ig-runs";
-import { advance, EsperaIncerta, payloadDoBotao, type Deps, type Resultado, type Retomada, type RunState } from "./advance";
+import { advance, EsperaIncerta, type Deps, type Resultado, type RunState } from "./advance";
+import { contatoDaPessoa, type Contato, type Contatos, type Ficha } from "./ficha";
+import { decidirRetomada, saidaDeReserva } from "./resposta";
 import { escolherFluxo, type FluxoNoAr, type Origem } from "./select-flow";
 
 /** Tudo que o tratamento toca, injetado: a rota liga nas stores de verdade; o teste, em memória. */
@@ -30,6 +31,8 @@ export type Ambiente = {
     retomarParado: (tenantId: string, id: string, updatedAt: string) => Promise<boolean>;
   };
   link: (tenantId: string, slug: string, ref: string) => Promise<string>;
+  /** A ficha da pessoa (`ig_contacts`). */
+  contatos: Contatos;
 };
 
 export type Desfecho =
@@ -118,18 +121,23 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
   if (!(await amb.lojaLiberada(tenantId))) return { kind: "ignored", reason: "loja sem liberação" };
 
   const agora = amb.now();
+  // Todo direct recebido grava a ficha, tenha fluxo ou não (spec §5.3).
+  const fichaDoDirect = ev.event === "message.received" ? await gravarDirect(ev, tenantId, agora, amb) : null;
   const entrada = ev.event === "comment.received" ? deComentario(ev, agora.getTime()) : deMensagem(ev, agora.getTime());
   if (!entrada) return { kind: "ignored", reason: "evento sem gatilho" };
 
   const fluxos = await amb.fluxosNoAr(tenantId);
+  const contatoDoDirect = contatoDaPessoa(amb.contatos, tenantId, entrada.igUserId, entrada.username, agora.toISOString(), fichaDoDirect);
   // Direct de quem tem run esperando resposta avança aquele run em vez de abrir outro.
   if (ev.event === "message.received") {
-    const retomado = await retomarSeEsperando(ev, entrada, conta.id, tenantId, fluxos, amb);
+    const retomado = await retomarSeEsperando(ev, entrada, conta.id, tenantId, fluxos, contatoDoDirect, amb);
     if (retomado) return retomado;
   }
 
   const escolha = escolherFluxo(fluxos, entrada.origem);
   if (!escolha) return { kind: "ignored", reason: "sem fluxo" };
+  // Comentário que entra num fluxo cria a pessoa (sem abrir a janela do direct); o que não casa não deixa rastro.
+  const contato = ev.event === "comment.received" ? contatoDaPessoa(amb.contatos, tenantId, entrada.igUserId, entrada.username, agora.toISOString(), await gravarEntradaPorComentario(entrada, escolha.flowId, tenantId, agora, amb)) : contatoDoDirect;
 
   // Reenvio primeiro: o run da 1ª tentativa casaria a trava de 24 h e o reenvio seria descartado.
   const existente = await amb.runs.porOrigem(tenantId, entrada.sourceId);
@@ -175,7 +183,7 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
     directsSent: 0,
   };
   try {
-    const r = await advance(escolha.def, estado, depsDoRun(tenantId, run, amb));
+    const r = await advance(escolha.def, estado, depsDoRun(tenantId, run, contato, amb));
     await gravar(tenantId, run.id, r, amb);
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {
@@ -190,10 +198,35 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
   }
 }
 
-function depsDoRun(tenantId: string, run: RunRow, amb: Ambiente): Deps {
+/**
+ * A ficha de quem escreveu. Erro aqui não derruba o atendimento: a ficha é registro, o motor é o que importa
+ * (o contato reaparece na próxima mensagem).
+ */
+async function gravarDirect(ev: MensagemRecebida, tenantId: string, agora: Date, amb: Ambiente): Promise<Ficha | null> {
+  const m = ev.message;
+  if (m.platform !== "instagram" || m.direction !== "incoming") return null;
+  try {
+    return await amb.contatos.aplicar(tenantId, { igUserId: m.sender.id, username: m.sender.username ?? null, seenAt: agora.toISOString(), dm: true });
+  } catch (e) {
+    console.error("[ig/ficha]", e instanceof Error ? e.message : "erro");
+    return null;
+  }
+}
+
+async function gravarEntradaPorComentario(entrada: Entrada, flowId: string, tenantId: string, agora: Date, amb: Ambiente): Promise<Ficha | null> {
+  try {
+    return await amb.contatos.aplicar(tenantId, { igUserId: entrada.igUserId, username: entrada.username, seenAt: agora.toISOString(), dm: false, sourceFlowId: flowId });
+  } catch (e) {
+    console.error("[ig/ficha]", e instanceof Error ? e.message : "erro");
+    return null;
+  }
+}
+
+function depsDoRun(tenantId: string, run: RunRow, contato: Contato, amb: Ambiente): Deps {
   return {
     transport: amb.transport,
     now: amb.now,
+    contato,
     link: (slug, ref) => amb.link(tenantId, slug, ref),
     step: (nodeId, out) => amb.runs.passo(tenantId, { flowId: run.flow_id, runId: run.id, nodeId, out }),
   };
@@ -214,13 +247,6 @@ async function gravar(tenantId: string, runId: string, r: Resultado, amb: Ambien
 
 const parar = (tenantId: string, runId: string, code: string, amb: Ambiente) =>
   amb.runs.atualizar(tenantId, runId, { status: "stopped", waiting: null, error_code: code, finished_at: amb.now().toISOString() });
-
-/** A resposta libera o bloco: toque no botão dele, ou uma das palavras (sem palavras = qualquer resposta). */
-function liberou(no: MessageNode & { wait: NonNullable<MessageNode["wait"]> }, runId: string, ev: MensagemRecebida): boolean {
-  if (ev.metadata?.postbackPayload === payloadDoBotao(runId, no.id)) return true;
-  const palavras = (no.wait.keywords ?? []).filter((k) => k.trim());
-  return palavras.length === 0 || matchKeyword(ev.message.text ?? "", palavras) !== null;
-}
 
 type Achado = { run: RunRow; reivindicado: boolean } | Desfecho | null;
 
@@ -249,7 +275,7 @@ async function acharRetomada(entrada: Entrada, igAccountId: string, tenantId: st
  * Retoma o run que esperava resposta desta pessoa. `null` = não havia o que
  * retomar (ou a resposta não liberou o bloco): o direct segue o caminho normal.
  */
-async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAccountId: string, tenantId: string, fluxos: readonly FluxoNoAr[], amb: Ambiente): Promise<Desfecho | null> {
+async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAccountId: string, tenantId: string, fluxos: readonly FluxoNoAr[], contato: Contato, amb: Ambiente): Promise<Desfecho | null> {
   const achado = await acharRetomada(entrada, igAccountId, tenantId, amb);
   if (!achado || "kind" in achado) return achado;
   const { run } = achado;
@@ -262,10 +288,14 @@ async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAcco
     await parar(tenantId, run.id, "flow_changed", amb);
     return null;
   }
+  let retomada = decidirRetomada(def, no, run.id, ev);
   if (!achado.reivindicado) {
-    if (!liberou({ ...no, wait: no.wait }, run.id, ev)) return null;
+    // Sem saída que case (ou `other` sem ligação): não reivindica, o run segue esperando.
+    if (!retomada) return null;
     if (!(await amb.runs.reivindicar(tenantId, run.id, nodeId, entrada.sourceId))) return { kind: "ignored", reason: "duplicado" };
   }
+  // Run já reivindicado por este direct e fluxo republicado no meio: termina por uma saída que existe.
+  retomada ??= { nodeId, out: saidaDeReserva(no) };
 
   const estado: RunState = {
     id: run.id,
@@ -279,9 +309,8 @@ async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAcco
     windowExpiresAt: entrada.windowExpiresAt,
     directsSent: 1,
   };
-  const retomada: Retomada = { nodeId, out: "replied" };
   try {
-    const r = await advance(def, estado, depsDoRun(tenantId, run, amb), retomada);
+    const r = await advance(def, estado, depsDoRun(tenantId, run, contato, amb), retomada);
     await gravar(tenantId, run.id, r, amb);
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {
