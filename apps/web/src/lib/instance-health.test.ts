@@ -162,4 +162,22 @@ assert.equal(silenceRisk(row({ last_event_at: daysAgo(-2) }), NOW), null);
   assert.equal(h.dailyCap, 1365);
 }
 
+// === Convalescença ===
+//
+// O número que o WhatsApp derrubou (401) e voltou: app.instance_caps devolve o
+// perfil "convalescente" por 14 dias (migração 20261105130000). É atenção — o
+// sistema recuou de propósito, e o lojista precisa saber por quê —, não risco:
+// risco é desconectado, pausa do breaker ou os 14 dias de silêncio.
+{
+  const h = deriveHealth(
+    row({ perfil: "convalescente", per_hour: 30, per_min: 4, admin_groups: 30, daily_cap: 60, warmup_graduated: true }),
+    NOW,
+  );
+  assert.equal(h.perfil, "convalescente");
+  assert.equal(h.tone, "atencao");
+  assert.equal(h.hourlyCap, 30);
+  assert.equal(h.minuteCap, 4);
+  assert.equal(h.dailyCap, 60);
+}
+
 console.log("instance-health tests passed");

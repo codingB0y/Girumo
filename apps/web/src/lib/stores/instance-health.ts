@@ -43,3 +43,33 @@ export async function avaliarDisjuntorSaidas(tenantId: string): Promise<Disjunto
   if (error) throw new Error(error.message);
   return data as DisjuntorSaidas;
 }
+
+/** O que `public.iniciar_convalescenca` devolve; `iniciada` = registrou (e notificou) agora. */
+export type Convalescenca = {
+  iniciada: boolean;
+  /** Quando não iniciou: sem_logout, instancia_desconhecida, nao_e_numero_dos_grupos, derrubada_antiga, ja_registrada. */
+  motivo?: string;
+  posts_pausados_ate?: string;
+  perfil_ate?: string;
+  cancelados?: number;
+};
+
+/**
+ * Convalescença do anti-ban (migração 20261105130000): o número que o WhatsApp
+ * derrubou (401) e voltou fica 48 h sem postar e 14 dias em ritmo reduzido,
+ * contados da derrubada. A RPC recebe o tenant e filtra por ele; o webhook a
+ * chama quando a sessão abre depois de um 401 de 30 min ou mais antes.
+ */
+export async function iniciarConvalescenca(
+  tenantId: string,
+  instanceId: string,
+  logoutAt: string,
+): Promise<Convalescenca> {
+  const { data, error } = await getSupabaseAdmin().rpc("iniciar_convalescenca", {
+    p_tenant: tenantId,
+    p_instance: instanceId,
+    p_logout_at: logoutAt,
+  });
+  if (error) throw new Error(error.message);
+  return data as Convalescenca;
+}

@@ -623,3 +623,8 @@ apps/web/supabase/migrations/20261108120000_rastreio_melhor_envio.sql
 # app.enqueue_broadcast, com travas de md5. Tudo em app.*: não muda a baseline. Conferir com
 # infra/tests/teto-posts-por-grupo-check.sql (reescrito) nos dois bancos.
 apps/web/supabase/migrations/20261105120000_teto_2_e_espacamento.sql
+# 05/11: convalescença — número derrubado pelo WhatsApp (401) que volta fica 48 h sem postar e 14 dias em
+# ritmo reduzido: app.convalescenca, public.iniciar_convalescenca (nova em public: baseline regerada),
+# perfil 'convalescente' em app.instance_caps e gate/motivo em app.claim_send_commands, com travas de md5.
+# Conferir com infra/tests/convalescenca-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261105130000_convalescenca.sql

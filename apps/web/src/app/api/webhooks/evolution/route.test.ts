@@ -182,7 +182,7 @@ test("erro do banco ao procurar a janela não vira 'sem oferta aberta'", async (
 });
 
 /** `connection.update` como a Evolution manda; `wuid` só vem quando a conexão abre. */
-const conexao = (state: string, wuid?: string, instancia = "gr_inst-1") =>
+const conexao = (state: string, wuid?: string, instancia = "gr_inst-1", statusReason?: number) =>
   new Request("http://girumo.test/api/webhooks/evolution", {
     method: "POST",
     headers: { "content-type": "application/json", "x-evolution-webhook-secret": SEGREDO },
@@ -190,7 +190,7 @@ const conexao = (state: string, wuid?: string, instancia = "gr_inst-1") =>
       event: "connection.update",
       instance: instancia,
       date_time: "2026-10-20T09:01:00.000Z",
-      data: { state, ...(wuid ? { wuid } : {}) },
+      data: { state, ...(wuid ? { wuid } : {}), ...(statusReason !== undefined ? { statusReason } : {}) },
     }),
   });
 
@@ -236,6 +236,102 @@ test("queda sem wuid (telefone nulo) não invalida", async () => {
 
   assert.equal(res.status, 200);
   assert.equal(escopo.pendingRevalidatedTags, undefined);
+});
+
+// Convalescença (05/11/2026): a sessão que o WhatsApp derrubou (401) e que volta horas depois.
+const MEU_CHIP = "5511999990000@s.whatsapp.net";
+const horasAtras = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+
+function cenarioDerrubada(lastLoggedOutAt: string | null) {
+  cenarioConexao();
+  respostas["GET /rest/v1/instances"] = {
+    status: 200,
+    corpo: [{ ...INSTANCIA, metadata: lastLoggedOutAt ? { lastLoggedOutAt } : {} }],
+  };
+  respostas["POST /rest/v1/rpc/iniciar_convalescenca"] = {
+    status: 200,
+    corpo: { iniciada: true, posts_pausados_ate: horasAtras(-22), perfil_ate: horasAtras(-312), cancelados: 0 },
+  };
+}
+
+const metadataGravado = () =>
+  chamadas
+    .filter((c) => c.metodo === "POST" && c.url.pathname === "/rest/v1/rpc/update_instance_status")
+    .map((c) => (c.corpo as { target_metadata: Record<string, unknown> }).target_metadata);
+
+const iniciouConvalescenca = () =>
+  chamadas
+    .filter((c) => c.metodo === "POST" && c.url.pathname === "/rest/v1/rpc/iniciar_convalescenca")
+    .map((c) => c.corpo);
+
+test("queda 401 guarda a hora da derrubada; queda passageira (428) não", async () => {
+  cenarioDerrubada(null);
+  let res = await naRequisicao(novoEscopo(), () => POST(conexao("close", undefined, "gr_inst-1", 401)));
+  assert.equal(res.status, 200);
+  const [derrubada] = metadataGravado();
+  assert.equal(derrubada.lastDisconnectReason, 401);
+  assert.equal(typeof derrubada.lastLoggedOutAt, "string");
+  assert.ok(Math.abs(Date.now() - new Date(derrubada.lastLoggedOutAt as string).getTime()) < 60_000);
+
+  cenarioDerrubada(null);
+  res = await naRequisicao(novoEscopo(), () => POST(conexao("close", undefined, "gr_inst-1", 428)));
+  assert.equal(res.status, 200);
+  const [passageira] = metadataGravado();
+  assert.equal(passageira.lastDisconnectReason, 428);
+  assert.equal("lastLoggedOutAt" in passageira, false, "428 não pode mexer na hora da derrubada");
+});
+
+test("o segundo 401 do mesmo episódio não move a hora (o pareamento emite outro 401 antes de abrir)", async () => {
+  const primeiro = horasAtras(3);
+  cenarioDerrubada(primeiro);
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("close", undefined, "gr_inst-1", 401)));
+
+  assert.equal(res.status, 200);
+  assert.equal("lastLoggedOutAt" in metadataGravado()[0], false, `metadata: ${JSON.stringify(metadataGravado())}`);
+});
+
+test("abrir 30 min ou mais depois da derrubada inicia a convalescença e esquece a hora", async () => {
+  const derrubadaEm = horasAtras(3);
+  cenarioDerrubada(derrubadaEm);
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("open", MEU_CHIP)));
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(iniciouConvalescenca(), [{ p_tenant: LOJA, p_instance: "inst-1", p_logout_at: derrubadaEm }]);
+  assert.equal(metadataGravado()[0].lastLoggedOutAt, null);
+});
+
+test("abrir minutos depois do 401 é pareamento: não inicia, mas esquece a hora", async () => {
+  cenarioDerrubada(new Date(Date.now() - 2 * 60_000).toISOString());
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("open", MEU_CHIP)));
+
+  assert.equal(res.status, 200);
+  assert.equal(iniciouConvalescenca().length, 0);
+  assert.equal(metadataGravado()[0].lastLoggedOutAt, null);
+});
+
+test("chip diferente do que caiu não entra em convalescença (é outro número na mesma vaga)", async () => {
+  cenarioDerrubada(horasAtras(3));
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("open", "5511988887777@s.whatsapp.net")));
+
+  assert.equal(res.status, 200);
+  assert.equal(iniciouConvalescenca().length, 0);
+  assert.equal(metadataGravado()[0].lastLoggedOutAt, null);
+});
+
+test("erro do banco na convalescença não derruba o webhook e guarda a hora para a próxima abertura", async () => {
+  const derrubadaEm = horasAtras(3);
+  cenarioDerrubada(derrubadaEm);
+  respostas["POST /rest/v1/rpc/iniciar_convalescenca"] = ERRO_DO_BANCO;
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("open", MEU_CHIP)));
+
+  assert.equal(res.status, 200);
+  assert.equal(iniciouConvalescenca().length, 1);
+  assert.equal(metadataGravado()[0].lastLoggedOutAt, derrubadaEm);
 });
 
 // Disjuntor do anti-ban (23/10/2026): só a saída voluntária faz o banco recontar.

@@ -20,7 +20,7 @@ import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { findOpenWindow, insertEntry } from "@/lib/stores/flash-offers";
 import { recordGroupMemberEvents } from "@/lib/stores/group-member-events";
-import { avaliarDisjuntorSaidas } from "@/lib/stores/instance-health";
+import { avaliarDisjuntorSaidas, iniciarConvalescenca } from "@/lib/stores/instance-health";
 import {
   applyAdminCountDelta,
   applyMemberCountDelta,
@@ -87,9 +87,29 @@ async function applyQrCode(instance: Instance, event: EvolutionWebhookEvent): Pr
   });
 }
 
+/**
+ * Códigos de queda em que o WhatsApp removeu a sessão: 401 (loggedOut) e 403
+ * (forbidden). É o que a restrição por spam produz (23/10, 03/11 e 05/11/2026);
+ * 428/408/515 são quedas passageiras que voltam sozinhas.
+ */
+const CODIGOS_DE_DERRUBADA: ReadonlySet<number> = new Set([401, 403]);
+
+/**
+ * Tempo entre o 401 e o `open` que separa uma derrubada de verdade do fluxo de
+ * pareamento, que também emite 401 antes de abrir. Em prod (60 dias): pareamento
+ * 0 a 15 min; derrubadas reais voltaram em 104 min a 3 dias.
+ */
+const DERRUBADA_MINUTOS_MINIMOS = 30;
+
+function horaDaDerrubada(metadata: Record<string, unknown>): string | null {
+  const v = metadata.lastLoggedOutAt;
+  return typeof v === "string" && Number.isFinite(new Date(v).getTime()) ? v : null;
+}
+
 async function applyConnectionUpdate(
   instance: Instance,
   event: EvolutionWebhookEvent,
+  chegouEm: Date,
 ): Promise<void> {
   if (event.event !== "connection.update") return;
 
@@ -106,14 +126,40 @@ async function applyConnectionUpdate(
   const lastDisconnectReason =
     status === "disconnected" ? (event.data.statusReason ?? null) : null;
 
+  // A HORA da derrubada (401/403) fica guardada até a sessão abrir de novo, para
+  // a convalescença saber há quanto tempo o número caiu. Só o PRIMEIRO 401 do
+  // episódio conta: o pareamento emite outro 401 segundos antes do `open`, e ele
+  // apagaria a hora real (05/11/2026: 401 às 10:59, 401 às 13:46, open às 13:49).
+  // `undefined` = não mexe na chave; o RPC mescla o metadata.
+  const derrubadaEm = horaDaDerrubada(instance.metadata);
+  let lastLoggedOutAt: string | null | undefined;
+  if (
+    status === "disconnected" &&
+    event.data.statusReason != null &&
+    CODIGOS_DE_DERRUBADA.has(event.data.statusReason) &&
+    !derrubadaEm
+  ) {
+    lastLoggedOutAt = chegouEm.toISOString();
+  }
+
   const phone = phoneFromWuid(event.data.wuid);
+
+  if (status === "connected" && derrubadaEm) {
+    // Antes de gravar "connected": se o banco falhar, a hora fica guardada e a
+    // próxima abertura tenta de novo (connection.update open chega em rajada).
+    const tratada = await iniciarConvalescencaSeDerrubado(instance, derrubadaEm, phone, chegouEm);
+    lastLoggedOutAt = tratada ? null : derrubadaEm;
+  }
 
   await updateInstanceStatus({
     tenantId: instance.tenant_id,
     instanceId: instance.id,
     status,
     phone,
-    metadata: { lastDisconnectReason },
+    metadata: {
+      lastDisconnectReason,
+      ...(lastLoggedOutAt !== undefined ? { lastLoggedOutAt } : {}),
+    },
   });
 
   // O link da bio esconde da página os links de WhatsApp que apontam para um número
@@ -137,6 +183,40 @@ async function applyConnectionUpdate(
     // banco falhar aqui, o 5xx faz a Evolution reentregar (o evento só é gravado depois) e a rodada
     // seguinte já não veria o telefone novo como novo — a invalidação da bio acima não pode ficar para trás.
     await conferirNumeroDoAtendimento(instance.tenant_id);
+  }
+}
+
+/**
+ * Convalescença (05/11/2026): o número que o WhatsApp derrubou e que voltou
+ * horas ou dias depois fica 48 h sem postar e 14 dias em ritmo reduzido
+ * (migração 20261105130000). Devolve `true` quando a hora da derrubada pode ser
+ * esquecida (tratada ou irrelevante) e `false` quando o banco falhou — aí ela
+ * fica guardada para a próxima abertura tentar de novo. Erro não derruba o
+ * webhook: a sessão abriu de verdade, e o status precisa refletir isso.
+ */
+async function iniciarConvalescencaSeDerrubado(
+  instance: Instance,
+  derrubadaEm: string,
+  phone: string | null,
+  agora: Date,
+): Promise<boolean> {
+  const minutos = (agora.getTime() - new Date(derrubadaEm).getTime()) / 60_000;
+  // Minutos entre o 401 e o open: é o pareamento, não uma derrubada.
+  if (minutos < DERRUBADA_MINUTOS_MINIMOS) return true;
+  // Chip diferente do que caiu: não é o número derrubado voltando, é outro
+  // número na mesma vaga. A convalescença não é dele.
+  if (phone && instance.phone && phone !== instance.phone) return true;
+  try {
+    const r = await iniciarConvalescenca(instance.tenant_id, instance.id, derrubadaEm);
+    if (r.iniciada) {
+      console.warn(
+        `[webhook/evolution] convalescença iniciada para ${instance.id}: derrubado em ${derrubadaEm}, posts pausados até ${r.posts_pausados_ate}, ritmo reduzido até ${r.perfil_ate}, ${r.cancelados} envios cancelados`,
+      );
+    }
+    return true;
+  } catch (e) {
+    console.error(`[webhook/evolution] convalescença não registrada para ${instance.id}:`, e);
+    return false;
   }
 }
 
@@ -377,7 +457,7 @@ export async function POST(req: Request) {
   }
 
   if (event.event === "connection.update") {
-    await applyConnectionUpdate(instance, event);
+    await applyConnectionUpdate(instance, event, chegouEm);
   }
 
   // Mensagem de grupo não entra em engine_events: são dezenas de milhares de
