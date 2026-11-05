@@ -85,20 +85,21 @@ declare
   t constant uuid := '1c080000-0000-4000-8000-000000000001';
   c public.ig_conversations;
 begin
-  c := public.ig_conversation_touch(t, 'z1', 'u1', null, 'ana', null, 'in', '2026-11-06T10:00:00Z', repeat('x', 300), 'waiting');
+  -- Datas relativas a agora: data no futuro é limitada a agora + 5 min e empataria as três.
+  c := public.ig_conversation_touch(t, 'z1', 'u1', null, 'ana', null, 'in', now() - interval '2 hours', repeat('x', 300), 'waiting');
   if c.unread_count <> 1 or c.status <> 'waiting' or c.last_direction <> 'in' then
     raise exception 'FALHOU: primeira mensagem recebida (%)', to_jsonb(c);
   end if;
   if char_length(c.last_preview) <> 200 then raise exception 'FALHOU: preview deveria ser cortado em 200'; end if;
 
-  c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, 'Ana B', 'in', '2026-11-06T10:05:00Z', 'segunda', null);
+  c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, 'Ana B', 'in', now() - interval '1 hour', 'segunda', null);
   if c.unread_count <> 2 then raise exception 'FALHOU: recebida soma 1 não lida (%)', c.unread_count; end if;
   if c.status <> 'waiting' then raise exception 'FALHOU: status nulo deveria manter a situação'; end if;
   if c.username <> 'ana' or c.display_name <> 'Ana B' then raise exception 'FALHOU: nome vazio mantém, novo grava'; end if;
 
   -- aviso atrasado: não anda para trás e saída não soma não lida.
-  c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'out', '2026-11-06T09:00:00Z', 'velha', 'open');
-  if c.last_message_at <> '2026-11-06T10:05:00Z'::timestamptz or c.last_preview <> 'segunda' or c.last_direction <> 'in' then
+  c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'out', now() - interval '3 hours', 'velha', 'open');
+  if c.last_message_at <> now() - interval '1 hour' or c.last_preview <> 'segunda' or c.last_direction <> 'in' then
     raise exception 'FALHOU: última mensagem andou para trás (%)', to_jsonb(c);
   end if;
   if c.unread_count <> 2 then raise exception 'FALHOU: saída não pode somar não lida'; end if;
