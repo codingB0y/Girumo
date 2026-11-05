@@ -160,7 +160,7 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
         <span className="sr-only">Responder {quem}</span>
         <textarea
           ref={campo}
-          rows={3}
+          rows={2}
           value={estado.podeEnviar ? texto : ""}
           disabled={!estado.podeEnviar || enviando}
           maxLength={LIMITE}
@@ -205,23 +205,20 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
           }}
         />
         {podeGerenciar && (
-          <button ref={botaoGerenciar} type="button" aria-expanded={painel === "gerenciar"} onClick={() => setPainel(painel === "gerenciar" ? null : "gerenciar")} className={BOTAO}>
+          <button ref={botaoGerenciar} type="button" aria-label="Gerenciar respostas" title="Gerenciar respostas" aria-expanded={painel === "gerenciar"} onClick={() => setPainel(painel === "gerenciar" ? null : "gerenciar")} className={cn(BOTAO, "w-11 justify-center px-0 lg:w-9")}>
             <Settings2 aria-hidden="true" className="h-4 w-4" />
-            Gerenciar respostas
           </button>
         )}
+        <button type="button" onClick={() => void enviar()} disabled={!pode} className={cn(BOTAO, "ml-auto border-cobalt-500 bg-cobalt-500 text-paper-0")}>
+          {enviando ? "Enviando…" : estado.rotuloEnviar}
+        </button>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 flex-1 text-12 text-slate-600">
           {estado.nota}
           {estado.podeEnviar && " Ao responder, o robô pausa aqui por 12 h."}
         </p>
-        <span className="flex items-center gap-2">
-          {estado.podeEnviar && <span className="font-data text-12 tabular-nums text-slate-600">{texto.length}/{LIMITE}</span>}
-          <button type="button" onClick={() => void enviar()} disabled={!pode} className={cn(BOTAO, "border-cobalt-500 bg-cobalt-500 text-paper-0")}>
-            {enviando ? "Enviando…" : estado.rotuloEnviar}
-          </button>
-        </span>
+        {estado.podeEnviar && <span className="font-data text-12 tabular-nums text-slate-600">{texto.length}/{LIMITE}</span>}
       </div>
     </div>
   );

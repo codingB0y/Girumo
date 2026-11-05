@@ -149,6 +149,19 @@ export function estadoDoCampo(janela: FioDaConversa["janela"], roboPausadoAte: s
   return { modo: "fechada", podeEnviar: false, rotuloEnviar: "Enviar", faixa: "Fechada pelo Instagram", nota: `${desde}${JANELA_FECHADA}`, pausadoAte };
 }
 
+/**
+ * Anexos que o Instagram não entrega como arquivo: a Zernio responde 404 ao pedir o link (medido em prod, 05/11/2026),
+ * e a mensagem vem sem texto. `template` é a mensagem com botão, inclusive o convite do robô.
+ */
+const SEM_ARQUIVO = new Map([
+  ["template", "Mensagem com botão"],
+  ["ephemeral", "Foto ou vídeo temporário: abre só no Instagram"],
+  ["unsupported_type", "Conteúdo que abre só no Instagram"],
+]);
+
+/** O texto que entra no lugar do link, ou `null` quando o anexo tem arquivo para abrir. */
+export const anexoSemArquivo = (tipo: string): string | null => SEM_ARQUIVO.get(tipo.toLowerCase()) ?? null;
+
 export const NOTA_DA_PAUSA = "Enquanto pausado, nenhuma palavra dela dispara fluxo e nenhum fluxo esperando a resposta dela anda. Volta sozinho depois de 12 h sem você responder, ou quando você clica em Resolver.";
 
 /** Linha de `ig_conversations` como o Realtime entrega (colunas do banco). Só o que a tela usa. */

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MarcaDoFio } from "./fio";
-import { atrasoComTeto, casaComFiltro, criarSequencia, linhaEhDaLoja, proximoAposRecarga, conversaDoRealtime, estadoDoCampo, itensDoFio, mesclarConversas, mesclarMensagens, proximoAoVivo, queryDaLista, rotuloDaBolha, textoDaMarca, tituloComContador, trocarPrimeiraPagina } from "./tela";
+import { anexoSemArquivo, atrasoComTeto, casaComFiltro, criarSequencia, linhaEhDaLoja, proximoAposRecarga, conversaDoRealtime, estadoDoCampo, itensDoFio, mesclarConversas, mesclarMensagens, proximoAoVivo, queryDaLista, rotuloDaBolha, textoDaMarca, tituloComContador, trocarPrimeiraPagina } from "./tela";
 import type { ConversaDto, MensagemDto } from "./tipos";
 
 const UTC = "UTC";
@@ -149,4 +149,11 @@ test("linha do Realtime de outra loja (ou sem loja conhecida) é ignorada", () =
   assert.equal(linhaEhDaLoja({ tenant_id: "b" }, "a"), false);
   assert.equal(linhaEhDaLoja({ tenant_id: "a" }, null), false);
   assert.equal(linhaEhDaLoja(null, "a"), false);
+});
+
+test("anexoSemArquivo: mensagem com botão e foto temporária não têm arquivo; foto, vídeo, áudio e nomes do objeto seguem com link", () => {
+  assert.equal(anexoSemArquivo("template"), "Mensagem com botão");
+  assert.match(anexoSemArquivo("EPHEMERAL") ?? "", /abre só no Instagram/);
+  assert.equal(anexoSemArquivo("unsupported_type"), "Conteúdo que abre só no Instagram");
+  for (const tipo of ["image", "video", "audio", "file", "share", "sticker", "constructor"]) assert.equal(anexoSemArquivo(tipo), null, tipo);
 });
