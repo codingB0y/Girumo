@@ -80,7 +80,10 @@ export default function PrivacidadePage() {
             <strong>Conversas do Instagram (add-on):</strong> não guardamos o histórico. Guardamos
             só o índice da lista, com a última mensagem (até 200 caracteres), e um registro, sem
             texto, do que o robô e a loja fizeram em cada conversa. As mensagens e os anexos ficam
-            na Zernio e no Instagram.
+            na Zernio e no Instagram. O índice some 12 meses depois da última mensagem e 30 dias
+            depois de a loja cancelar o add-on. Quando a loja apaga uma pessoa da lista, guardamos
+            por 12 meses só um código cifrado (não o @ nem o id) para não trazê-la de volta numa
+            nova importação.
           </li>
           <li>
             <strong>Uso da plataforma:</strong> registros de ações, envios, erros, data e hora, e

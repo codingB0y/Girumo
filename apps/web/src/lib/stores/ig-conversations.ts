@@ -90,20 +90,27 @@ export type ListFilters = {
   unread?: boolean;
   /** Trecho do @ ou do nome. */
   busca?: string;
-  /** `last_message_at` da última linha da página anterior. */
+  /** Opaco: vem de `nextCursor` da página anterior. */
   cursor?: string;
 };
 
 export type ConversationPage = { items: IgConversationRow[]; nextCursor: string | null };
 
-/** Busca vai dentro de um filtro `or` do PostgREST: tira o que quebraria a sintaxe (vírgula, parêntese, curinga). */
+/** Busca vai dentro de um filtro `or` do PostgREST: tira o que quebraria a sintaxe (vírgula, parêntese) e os curingas do `ilike`. */
 function termoSeguro(busca: string): string {
-  return busca.replace(/[^\p{L}\p{N}._ -]/gu, "").trim().slice(0, 60);
+  return busca.replace(/[^\p{L}\p{N}. -]/gu, "").trim().slice(0, 60);
+}
+
+/** Posição da próxima página; cursor inválido volta para o começo. */
+function posicao(cursor: string | undefined): number {
+  const n = cursor && /^\d{1,6}$/.test(cursor) ? Number(cursor) : 0;
+  return Number.isSafeInteger(n) ? n : 0;
 }
 
 /**
- * Lista por `last_message_at desc`, 50 por página. O cursor é o `last_message_at` da última linha: duas
- * mensagens no mesmo instante exato podem cair na borda de duas páginas (o ms basta para o Instagram).
+ * Lista por `last_message_at desc` (sem data por último) e `id`, 50 por página, paginando por posição: nenhuma
+ * linha some em empate de horário ou sem data. Conversa que sobe entre uma página e outra pode repetir: a tela
+ * descarta pelo `id`.
  */
 export async function listConversations(tenantId: string, filters: ListFilters = {}): Promise<ConversationPage> {
   let q = getSupabaseAdmin().from("ig_conversations").select(COLS).eq("tenant_id", tenantId);
@@ -111,13 +118,14 @@ export async function listConversations(tenantId: string, filters: ListFilters =
   if (filters.unread) q = q.gt("unread_count", 0);
   const termo = filters.busca ? termoSeguro(filters.busca) : "";
   if (termo) q = q.or(`username.ilike.%${termo}%,display_name.ilike.%${termo}%`);
-  if (filters.cursor) q = q.lt("last_message_at", filters.cursor);
-  const { data, error } = await q.order("last_message_at", { ascending: false, nullsFirst: false }).limit(PAGE_SIZE + 1);
+  const de = posicao(filters.cursor);
+  const { data, error } = await q
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .range(de, de + PAGE_SIZE);
   if (error) throw new Error(error.message);
   const linhas = (data as unknown as IgConversationRow[] | null) ?? [];
-  const items = linhas.slice(0, PAGE_SIZE);
-  const ultima = items[items.length - 1];
-  return { items, nextCursor: linhas.length > PAGE_SIZE && ultima?.last_message_at ? ultima.last_message_at : null };
+  return { items: linhas.slice(0, PAGE_SIZE), nextCursor: linhas.length > PAGE_SIZE ? String(de + PAGE_SIZE) : null };
 }
 
 export type ConversationPatch = Partial<{ status: StatusConversa; bot_paused_until: string | null; unread_count: number }>;

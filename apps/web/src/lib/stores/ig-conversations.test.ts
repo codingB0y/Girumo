@@ -65,23 +65,23 @@ test("ler por id, por id da Zernio e por pessoa filtram a loja; ausente volta nu
 
 test("listar: filtros, busca sem caractere de sintaxe, mais recentes primeiro, 51 pedidas para saber se há mais", async () => {
   pedidos.length = 0;
-  await listConversations("loja-a", { status: "waiting", unread: true, busca: "a(na),*%", cursor: "2026-11-05T00:00:00Z" });
+  await listConversations("loja-a", { status: "waiting", unread: true, busca: "a_(na),*%", cursor: "50" });
   assert.deepEqual(filtros(pedidos[0].url), {
     tenant_id: "eq.loja-a", status: "eq.waiting", unread_count: "gt.0",
     or: "(username.ilike.%ana%,display_name.ilike.%ana%)",
-    last_message_at: "lt.2026-11-05T00:00:00Z", order: "last_message_at.desc.nullslast", limit: "51",
+    order: "last_message_at.desc.nullslast,id.desc", offset: "50", limit: "51",
   });
   pedidos.length = 0;
-  await listConversations("loja-a");
-  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", order: "last_message_at.desc.nullslast", limit: "51" });
+  await listConversations("loja-a", { cursor: "1 or 1=1" });
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", order: "last_message_at.desc.nullslast,id.desc", offset: "0", limit: "51" });
 });
 
-test("listar: 51 linhas viram 50 mais o cursor da última; menos que isso não tem próxima", async () => {
-  const muitas = Array.from({ length: 51 }, (_, i) => ({ ...conversa, id: `c${i}`, last_message_at: `2026-11-06T10:${String(59 - i).padStart(2, "0")}:00Z` }));
+test("listar: 51 linhas viram 50 mais a posição da próxima página, mesmo com horário repetido ou sem data", async () => {
+  const muitas = Array.from({ length: 51 }, (_, i) => ({ ...conversa, id: `c${i}`, last_message_at: i >= 48 ? null : "2026-11-06T10:00:00Z" }));
   proxima = { status: 200, body: muitas };
   const pagina = await listConversations("loja-a");
   assert.equal(pagina.items.length, 50);
-  assert.equal(pagina.nextCursor, muitas[49].last_message_at);
+  assert.equal(pagina.nextCursor, "50");
   proxima = { status: 200, body: muitas.slice(0, 3) };
   assert.equal((await listConversations("loja-a")).nextCursor, null);
 });
