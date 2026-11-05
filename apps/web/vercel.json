@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/bling",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/ig-rotina",
+      "schedule": "23 * * * *"
     }
   ]
 }
