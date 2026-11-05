@@ -201,6 +201,9 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
         if (envio.ok) {
           directsSent += 1;
           deps.enviado?.(no.id, envio.messageId, no.type);
+        } else {
+          // Só o código: a loja assume do mesmo jeito, mas fica o rastro de que o texto não saiu.
+          console.error("[ig/motor] texto do Passar pra loja recusado:", envio.code);
         }
       }
       await deps.step(no.id, "next");

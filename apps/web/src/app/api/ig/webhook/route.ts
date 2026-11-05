@@ -31,6 +31,7 @@ function ambiente(): Ambiente {
     contatos: { ler: getContactByIgUserId, aplicar: applyContact },
     conversas: { ler: getConversationByIgUserId, tocar: touchConversation, evento: recordConversationEvent },
     atualizarConversa: updateConversation,
+    segurarAteTerminar: (tarefa) => after(() => tarefa),
   };
 }
 

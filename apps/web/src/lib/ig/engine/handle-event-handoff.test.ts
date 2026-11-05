@@ -68,3 +68,14 @@ test("sem conversa no índice (entrada por comentário): o texto sai pela respos
   assert.deepEqual(chamadas.map((c) => c.metodo), ["privateReply"]);
   assert.deepEqual(indice.atualizacoes, []);
 });
+
+test("banco lento passando do teto da ficha: o ack sai, mas a pausa fica segura até terminar e é gravada", async () => {
+  const { amb, indice, seguras } = ambiente({ fluxos: flux(comPergunta), esperando });
+  const atualizar = amb.atualizarConversa;
+  const lento: Ambiente = { ...amb, tetoDaFichaMs: 5, atualizarConversa: async (...a) => { await new Promise((ok) => setTimeout(ok, 60)); return atualizar(...a); } };
+  assert.equal((await tratarEvento(outra, lento)).kind, "handled");
+  assert.equal(indice.linhas.get("u1")?.status !== "waiting" || indice.linhas.get("u1")?.bot_paused_until !== diaSeguinte, true, "o ack saiu antes da pausa");
+  assert.equal(seguras.length, 1);
+  await Promise.all(seguras);
+  assert.deepEqual([indice.linhas.get("u1")?.status, indice.linhas.get("u1")?.bot_paused_until], ["waiting", diaSeguinte]);
+});

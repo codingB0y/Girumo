@@ -21,6 +21,7 @@ export function BlocoLoja({ node, issues, aoMudar }: Pick<FormProps, "issues" | 
         </span>
         <textarea
           aria-label={nome("Mensagem ao passar pra loja")}
+          aria-describedby={`${node.id}-ajuda-loja`}
           maxLength={MAX_TEXTO}
           value={node.text ?? ""}
           placeholder="Ex.: Já já alguém da loja te responde por aqui."
@@ -28,7 +29,7 @@ export function BlocoLoja({ node, issues, aoMudar }: Pick<FormProps, "issues" | 
           rows={3}
           className={`${campo} mt-1 resize-y`}
         />
-        <p className={ajuda}>Aqui o robô para: a conversa vai pra “Aguardando você” e ele fica 24 h sem responder essa pessoa. Quem responde é a loja, pela tela Conversas.</p>
+        <p id={`${node.id}-ajuda-loja`} className={ajuda}>Aqui o robô para: a conversa vai pra “Aguardando você” e ele fica 24 h sem responder essa pessoa. Quem responde é a loja, pela tela Conversas.</p>
       </label>
       <Problemas issues={issues.filter((i) => i.nodeId === node.id)} />
     </div>

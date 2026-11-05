@@ -41,6 +41,8 @@ export type Ambiente = {
   conversas: Conversas;
   /** `updateConversation` da store: o bloco Passar pra loja põe a conversa em Aguardando você e pausa o robô. */
   atualizarConversa: AtualizarConversa;
+  /** `after()` da rota: mantém a função viva até a tarefa acabar, mesmo depois do ack. */
+  segurarAteTerminar: (tarefa: Promise<unknown>) => void;
   /** Quanto o ack espera a gravação da ficha (padrão 1,5 s: a Zernio reenvia depois de 5 s). */
   tetoDaFichaMs?: number;
 };
@@ -140,7 +142,15 @@ function registrarNoIndice(ev: EventoZernio, d: Desfecho, ctx: Contexto, amb: Am
   const agora = amb.now();
   const { handoff } = ctx;
   // Depois da gravação do índice (que cria a conversa e decide a situação): o Passar pra loja tem a última palavra.
-  const depois = (gravando: Promise<unknown>) => (handoff ? gravando.then(() => passarPraLoja(amb.conversas, amb.atualizarConversa, tenantId, { ...handoff, agora })) : gravando);
+  // O teto da ficha solta o ack, mas a pausa do robô não pode morrer com a função: o run já está `done`, e a
+  // reentrega cai em "duplicado" sem refazer o handoff. Por isso ela também fica segura até terminar.
+  // ponytail: um direct que chegue no intervalo entre o envio e a pausa (milissegundos) ainda pode abrir outro fluxo.
+  const depois = (gravando: Promise<unknown>) => {
+    if (!handoff) return gravando;
+    const tudo = gravando.then(() => passarPraLoja(amb.conversas, amb.atualizarConversa, tenantId, { ...handoff, agora }));
+    amb.segurarAteTerminar(tudo);
+    return tudo;
+  };
   if (ev.event === "message.received" && ev.message.platform === "instagram" && ev.message.direction === "incoming") {
     ctx.pendentes.push(depois(registrarRecebida(amb.conversas, tenantId, ev, { igAccountId: ctx.igAccountId, envios: ctx.envios, pausado: ctx.pausado || handoff !== null, runId: d.kind === "handled" ? d.runId : null, agora, situacao: modoDaSituacao(d) })));
   } else if (ev.event === "comment.received" && d.kind === "handled") {
