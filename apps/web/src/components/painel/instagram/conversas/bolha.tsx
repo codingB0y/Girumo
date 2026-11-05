@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { rotuloDaBolha, horaCurta } from "@/lib/ig/conversas/tela";
+import { anexoSemArquivo, rotuloDaBolha, horaCurta } from "@/lib/ig/conversas/tela";
 import type { AnexoDto, MensagemDto } from "@/lib/ig/conversas/tipos";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +32,8 @@ function Anexo({ conversaId, mensagemId, anexo }: { conversaId: string; mensagem
     tinhaFoco.current = document.activeElement === e.currentTarget;
     setFalhou(true);
   };
+  const semArquivo = anexoSemArquivo(anexo.tipo);
+  if (semArquivo) return <span className="text-13 text-slate-600">{semArquivo}</span>;
   const src = `/api/ig/conversations/${conversaId}/media?mid=${encodeURIComponent(mensagemId)}&i=${anexo.indice}`;
   if (falhou || tipo === "outro") {
     return (

@@ -132,3 +132,9 @@ test("as abas têm Conversas primeiro (padrão, com contador), Fluxos em /fluxos
   assert.match(h, /href="\/painel\/instagram\/fluxos"/);
   assert.doesNotMatch(renderToStaticMarkup(createElement(AbasInstagram, { ativa: "pessoas" })), /aguardando você/);
 });
+
+test("bolha: anexo sem arquivo mostra o aviso, sem link nem pedido à rota de mídia", () => {
+  const h = renderToStaticMarkup(createElement(Bolha, { conversaId: "c1", mensagem: msg({ direcao: "out", autor: "robo", anexos: [{ indice: 0, tipo: "template", mime: null, nome: null }] }) }));
+  assert.match(h, /Mensagem com botão/);
+  assert.doesNotMatch(h, /Abrir anexo|\/media\?/);
+});
