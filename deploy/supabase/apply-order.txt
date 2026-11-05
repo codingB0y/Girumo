@@ -618,3 +618,8 @@ apps/web/supabase/migrations/20261107120000_ig_conversations_dedupe.sql
 # 05/11: Rastreio do pedido, PR 8 — melhorenvio_connections e melhorenvio_oauth_states (só service_role) e rastreio_gravar_marco.
 # Depois do PR 1 do Rastreio. Muda a baseline; conferir com infra/tests/rastreio-melhor-envio-check.sql.
 apps/web/supabase/migrations/20261108120000_rastreio_melhor_envio.sql
+# 05/11: teto de posts por grupo por dia 4 → 2 e 2 h de espaçamento no mesmo grupo (adiamento do available_at,
+# nunca corte): app.posts_por_grupo_dia, app.espacamento_entre_posts, app.ultimo_post_por_grupo e o corpo de
+# app.enqueue_broadcast, com travas de md5. Tudo em app.*: não muda a baseline. Conferir com
+# infra/tests/teto-posts-por-grupo-check.sql (reescrito) nos dois bancos.
+apps/web/supabase/migrations/20261105120000_teto_2_e_espacamento.sql

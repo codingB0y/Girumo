@@ -226,3 +226,12 @@ O PR 2 depende do PR 1 em prod (o wrapper precisa existir). Card do quadro: `tet
   cerca de 300 comandos por dia.
 - Onde exatamente cada rótulo de estado da entrega é renderizado e o componente da linha do compositor.
 - Estrutura dos testes, seguindo o TDD por tarefa do plano.
+
+## Revisão de 05/11/2026
+
+Depois da 2ª restrição do número da loja piloto (03/11), o Igor decidiu: **teto = 2** posts por grupo por dia e
+**2 h de espaçamento** entre dois posts no mesmo grupo. O espaçamento é adiamento (o comando nasce `queued` com
+`available_at` = último post + 2 h e `payload.adiadoPorEspacamento = true`), não corte: só o teto corta. A regra
+vive em `app.espacamento_entre_posts()` e `app.ultimo_post_por_grupo()`; o TypeScript continua sem guardar
+nenhum dos dois números. Migração `20261105120000_teto_2_e_espacamento.sql`; análise em
+`girumo-notas/docs/strategy/2026-11-03-restricao-moda-kids-analise.md`.

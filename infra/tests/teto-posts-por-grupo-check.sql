@@ -1,17 +1,19 @@
--- Conferência da migração 20261026120000_teto_posts_por_grupo.sql (teto de 4 posts por grupo por dia),
--- nos DOIS bancos, depois de aplicar. Rodar de apps\web:
+-- Conferência das migrações 20261026120000_teto_posts_por_grupo.sql (teto de posts por grupo por dia) e
+-- 20261105120000_teto_2_e_espacamento.sql (teto 2 e 2 h de espaçamento no mesmo grupo), nos DOIS bancos,
+-- depois de aplicar. Rodar de apps\web:
 --   supabase link --project-ref <ref> --yes      # dev wfjuwogxaupyadwhvoxy / prod nidoatbxaylrkcgbszns
 --   supabase db query --linked -o json -f ..\..\infra\tests\teto-posts-por-grupo-check.sql
 --
 -- Tudo o que escreve fica entre begin e rollback: uma loja descartável (7e70…), dois números
--- conectados, três grupos administrados e comandos de envio com created_at explícito. Cada bloco
+-- conectados, seis grupos administrados e comandos de envio com created_at explícito. Cada bloco
 -- levanta 'FALHOU: …' e o script para ali. Sem erro, a última linha traz r = 'ok'. Antes da migração o
 -- bloco 1 falha (função ausente) — é o RED.
 --
--- Blocos: 1 contrato (funções, ACL, teto, índice); 2 o que conta no dia; 3 trava e corpo de
--- app.enqueue_broadcast; 4 o 4º post sai e o 5º fica de fora (parcial); 5 todos de fora e o
+-- Blocos: 1 contrato (funções, ACL, teto 2, espaçamento 2 h, índice); 2 o que conta no dia; 3 trava e
+-- corpo de app.enqueue_broadcast; 4 o 2º post sai e o 3º fica de fora (parcial); 5 todos de fora e o
 -- recorrente; 6 aviso ao lotar; 7 oferta relâmpago agendada ignora o grupo de fora; 8 agendado cortado
--- inteiro avisa o lojista, e o corpo de app.promote_due_schedules.
+-- inteiro avisa o lojista, e o corpo de app.promote_due_schedules; 9 espaçamento: post no grupo com post
+-- há menos de 2 h é adiado (available_at), não cortado, e o adiado empurra o seguinte.
 --
 -- Os blocos 6 a 8 chamam public.enviar_avisos_lotou e app.promote_due_schedules(50), que varrem TODAS
 -- as lojas: o que fizerem com linhas reais é desfeito pelo rollback, e os asserts olham só a loja de
@@ -35,21 +37,26 @@ insert into public.instances (id, tenant_id, name, status, provider_instance_id,
   ('7e700000-0000-4000-8000-0000000000e2', '7e700000-0000-4000-8000-000000000001',
    'Check 2', 'connected', 'gr_check_teto_2', now());
 
--- Três grupos administrados com 100 membros.
+-- Seis grupos administrados com 100 membros.
 insert into public.groups (tenant_id, whatsapp_group_id, name, is_admin, members) values
   ('7e700000-0000-4000-8000-000000000001', 'teto-g1@g.us', 'Check grupo 1', true, 100),
   ('7e700000-0000-4000-8000-000000000001', 'teto-g2@g.us', 'Check grupo 2', true, 100),
-  ('7e700000-0000-4000-8000-000000000001', 'teto-g3@g.us', 'Check grupo 3', true, 100);
+  ('7e700000-0000-4000-8000-000000000001', 'teto-g3@g.us', 'Check grupo 3', true, 100),
+  ('7e700000-0000-4000-8000-000000000001', 'teto-g4@g.us', 'Check grupo 4', true, 100),
+  ('7e700000-0000-4000-8000-000000000001', 'teto-g5@g.us', 'Check grupo 5', true, 100),
+  ('7e700000-0000-4000-8000-000000000001', 'teto-g6@g.us', 'Check grupo 6', true, 100);
 
--- 1) Contrato: as três funções existem, nenhuma é chamável por anon/authenticated e todas por
---    service_role; as duas security definer têm search_path; teto = 4; índice do dia criado.
+-- 1) Contrato: as funções existem, nenhuma é chamável por anon/authenticated e todas por service_role;
+--    as que leem tabela são security definer com search_path; teto = 2; espaçamento = 2 h; índice do dia.
 do $$
 begin
   if exists (
     select 1
       from (values
         ('app.posts_por_grupo_dia()'),
+        ('app.espacamento_entre_posts()'),
         ('app.posts_hoje_por_grupo(uuid)'),
+        ('app.ultimo_post_por_grupo(uuid,timestamptz)'),
         ('public.posts_hoje_por_grupo(uuid)')) as f(sig)
       left join pg_proc p on p.oid = to_regprocedure(f.sig)
      where p.oid is null
@@ -57,23 +64,27 @@ begin
         or has_function_privilege('authenticated', p.oid, 'EXECUTE')
         or not has_function_privilege('service_role', p.oid, 'EXECUTE')
   ) then
-    raise exception 'FALHOU: funções do teto ausentes ou fora do contrato (execute só service_role)';
+    raise exception 'FALHOU: funções do teto/espaçamento ausentes ou fora do contrato (execute só service_role)';
   end if;
 
   if exists (
     select 1
       from (values
         ('app.posts_hoje_por_grupo(uuid)'),
+        ('app.ultimo_post_por_grupo(uuid,timestamptz)'),
         ('public.posts_hoje_por_grupo(uuid)')) as f(sig)
       join pg_proc p on p.oid = to_regprocedure(f.sig)
      where not p.prosecdef
         or not exists (select 1 from unnest(p.proconfig) as c(cfg) where c.cfg like 'search_path=%')
   ) then
-    raise exception 'FALHOU: as funções de contagem têm que ser security definer com search_path';
+    raise exception 'FALHOU: as funções de leitura têm que ser security definer com search_path';
   end if;
 
-  if app.posts_por_grupo_dia() <> 4 then
-    raise exception 'FALHOU: teto de posts por grupo por dia diferente de 4';
+  if app.posts_por_grupo_dia() <> 2 then
+    raise exception 'FALHOU: teto de posts por grupo por dia diferente de 2 (20261105120000)';
+  end if;
+  if app.espacamento_entre_posts() <> interval '2 hours' then
+    raise exception 'FALHOU: espaçamento entre posts no mesmo grupo diferente de 2 h';
   end if;
 
   if to_regclass('public.engine_commands_posts_dia_idx') is null then
@@ -81,8 +92,8 @@ begin
   end if;
 end $$;
 
--- 2) O que conta no dia (Brasília). g1: 2 done pelo número 1 + 1 queued pelo número 2 (os dois números
---    somam) = 3; canceled, failed e o done de 1 minuto antes da meia-noite não contam. g2: 1 processing.
+-- 2) O que conta no dia (Brasília). g1: 1 done pelo número 1; canceled, failed e o done de 1 minuto antes
+--    da meia-noite não contam. g2: 1 processing pelo número 2 (os dois números somam no total da loja).
 --    Também não contam: comando de outro tipo (refresh_status, tipo real já aposentado) done para g1, e
 --    comando de envio sem jid no payload (sem a chave ou com jid nulo).
 do $$
@@ -92,33 +103,31 @@ declare
   i2     constant uuid := '7e700000-0000-4000-8000-0000000000e2';
   v_hoje timestamptz := (date_trunc('day', now() at time zone 'America/Sao_Paulo')) at time zone 'America/Sao_Paulo';
 begin
-  insert into public.engine_commands (tenant_id, instance_id, type, status, payload, created_at) values
-    (t, i1, 'send_media',   'done',       jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '1 minute'),
-    (t, i1, 'send_media',   'done',       jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '1 minute'),
-    (t, i2, 'send_poll',    'queued',     jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '2 minutes'),
-    (t, i1, 'send_message', 'canceled',   jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '3 minutes'),
-    (t, i1, 'send_message', 'failed',     jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '3 minutes'),
-    (t, i1, 'send_media',   'done',       jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje - interval '1 minute'),
-    (t, i1, 'send_message', 'processing', jsonb_build_object('jid', 'teto-g2@g.us'), v_hoje + interval '1 minute'),
-    (t, i1, 'refresh_status', 'done',     jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '1 minute'),
-    (t, i1, 'send_message', 'done',       '{}'::jsonb,                               v_hoje + interval '1 minute'),
-    (t, i1, 'send_media',   'done',       '{"jid": null}'::jsonb,                    v_hoje + interval '1 minute');
+  insert into public.engine_commands (tenant_id, instance_id, type, status, payload, created_at, available_at) values
+    (t, i1, 'send_media',   'done',       jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '1 minute', v_hoje + interval '1 minute'),
+    (t, i1, 'send_message', 'canceled',   jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '3 minutes', v_hoje + interval '3 minutes'),
+    (t, i1, 'send_message', 'failed',     jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '3 minutes', v_hoje + interval '3 minutes'),
+    (t, i1, 'send_media',   'done',       jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje - interval '1 minute', v_hoje - interval '1 minute'),
+    (t, i2, 'send_message', 'processing', jsonb_build_object('jid', 'teto-g2@g.us'), v_hoje + interval '1 minute', v_hoje + interval '1 minute'),
+    (t, i1, 'refresh_status', 'done',     jsonb_build_object('jid', 'teto-g1@g.us'), v_hoje + interval '1 minute', v_hoje + interval '1 minute'),
+    (t, i1, 'send_message', 'done',       '{}'::jsonb,                               v_hoje + interval '1 minute', v_hoje + interval '1 minute'),
+    (t, i1, 'send_media',   'done',       '{"jid": null}'::jsonb,                    v_hoje + interval '1 minute', v_hoje + interval '1 minute');
 
   if (select jsonb_object_agg(jid, posts) from app.posts_hoje_por_grupo(t))
-     is distinct from '{"teto-g1@g.us": 3, "teto-g2@g.us": 1}'::jsonb then
+     is distinct from '{"teto-g1@g.us": 1, "teto-g2@g.us": 1}'::jsonb then
     raise exception 'FALHOU: contagem do dia errada';
   end if;
   if public.posts_hoje_por_grupo(t)
-     is distinct from '{"teto": 4, "grupos": {"teto-g1@g.us": 3, "teto-g2@g.us": 1}}'::jsonb then
+     is distinct from '{"teto": 2, "grupos": {"teto-g1@g.us": 1, "teto-g2@g.us": 1}}'::jsonb then
     raise exception 'FALHOU: leitura da tela errada';
   end if;
-  if public.posts_hoje_por_grupo(gen_random_uuid()) is distinct from '{"teto": 4, "grupos": {}}'::jsonb then
+  if public.posts_hoje_por_grupo(gen_random_uuid()) is distinct from '{"teto": 2, "grupos": {}}'::jsonb then
     raise exception 'FALHOU: loja sem post deveria devolver grupos vazio';
   end if;
 end $$;
 
 -- 3) Trava: app.enqueue_broadcast pega o advisory lock da loja ANTES de contar (dois posts juntos não
---    leem o mesmo "3"), o corpo é o desta migração (md5 normalizado, como na trava da migração) e o
+--    leem o mesmo "1"), o corpo é o de 20261105120000 (md5 normalizado, como na trava da migração) e o
 --    execute segue só do service_role.
 do $$
 declare
@@ -137,8 +146,8 @@ begin
     raise exception 'FALHOU: app.enqueue_broadcast tem que pegar pg_advisory_xact_lock antes de contar (posts_hoje_por_grupo)';
   end if;
   if md5(btrim(regexp_replace(v_limpo, '\s+', ' ', 'g')))
-       <> '1f4dd5f929572998777a1fd9c4901398' then
-    raise exception 'FALHOU: corpo de app.enqueue_broadcast diferente do desta migração';
+       <> '6cd933f1e73c6e9a71651d37241f621e' then
+    raise exception 'FALHOU: corpo de app.enqueue_broadcast diferente do de 20261105120000';
   end if;
   if has_function_privilege('anon', v_oid, 'EXECUTE')
      or has_function_privilege('authenticated', v_oid, 'EXECUTE')
@@ -147,14 +156,15 @@ begin
   end if;
 end $$;
 
--- 4) Parcial. Do bloco 2: g1 = 3, g2 = 1. O post A para g1 sai (g1 = 4). O post B para g1 e g2 com
---    @todos sai só para g2: g1 ganha, na mesma rodada, o comando canceled com foraDoTeto e o motivo
+-- 4) Parcial. Do bloco 2: g1 = 1, g2 = 1. O post A para g1 sai (g1 = 2, o teto). O post B para g1 e g2
+--    com @todos sai só para g2: g1 ganha, na mesma rodada, o comando canceled com foraDoTeto e o motivo
 --    (mesma dedupe_key, mesmo número, mesmo payload); o post fica queued com total 2 (inclui o de fora).
---    A linha de fora não conta: g1 segue em 4.
+--    A linha de fora não conta: g1 segue em 2. (O espaçamento pode adiar o comando de g2 se o check rodar
+--    antes das 02:01 de Brasília; o bloco 9 é quem prova o adiamento, com âncoras explícitas.)
 do $$
 declare
   t        constant uuid := '7e700000-0000-4000-8000-000000000001';
-  v_motivo constant text := 'Não enviado: este grupo já recebeu 4 posts hoje (limite do anti-ban). Volta à meia-noite.';
+  v_motivo constant text := 'Não enviado: este grupo já recebeu 2 posts hoje (limite do anti-ban). Volta à meia-noite.';
   v_id     uuid;
   b        public.broadcasts;
   c1       public.engine_commands;
@@ -165,7 +175,7 @@ begin
   returning id into v_id;
   b := app.enqueue_broadcast(t, v_id);
   if b.status is distinct from 'queued' or b.total <> 1 then
-    raise exception 'FALHOU: post A (4º do g1) deveria sair: status %, total %', b.status, b.total;
+    raise exception 'FALHOU: post A (2º do g1) deveria sair: status %, total %', b.status, b.total;
   end if;
   if exists (select 1 from public.engine_commands c
              where c.origin_id = v_id and c.origin_run_id = b.run_id
@@ -196,28 +206,31 @@ begin
     raise exception 'FALHOU: g1 (no teto) deveria ganhar comando canceled com foraDoTeto e o motivo: status %, error %',
       c1.status, c1.error;
   end if;
+  if c1.payload ? 'adiadoPorEspacamento' then
+    raise exception 'FALHOU: grupo no teto é cortado, nunca adiado';
+  end if;
   if c1.dedupe_key is distinct from 'bc:' || v_id::text || ':' || b.run_id::text || ':teto-g1@g.us'
      or c1.instance_id is distinct from c2.instance_id
      or c1.origin_kind is distinct from 'broadcast' or c1.type is distinct from c2.type
-     or (c1.payload - 'foraDoTeto') is distinct from jsonb_set(c2.payload, '{jid}', '"teto-g1@g.us"') then
+     or (c1.payload - 'foraDoTeto') is distinct from jsonb_set(c2.payload - 'adiadoPorEspacamento', '{jid}', '"teto-g1@g.us"') then
     raise exception 'FALHOU: o comando de fora deveria ter a dedupe_key, o número, a origem e o payload de sempre';
   end if;
 
   if (select jsonb_object_agg(jid, posts) from app.posts_hoje_por_grupo(t))
-     is distinct from '{"teto-g1@g.us": 4, "teto-g2@g.us": 2}'::jsonb then
-    raise exception 'FALHOU: depois do parcial, g1 deveria seguir em 4 (a linha de fora não conta) e g2 ir a 2';
+     is distinct from '{"teto-g1@g.us": 2, "teto-g2@g.us": 2}'::jsonb then
+    raise exception 'FALHOU: depois do parcial, g1 deveria seguir em 2 (a linha de fora não conta) e g2 ir a 2';
   end if;
 end $$;
 
--- 5) Todos de fora. O post C só para g1 (em 4) não sai: vira failed com o erro do teto, numa rodada nova
+-- 5) Todos de fora. O post C só para g1 (em 2) não sai: vira failed com o erro do teto, numa rodada nova
 --    (run_id, running_since) com a linha canceled/foraDoTeto, para a coluna do post mostrar "limite do
 --    dia". Enfileirar de novo o mesmo post (failed é aceito, como no recorrente do dia seguinte) abre
 --    outra rodada com outra linha de fora.
 do $$
 declare
   t        constant uuid := '7e700000-0000-4000-8000-000000000001';
-  v_motivo constant text := 'Não enviado: este grupo já recebeu 4 posts hoje (limite do anti-ban). Volta à meia-noite.';
-  v_erro   constant text := 'Nenhum grupo recebeu: todos já tinham 4 posts hoje. O limite volta à meia-noite.';
+  v_motivo constant text := 'Não enviado: este grupo já recebeu 2 posts hoje (limite do anti-ban). Volta à meia-noite.';
+  v_erro   constant text := 'Nenhum grupo recebeu: todos já tinham 2 posts hoje. O limite volta à meia-noite.';
   v_id     uuid;
   v_run    uuid;
   b        public.broadcasts;
@@ -251,15 +264,15 @@ begin
     raise exception 'FALHOU: a rodada nova do post C deveria ter uma linha de fora';
   end if;
 
-  if (select h.posts from app.posts_hoje_por_grupo(t) h where h.jid = 'teto-g1@g.us') <> 4 then
+  if (select h.posts from app.posts_hoje_por_grupo(t) h where h.jid = 'teto-g1@g.us') <> 2 then
     raise exception 'FALHOU: as linhas de fora do post C não deveriam contar no g1';
   end if;
 end $$;
 
--- 6) Aviso ao lotar segue a regra. g3 recebe 4 posts e lota; a varredura cria o "Aviso ao lotar · …",
---    que volta failed com o erro do teto, e g3 fica com aviso_lotou_em (o aviso não sai depois: aceito
---    na spec). O retorno de enviar_avisos_lotou conta avisos enfileirados de TODAS as lojas, então o
---    assert é sobre o aviso desta loja, não sobre o número devolvido.
+-- 6) Aviso ao lotar segue a regra. g3 recebe 2 posts (o 2º sai adiado pelo espaçamento, mas conta) e lota;
+--    a varredura cria o "Aviso ao lotar · …", que volta failed com o erro do teto, e g3 fica com
+--    aviso_lotou_em (o aviso não sai depois: aceito na spec). O retorno de enviar_avisos_lotou conta
+--    avisos enfileirados de TODAS as lojas, então o assert é sobre o aviso desta loja, não sobre o número.
 -- A varredura trava linhas reais até o rollback (em prod também): sem lock em 5 s, ou passando de
 -- 2 min, aborta em vez de segurar o worker.
 set local lock_timeout = '5s';
@@ -268,13 +281,13 @@ set local statement_timeout = '2min';
 do $$
 declare
   t      constant uuid := '7e700000-0000-4000-8000-000000000001';
-  v_erro constant text := 'Nenhum grupo recebeu: todos já tinham 4 posts hoje. O limite volta à meia-noite.';
+  v_erro constant text := 'Nenhum grupo recebeu: todos já tinham 2 posts hoje. O limite volta à meia-noite.';
   v_id   uuid;
   v_plano uuid;
   b      public.broadcasts;
   i      integer;
 begin
-  for i in 1..4 loop
+  for i in 1..2 loop
     insert into public.broadcasts (tenant_id, name, message, group_ids, status)
     values (t, 'Check teto g3 ' || i, 'oferta', array['teto-g3@g.us'], 'draft')
     returning id into v_id;
@@ -308,7 +321,7 @@ begin
   end if;
   select * into b from public.broadcasts x where x.tenant_id = t and x.name like 'Aviso ao lotar · %';
   if b.status is distinct from 'failed' or b.error is distinct from v_erro then
-    raise exception 'FALHOU: o aviso ao lotar no g3 (em 4) deveria virar failed com o erro do teto: status %, error %',
+    raise exception 'FALHOU: o aviso ao lotar no g3 (em 2) deveria virar failed com o erro do teto: status %, error %',
       b.status, b.error;
   end if;
   if exists (select 1 from public.engine_commands c
@@ -323,15 +336,15 @@ begin
       where g.tenant_id = t and g.whatsapp_group_id = 'teto-g3@g.us') is null then
     raise exception 'FALHOU: g3 deveria ficar com aviso_lotou_em (a varredura carimba mesmo sem envio)';
   end if;
-  if (select h.posts from app.posts_hoje_por_grupo(t) h where h.jid = 'teto-g3@g.us') <> 4 then
-    raise exception 'FALHOU: g3 deveria seguir em 4 depois do aviso de fora';
+  if (select h.posts from app.posts_hoje_por_grupo(t) h where h.jid = 'teto-g3@g.us') <> 2 then
+    raise exception 'FALHOU: g3 deveria seguir em 2 depois do aviso de fora';
   end if;
 end $$;
 
--- 7) Oferta relâmpago agendada, corte parcial. Depois do bloco 6: g1 = 4, g2 = 2, g3 = 4, e a loja tem
---    plano (a assinatura do bloco 6). O post D para g1 e g2 tem uma oferta relâmpago em draft e um
---    agendamento vencido há 1 minuto. promote_due_schedules(50) enfileira o D (sai só para g2: g1 ganha a
---    linha de fora), abre a oferta e ela escuta só o g2. Corte parcial não avisa o lojista.
+-- 7) Oferta relâmpago agendada, corte parcial. Depois do bloco 6: g1 = 2, g4 = 0, e a loja tem plano (a
+--    assinatura do bloco 6). O post D para g1 e g4 tem uma oferta relâmpago em draft e um agendamento
+--    vencido há 1 minuto. promote_due_schedules(50) enfileira o D (sai só para g4: g1 ganha a linha de
+--    fora), abre a oferta e ela escuta só o g4. Corte parcial não avisa o lojista.
 do $$
 declare
   t    constant uuid := '7e700000-0000-4000-8000-000000000001';
@@ -345,7 +358,7 @@ begin
   end if;
 
   insert into public.broadcasts (tenant_id, name, message, group_ids, status)
-  values (t, 'Check teto D', 'oferta', array['teto-g1@g.us', 'teto-g2@g.us'], 'draft')
+  values (t, 'Check teto D', 'oferta', array['teto-g1@g.us', 'teto-g4@g.us'], 'draft')
   returning id into v_id;
   insert into public.flash_offers (tenant_id, name, slots, broadcast_id)
   values (t, 'Check teto relâmpago', 3, v_id)
@@ -365,22 +378,22 @@ begin
   select string_agg(g.whatsapp_group_id, ',' order by g.whatsapp_group_id) into v_got
   from public.flash_offer_groups g
   where g.tenant_id = t and g.offer_id = v_fo;
-  if v_got is distinct from 'teto-g2@g.us' then
-    raise exception 'FALHOU: a oferta deveria escutar só o g2 (o g1 ficou de fora do post), escuta: %', v_got;
+  if v_got is distinct from 'teto-g4@g.us' then
+    raise exception 'FALHOU: a oferta deveria escutar só o g4 (o g1 ficou de fora do post), escuta: %', v_got;
   end if;
   if exists (select 1 from public.notifications n where n.tenant_id = t and n.type = 'teto_posts_grupo') then
     raise exception 'FALHOU: corte parcial não deveria avisar o lojista';
   end if;
 end $$;
 
--- 8) Agendado cortado inteiro. Depois do bloco 7: g1 = 4. O post 'Check teto' só para g1, agendado, vira
+-- 8) Agendado cortado inteiro. Depois do bloco 7: g1 = 2. O post 'Check teto' só para g1, agendado, vira
 --    failed e o lojista ganha exatamente um aviso (rodar de novo não repete: o agendamento ficou done).
 --    Um segundo agendamento do mesmo post, que falha por outro motivo (sem número provisionado) e deixa
 --    no post a rodada de fora do teto, não avisa de novo.
 do $$
 declare
   t       constant uuid := '7e700000-0000-4000-8000-000000000001';
-  v_corpo constant text := 'O post agendado "Check teto" não saiu: todos os grupos já tinham recebido 4 posts hoje. O limite volta à meia-noite.';
+  v_corpo constant text := 'O post agendado "Check teto" não saiu: todos os grupos já tinham recebido 2 posts hoje. O limite volta à meia-noite.';
   v_id    uuid;
   v_run   uuid;
   v_oid   oid := to_regprocedure('app.promote_due_schedules(integer)');
@@ -431,19 +444,104 @@ begin
   if (select count(*) from public.notifications n where n.tenant_id = t and n.type = 'teto_posts_grupo') <> 1 then
     raise exception 'FALHOU: falha por falta de número não deveria virar aviso de teto';
   end if;
+  -- Devolve o número para o bloco 9.
+  update public.instances set provider_instance_id = 'gr_check_teto_' || right(id::text, 1) where tenant_id = t;
 
-  -- O corpo de app.promote_due_schedules é o desta migração (md5 normalizado, como no bloco 3) e o
-  -- execute segue só do service_role.
+  -- O corpo de app.promote_due_schedules é o de 20261026120000 (md5 normalizado, como no bloco 3) e o
+  -- execute segue só do service_role. Este PR não mexe nele.
   select p.prosrc into v_src from pg_proc p where p.oid = v_oid;
   if v_src is null
      or md5(btrim(regexp_replace(regexp_replace(v_src, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
           <> '4127cefa0ac99b2ecddddd416a62cdfc' then
-    raise exception 'FALHOU: corpo de app.promote_due_schedules diferente do desta migração';
+    raise exception 'FALHOU: corpo de app.promote_due_schedules diferente do de 20261026120000';
   end if;
   if has_function_privilege('anon', v_oid, 'EXECUTE')
      or has_function_privilege('authenticated', v_oid, 'EXECUTE')
      or not has_function_privilege('service_role', v_oid, 'EXECUTE') then
     raise exception 'FALHOU: execute de app.promote_due_schedules deveria ser só do service_role';
+  end if;
+end $$;
+
+-- 9) Espaçamento. g5 recebeu um post há 30 min e g6 recebeu o último ontem (26 h atrás). O post E para g5
+--    e g6 sai para os dois, mas o comando de g5 nasce com available_at = post anterior + 2 h (≈ daqui a
+--    90 min) e adiadoPorEspacamento, e o de g6 com available_at = agora, sem a marca. Teto e espaçamento
+--    convivem: g5 fica com 2 posts hoje (o de 30 min atrás e o E adiado), então o post F para g5 fica de
+--    fora pelo teto, sem adiamento. O encadeamento é provado em g6: depois do E a âncora de g6 é agora;
+--    o post G para g6 (2º de hoje) nasce adiado para agora + 2 h, e a âncora passa a ser o G — o
+--    espaçamento olha a hora em que o post sai, não a hora em que foi criado.
+do $$
+declare
+  t      constant uuid := '7e700000-0000-4000-8000-000000000001';
+  i1     constant uuid := '7e700000-0000-4000-8000-0000000000e1';
+  v_id   uuid;
+  b      public.broadcasts;
+  c5     public.engine_commands;
+  c6     public.engine_commands;
+  cg     public.engine_commands;
+  v_anc  timestamptz;
+begin
+  insert into public.engine_commands (tenant_id, instance_id, type, status, payload, created_at, available_at) values
+    (t, i1, 'send_media', 'done', jsonb_build_object('jid', 'teto-g5@g.us'), now() - interval '30 minutes', now() - interval '30 minutes'),
+    (t, i1, 'send_media', 'done', jsonb_build_object('jid', 'teto-g6@g.us'), now() - interval '26 hours', now() - interval '26 hours');
+
+  -- Só g5 está dentro das 2 h.
+  if (select string_agg(u.jid, ',' order by u.jid) from app.ultimo_post_por_grupo(t, now() - app.espacamento_entre_posts()) u
+      where u.jid in ('teto-g5@g.us', 'teto-g6@g.us')) is distinct from 'teto-g5@g.us' then
+    raise exception 'FALHOU: ultimo_post_por_grupo deveria ver só g5 nas últimas 2 h';
+  end if;
+
+  insert into public.broadcasts (tenant_id, name, message, group_ids, status)
+  values (t, 'Check espaçamento E', 'oferta', array['teto-g5@g.us', 'teto-g6@g.us'], 'draft')
+  returning id into v_id;
+  b := app.enqueue_broadcast(t, v_id);
+  if b.status is distinct from 'queued' or b.total <> 2 or b.error is not null then
+    raise exception 'FALHOU: post E deveria ficar queued com total 2: status %, total %, error %', b.status, b.total, b.error;
+  end if;
+
+  select * into c5 from public.engine_commands c where c.origin_id = v_id and c.origin_run_id = b.run_id and c.payload->>'jid' = 'teto-g5@g.us';
+  select * into c6 from public.engine_commands c where c.origin_id = v_id and c.origin_run_id = b.run_id and c.payload->>'jid' = 'teto-g6@g.us';
+  if c5.status is distinct from 'queued' or c5.payload->>'adiadoPorEspacamento' is distinct from 'true'
+     or c5.available_at < now() + interval '89 minutes' or c5.available_at > now() + interval '91 minutes'
+     or c5.error is not null or c5.payload ? 'foraDoTeto' then
+    raise exception 'FALHOU: g5 (post há 30 min) deveria sair queued, adiado para ≈ +90 min: status %, available_at %, payload %',
+      c5.status, c5.available_at, c5.payload;
+  end if;
+  if c6.status is distinct from 'queued' or c6.payload ? 'adiadoPorEspacamento'
+     or c6.available_at > now() + interval '1 second' then
+    raise exception 'FALHOU: g6 (último post ontem) deveria sair agora, sem adiamento: available_at %, payload %', c6.available_at, c6.payload;
+  end if;
+
+  -- Teto e espaçamento convivem: g5 já tem 2 posts hoje (o de 30 min atrás e o E adiado); o post F fica
+  -- de fora pelo teto, sem adiamento.
+  insert into public.broadcasts (tenant_id, name, message, group_ids, status)
+  values (t, 'Check espaçamento F', 'oferta', array['teto-g5@g.us'], 'draft')
+  returning id into v_id;
+  b := app.enqueue_broadcast(t, v_id);
+  if b.status is distinct from 'failed' then
+    raise exception 'FALHOU: post F (g5 no teto) deveria virar failed: status %', b.status;
+  end if;
+
+  -- Encadeamento: a âncora de g6 agora é o E (agora); o post G para g6 nasce adiado para agora + 2 h e é
+  -- o 2º post de g6 hoje (o de ontem não conta no teto).
+  select u.ultimo into v_anc from app.ultimo_post_por_grupo(t, now() - interval '1 minute') u where u.jid = 'teto-g6@g.us';
+  if v_anc is null or v_anc < now() - interval '1 second' or v_anc > now() + interval '1 second' then
+    raise exception 'FALHOU: a âncora de g6 deveria ser o post E (agora): %', v_anc;
+  end if;
+  insert into public.broadcasts (tenant_id, name, message, group_ids, status)
+  values (t, 'Check espaçamento G', 'oferta', array['teto-g6@g.us'], 'draft')
+  returning id into v_id;
+  b := app.enqueue_broadcast(t, v_id);
+  select * into cg from public.engine_commands c where c.origin_id = v_id and c.origin_run_id = b.run_id;
+  if b.status is distinct from 'queued' or cg.status is distinct from 'queued'
+     or cg.payload->>'adiadoPorEspacamento' is distinct from 'true'
+     or cg.available_at < now() + interval '119 minutes' or cg.available_at > now() + interval '121 minutes' then
+    raise exception 'FALHOU: post G (g6 logo depois do E) deveria sair queued, adiado para ≈ +120 min: status %, available_at %, payload %',
+      b.status, cg.available_at, cg.payload;
+  end if;
+  -- E a âncora de g6 passa a ser o G (daqui a 2 h): o próximo encadearia atrás dele.
+  select u.ultimo into v_anc from app.ultimo_post_por_grupo(t, now() - interval '1 minute') u where u.jid = 'teto-g6@g.us';
+  if v_anc < now() + interval '119 minutes' or v_anc > now() + interval '121 minutes' then
+    raise exception 'FALHOU: a âncora de g6 deveria ser o G adiado (≈ +120 min): %', v_anc;
   end if;
 end $$;
 
