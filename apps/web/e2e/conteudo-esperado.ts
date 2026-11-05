@@ -287,6 +287,18 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     },
   },
 
+  "/painel/instagram/pessoas": {
+    // Rótulo dos números, que só monta depois do GET de stats; o cabeçalho aparece também carregando.
+    ancora: /Conversaram nas últimas 24 h/,
+    indisponivel: instagramIndisponivel,
+    lista: {
+      api: "/api/ig/contacts",
+      // A API devolve `{ pessoas: [...] }`; a tabela mostra o @ de cada uma.
+      marca: (j) => primeiroTexto((j as { pessoas?: unknown } | null)?.pessoas, "username"),
+      vazio: /Ninguém ainda/i,
+    },
+  },
+
   "/painel/instagram/novo": {
     // NAO "Novo fluxo": casa com o breadcrumb e com o estado "nao liberado".
     ancora: /Escolha por onde começar/,
