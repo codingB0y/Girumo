@@ -63,14 +63,15 @@ grant select, insert, update, delete on public.melhorenvio_connections, public.m
 
 -- 2) Gravar o marco do Melhor Envio num pedido já existente (o Melhor Envio não cria pedido). Mesma trava de
 --    linha e mesma regra da rastreio_gravar_pedido; data própria (delivered_at / updated_at da etiqueta), nunca
---    no futuro. Devolve o mesmo formato da rastreio_gravar_pedido; null quando o pedido não é daquela loja.
+--    no futuro nem antes da etapa atual. Devolve o mesmo formato da rastreio_gravar_pedido; null quando o pedido
+--    não é daquela loja.
 create or replace function public.rastreio_gravar_marco(p_tenant uuid, p_order uuid, p_etapa text, p_em timestamptz,
                                                         p_status_raw text)
 returns jsonb language plpgsql volatile security definer set search_path to 'public', 'app'
 as $$
 declare
   v_linha public.tracking_orders;
-  v_em    timestamptz := least(coalesce(p_em, now()), now());
+  v_em    timestamptz;
   v_mudou boolean;
 begin
   if p_tenant is null or p_order is null then raise exception 'rastreio_gravar_marco: loja e pedido obrigatórios'; end if;
@@ -81,6 +82,9 @@ begin
   -- A mesma trava e a mesma regra do rastreio_gravar_pedido: quem chega depois espera e lê a etapa gravada.
   select * into v_linha from public.tracking_orders t where t.tenant_id = p_tenant and t.id = p_order for update;
   if not found then return null; end if;
+  -- Nunca no futuro nem antes da etapa atual: data velha (ou lixo) não vence o purge_after na hora nem
+  -- embaralha events.
+  v_em := greatest(least(coalesce(p_em, now()), now()), v_linha.etapa_at);
   v_mudou := app.rastreio_etapa_pode_mudar(v_linha.etapa, p_etapa);
   if v_mudou then
     update public.tracking_orders t set etapa = p_etapa, etapa_at = v_em, status_raw = p_status_raw, updated_at = now(),

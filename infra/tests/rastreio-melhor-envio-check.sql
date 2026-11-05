@@ -66,6 +66,7 @@ do $$
 declare
   ta constant uuid := '7a5c0000-0000-4000-8000-00000000000a';
   tb constant uuid := '7a5c0000-0000-4000-8000-00000000000b';
+  v_user uuid;
 begin
   insert into public.melhorenvio_connections (tenant_id, access_token_enc, refresh_token_enc, expires_at,
                                               refresh_expires_at)
@@ -94,10 +95,24 @@ begin
   exception when not_null_violation then
     null;
   end;
+  -- Cada FK isolada: a outra chave aponta para linha que existe.
+  v_user := (select id from auth.users limit 1);
+  if v_user is null then
+    raise exception 'FALHOU: nenhum usuário em auth.users para isolar a FK de tenant_id';
+  end if;
+  insert into public.melhorenvio_oauth_states (state_hash, tenant_id, user_id, expires_at)
+  values (repeat('b', 64), ta, v_user, now());
   begin
     insert into public.melhorenvio_oauth_states (state_hash, tenant_id, user_id, expires_at)
-    values (repeat('a', 64), '7a5c0000-0000-4000-8000-0000000000ff', gen_random_uuid(), now());
+    values (repeat('a', 64), '7a5c0000-0000-4000-8000-0000000000ff', v_user, now());
     raise exception 'FALHOU: state com loja inexistente aceito';
+  exception when foreign_key_violation then
+    null;
+  end;
+  begin
+    insert into public.melhorenvio_oauth_states (state_hash, tenant_id, user_id, expires_at)
+    values (repeat('c', 64), ta, gen_random_uuid(), now());
+    raise exception 'FALHOU: state com usuário inexistente aceito';
   exception when foreign_key_violation then
     null;
   end;
@@ -115,10 +130,11 @@ begin
   end if;
 end $$;
 
--- 3) A regra no marco. O1 e O2 em enviado; X = duas horas atrás.
-insert into public.tracking_orders (tenant_id, external_id, numero, order_created_at, status_raw, etapa)
-values ('7a5c0000-0000-4000-8000-00000000000a', 'chk-m1', '4001', now(), 'on_carriage', 'enviado'),
-       ('7a5c0000-0000-4000-8000-00000000000a', 'chk-m2', '4002', now(), 'on_carriage', 'enviado');
+-- 3) A regra no marco. O1, O2 e O3 em enviado desde ontem; X = duas horas atrás.
+insert into public.tracking_orders (tenant_id, external_id, numero, order_created_at, status_raw, etapa, etapa_at)
+values ('7a5c0000-0000-4000-8000-00000000000a', 'chk-m1', '4001', now(), 'on_carriage', 'enviado', now() - interval '1 day'),
+       ('7a5c0000-0000-4000-8000-00000000000a', 'chk-m2', '4002', now(), 'on_carriage', 'enviado', now() - interval '1 day'),
+       ('7a5c0000-0000-4000-8000-00000000000a', 'chk-m3', '4003', now(), 'on_carriage', 'enviado', now() - interval '1 day');
 
 do $$
 declare
@@ -210,6 +226,31 @@ begin
   r := public.rastreio_gravar_marco(ta, v_o.id, 'entregue', now(), 'melhorenvio:delivered');
   if (r->>'mudou')::boolean is not true or r->>'etapa_anterior' is distinct from 'problema' then
     raise exception 'FALHOU: problema não andou para entregue em O2 = %', r;
+  end if;
+end $$;
+
+-- Data velha (ou lixo) não passa da etapa atual: o purge_after não nasce vencido.
+do $$
+declare
+  ta constant uuid := '7a5c0000-0000-4000-8000-00000000000a';
+  o3 uuid := (select id from public.tracking_orders where tenant_id = ta and external_id = 'chk-m3');
+  r  jsonb;
+begin
+  r := public.rastreio_gravar_marco(ta, o3, 'entregue', '1970-01-01T00:00:00Z', 'melhorenvio:delivered');
+  if (r->>'mudou')::boolean is not true then
+    raise exception 'FALHOU: marco com data velha em O3 = %', r;
+  end if;
+end $$;
+
+do $$
+declare
+  v_o public.tracking_orders;
+begin
+  select * into v_o from public.tracking_orders
+   where tenant_id = '7a5c0000-0000-4000-8000-00000000000a' and external_id = 'chk-m3';
+  if v_o.etapa_at is distinct from now() - interval '1 day'
+     or v_o.purge_after is distinct from now() - interval '1 day' + interval '90 days' then
+    raise exception 'FALHOU: O3 com data velha = %', row_to_json(v_o);
   end if;
 end $$;
 
