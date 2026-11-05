@@ -12,10 +12,10 @@ const agora = () => new Date("2026-10-06T12:00:00Z");
 const dm: RunState = { id: "run-1", flowId: "f1", ref: "ref123456789", sourceKind: "dm", providerAccountId: "z1", comment: null, conversationId: "conv-1", windowExpiresAt: "2026-10-07T12:00:00Z", directsSent: 0 };
 const comentario: RunState = { ...dm, sourceKind: "comment", comment: { platformPostId: "post", commentId: "com" }, conversationId: null, windowExpiresAt: "2026-10-13T12:00:00Z" };
 
-function montar(opts: Parameters<typeof createFakeTransport>[0] = {}, inicial: Partial<IgContactRow> = {}, falharAplicar = false) {
+function montar(opts: Parameters<typeof createFakeTransport>[0] = {}, inicial: Partial<IgContactRow> = {}, falharAplicar: boolean | number = false) {
   const { transport, chamadas } = createFakeTransport(opts);
   const passos: Array<[string, FlowOut]> = [];
-  const { contatos, aplicacoes } = criarContatosFalsos({ falharAplicar, inicial: { ig_user_id: "u1", ...inicial } });
+  const { contatos, aplicacoes } = criarContatosFalsos({ falharAplicar: falharAplicar === true, falharPrimeiras: typeof falharAplicar === "number" ? falharAplicar : 0, inicial: { ig_user_id: "u1", ...inicial } });
   const contato = contatoDaPessoa(contatos, "loja-a", "u1", null, agora().toISOString());
   const deps: Deps = { transport, now: agora, contato, link: async (slug, ref) => `https://app/r/${slug}?ig=${ref}`, step: async (n, o) => { passos.push([n, o]); } };
   return { deps, chamadas, passos, aplicacoes };
@@ -148,4 +148,20 @@ test("Se… com saída já gravada neste run reusa a saída em vez de reavaliar,
   const r = await advance(def, dm, { ...deps, saidasGravadas: new Map<string, FlowOut>([["c", "no"]]) });
   assert.equal(r.nodeId, "nao");
   assert.deepEqual(passos, [["gatilho", "next"]]);
+});
+
+test("Guardar em falhou e uma Etiqueta gravou depois: o Se… seguinte ainda enxerga o valor guardado", async () => {
+  const def = flow(
+    [gatilho("dm"), pergunta({ saveTo: "cidade", choices: ["Goiânia", "Rio"] }), { id: "t", type: "tag", add: ["x"], remove: [] }, { id: "c", type: "condition", check: "field", field: "cidade", values: ["goiania", "rio"] }, { ...convite, id: "i0" }, { ...convite, id: "i1" }],
+    [lig("q", "v1", "t"), lig("t", "next", "c"), lig("c", "v0", "i0"), lig("c", "v1", "i1")],
+  );
+  const { deps } = montar({}, {}, 1);
+  const erro = console.error;
+  console.error = () => {};
+  try {
+    const r = await advance(def, { ...dm, directsSent: 1 }, deps, { nodeId: "q", out: "v1", guardar: { campo: "cidade", valor: "Rio" } });
+    assert.equal(r.nodeId, "i1");
+  } finally {
+    console.error = erro;
+  }
 });

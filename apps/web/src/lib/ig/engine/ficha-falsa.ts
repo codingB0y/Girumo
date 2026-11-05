@@ -5,7 +5,7 @@ import type { Contatos } from "./ficha";
  * `ig_contacts` dos testes do motor, em memória: grava no mesmo formato do `ig_contact_apply`
  * (campo `null` apaga, etiquetas sem repetir). Sem "server-only" de propósito.
  */
-export function criarContatosFalsos(opts: { falharAplicar?: boolean | string; segurar?: Promise<void>; inicial?: Partial<IgContactRow> } = {}) {
+export function criarContatosFalsos(opts: { falharAplicar?: boolean | string; falharPrimeiras?: number; segurar?: Promise<void>; inicial?: Partial<IgContactRow> } = {}) {
   const linhas = new Map<string, IgContactRow>();
   const aplicacoes: ApplyContactInput[] = [];
   const chave = (tenantId: string, igUserId: string) => `${tenantId}:${igUserId}`;
@@ -18,6 +18,7 @@ export function criarContatosFalsos(opts: { falharAplicar?: boolean | string; se
     async aplicar(tenantId, input) {
       aplicacoes.push(input);
       if (opts.segurar) await opts.segurar;
+      if (opts.falharPrimeiras && aplicacoes.length <= opts.falharPrimeiras) throw new Error("ig_contact_apply fora do ar");
       if (opts.falharAplicar) throw new Error(typeof opts.falharAplicar === "string" ? opts.falharAplicar : "ig_contact_apply fora do ar");
       const atual = linhas.get(chave(tenantId, input.igUserId)) ?? { ...linhaVazia(input.igUserId), tenant_id: tenantId };
       const fields = { ...atual.fields };

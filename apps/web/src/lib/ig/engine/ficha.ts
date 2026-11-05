@@ -40,6 +40,8 @@ function mesclar(base: Ficha, m: Mudanca): Ficha {
 /** `inicial` = a ficha que o evento está gravando (ou já gravou); ausente = lê do banco quando precisar. */
 export function contatoDaPessoa(contatos: Contatos, tenantId: string, igUserId: string, username: string | null, agoraIso: string, inicial?: Promise<Ficha | null> | Ficha | null): Contato {
   let atual: Ficha | undefined;
+  /** Mudanças que o banco recusou neste evento: continuam valendo na cópia mesmo depois de outra gravação trocá-la. */
+  const perdidas: Mudanca[] = [];
   const ler = async (): Promise<Ficha> => {
     atual ??= (await inicial) ?? (await contatos.ler(tenantId, igUserId)) ?? VAZIA;
     return atual;
@@ -47,7 +49,7 @@ export function contatoDaPessoa(contatos: Contatos, tenantId: string, igUserId: 
   const aplicar = async (mudanca: Mudanca): Promise<Ficha> => {
     // O direct e o toque já foram gravados (`dm: true`) na chegada do evento; aqui é só a mudança do passo.
     const row = await contatos.aplicar(tenantId, { igUserId, username, ...mudanca, seenAt: agoraIso, dm: false });
-    atual = { fields: row.fields, tags: row.tags };
+    atual = perdidas.reduce(mesclar, { fields: row.fields, tags: row.tags });
     return atual;
   };
   const guardar = async (mudanca: Mudanca): Promise<Ficha> => {
@@ -56,6 +58,7 @@ export function contatoDaPessoa(contatos: Contatos, tenantId: string, igUserId: 
       return await aplicar(mudanca);
     } catch (e) {
       registrarFalhaDaFicha(e);
+      perdidas.push(mudanca);
       atual = mesclar(base, mudanca);
       return atual;
     }

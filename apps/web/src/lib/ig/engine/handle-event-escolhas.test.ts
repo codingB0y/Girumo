@@ -172,3 +172,48 @@ test("reenvio de run na fila: o Se… reusa a saída que a 1ª tentativa gravou 
   assert.ok(chamadas[chamadas.length - 1].metodo === "privateReply" && (chamadas[chamadas.length - 1] as { args: { message: string } }).args.message === "Mensagem B");
 });
 
+
+const ciclo: FlowDef = {
+  v: 1,
+  nodes: [
+    { id: "gatilho", type: "trigger", on: "comment", keywords: ["quero"], postId: null, publicReply: null, storyReplies: false },
+    { id: "q", type: "message", text: "Qual a cidade?", button: null, wait: { minutes: 1380 }, choices: ["Goiânia", "Rio"], saveTo: "cidade" },
+    { id: "c", type: "condition", check: "field", field: "cidade", values: ["goiania", "rio"] },
+    { id: "nao", type: "message", text: "Não entendi", button: null, wait: null },
+    { id: "i0", type: "message", text: "Goiânia!", button: null, wait: null },
+    { id: "i1", type: "message", text: "Rio!", button: null, wait: null },
+  ],
+  edges: [
+    { from: "gatilho", out: "next", to: "q" },
+    { from: "q", out: "v0", to: "c" }, { from: "q", out: "v1", to: "c" }, { from: "q", out: "other", to: "c" },
+    { from: "c", out: "v0", to: "i0" }, { from: "c", out: "v1", to: "i1" }, { from: "c", out: "other", to: "nao" },
+    { from: "nao", out: "next", to: "q" },
+  ],
+};
+const passagemVelha = [{ node_id: "gatilho", out: "next" }, { node_id: "q", out: "other" }, { node_id: "c", out: "other" }, { node_id: "nao", out: "next" }];
+
+test("ciclo Pergunta → Se… → 'não entendi' → Pergunta: a 2ª resposta válida (1ª tentativa) segue pelo ramo do valor, sem reusar a passagem velha", async () => {
+  const { amb, chamadas } = ambiente({ fluxos: flux(ciclo), esperando, passos: passagemVelha });
+  assert.equal((await tratarEvento(resposta("Rio"), amb)).kind, "handled");
+  assert.equal(chamadas[0].metodo === "sendMessage" && chamadas[0].args.message, "Rio!");
+});
+
+test("reenvio da retomada: o Se… repete a saída que a tentativa anterior gravou depois do bloco que esperava", async () => {
+  const passos = [...passagemVelha, { node_id: "q", out: "v1" }, { node_id: "c", out: "v0" }];
+  const { amb, chamadas } = ambiente({ fluxos: flux(ciclo), retomado: esperando, passos });
+  assert.equal((await tratarEvento(resposta("Rio"), amb)).kind, "handled");
+  assert.equal(chamadas[0].metodo === "sendMessage" && chamadas[0].args.message, "Goiânia!");
+});
+
+test("a ficha travada não trava o ack: passado o teto, registra e responde", async () => {
+  const erro = console.error;
+  console.error = () => {};
+  try {
+    const { amb, chamadas } = ambiente({ contatos: { segurar: new Promise<void>(() => {}) } });
+    amb.tetoDaFichaMs = 20;
+    assert.equal((await tratarEvento(direct, amb)).kind, "handled");
+    assert.equal(chamadas.length, 1);
+  } finally {
+    console.error = erro;
+  }
+});

@@ -34,6 +34,8 @@ export type Ambiente = {
   link: (tenantId: string, slug: string, ref: string) => Promise<string>;
   /** A ficha da pessoa (`ig_contacts`). */
   contatos: Contatos;
+  /** Quanto o ack espera a gravação da ficha (padrão 1,5 s: a Zernio reenvia depois de 5 s). */
+  tetoDaFichaMs?: number;
 };
 
 export type Desfecho =
@@ -42,6 +44,7 @@ export type Desfecho =
   | { kind: "retry"; reason: string }
   | { kind: "handled"; tenantId: string; runId: string; status: "done" | "active" | "failed" };
 
+const TETO_FICHA_MS = 1_500;
 const UMA_HORA_MS = 60 * 60_000;
 const UM_DIA_MS = 24 * UMA_HORA_MS;
 const SETE_DIAS_MS = 7 * UM_DIA_MS;
@@ -111,8 +114,17 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
   try {
     return await processar(ev, amb, pendentes);
   } finally {
-    await Promise.all(pendentes);
+    await esperarFicha(pendentes, amb.tetoDaFichaMs ?? TETO_FICHA_MS);
   }
+}
+
+/** A ficha é registro: banco travado não pode segurar o ack. Estourou o teto, segue (a gravação continua e nunca rejeita). */
+async function esperarFicha(pendentes: Promise<unknown>[], tetoMs: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const estourou = new Promise<"teto">((ok) => { timer = setTimeout(() => ok("teto"), tetoMs); });
+  const r = await Promise.race([Promise.all(pendentes).then(() => "ok" as const), estourou]);
+  clearTimeout(timer);
+  if (r === "teto") console.error("[ig/ficha] gravação passou do teto; o atendimento segue");
 }
 
 async function processar(ev: EventoZernio, amb: Ambiente, pendentes: Promise<unknown>[]): Promise<Desfecho> {
@@ -282,7 +294,8 @@ async function gravar(tenantId: string, runId: string, r: Resultado, amb: Ambien
 const parar = (tenantId: string, runId: string, code: string, amb: Ambiente) =>
   amb.runs.atualizar(tenantId, runId, { status: "stopped", waiting: null, error_code: code, finished_at: amb.now().toISOString() });
 
-type Achado = { run: RunRow; reivindicado: boolean } | Desfecho | null;
+/** `reenvio`: este evento já reivindicou o run numa tentativa anterior (só então as saídas dos Se… se repetem). */
+type Achado = { run: RunRow; reivindicado: boolean; reenvio: boolean } | Desfecho | null;
 
 /**
  * O run que este direct deve retomar. Primeiro o reenvio: um direct que já
@@ -294,15 +307,15 @@ async function acharRetomada(entrada: Entrada, igAccountId: string, tenantId: st
   const ja = await amb.runs.retomadoPor(tenantId, entrada.sourceId);
   if (!ja) {
     const run = await amb.runs.esperando(tenantId, igAccountId, entrada.igUserId, entrada.username, agora.toISOString());
-    return run ? { run, reivindicado: false } : null;
+    return run ? { run, reivindicado: false, reenvio: false } : null;
   }
   // Voltou pra espera depois de um erro passageiro: reivindica de novo, como da primeira vez.
-  if (ja.status === "active" && ja.waiting === "reply") return { run: ja, reivindicado: false };
+  if (ja.status === "active" && ja.waiting === "reply") return { run: ja, reivindicado: false, reenvio: true };
   if (ja.status !== "active" || ja.waiting !== null) return { kind: "ignored", reason: "duplicado" };
   // Retomada sem desfecho gravado: a 1ª tentativa ainda roda, ou a função caiu no meio.
   if (agora.getTime() - Date.parse(ja.updated_at) <= RETOMADA_MS) return { kind: "retry", reason: "em andamento" };
   if (!(await amb.runs.retomarParado(tenantId, ja.id, ja.updated_at))) return { kind: "retry", reason: "corrida" };
-  return { run: ja, reivindicado: true };
+  return { run: ja, reivindicado: true, reenvio: true };
 }
 
 /**
@@ -344,7 +357,8 @@ async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAcco
     directsSent: 1,
   };
   try {
-    const saidas = saidasReusaveis(await amb.runs.passos(tenantId, run.id), nodeId);
+    // Primeira tentativa nunca reusa: o passo deste bloco ainda não foi gravado e `nodeId` acharia uma passagem velha de um ciclo.
+    const saidas = achado.reenvio ? saidasReusaveis(await amb.runs.passos(tenantId, run.id), nodeId) : undefined;
     const r = await advance(def, estado, depsDoRun(tenantId, run, contato, amb, saidas), retomada);
     await gravar(tenantId, run.id, r, amb);
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
