@@ -110,9 +110,12 @@ begin
   c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'in', now() - interval '30 minutes', 'terceira', 'waiting', 'm-3');
   if c.unread_count <> 3 or c.last_in_message_id <> 'm-3' then raise exception 'FALHOU: mensagem nova deveria somar (%)', to_jsonb(c); end if;
   c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'in', now() - interval '20 minutes', 'repetida', 'open', 'm-3');
-  if c.unread_count <> 3 or c.last_preview <> 'terceira' or c.status <> 'waiting' then
-    raise exception 'FALHOU: reentrega do mesmo id nao pode somar nem mudar a linha (%)', to_jsonb(c);
+  if c.unread_count <> 3 or c.last_preview <> 'terceira' then
+    raise exception 'FALHOU: reentrega do mesmo id nao pode somar nem mexer em last_* (%)', to_jsonb(c);
   end if;
+  if c.status <> 'open' then raise exception 'FALHOU: reentrega com situacao deveria aplicar (%)', c.status; end if;
+  c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'in', now() - interval '20 minutes', 'repetida', null, 'm-3');
+  if c.status <> 'open' or c.unread_count <> 3 then raise exception 'FALHOU: reentrega sem situacao mantem (%)', to_jsonb(c); end if;
   c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'in', now() - interval '10 minutes', 'quarta', null, 'm-4');
   if c.unread_count <> 4 then raise exception 'FALHOU: id novo deveria somar (%)', c.unread_count; end if;
 end $$;

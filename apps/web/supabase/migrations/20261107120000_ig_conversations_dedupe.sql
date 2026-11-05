@@ -34,13 +34,19 @@ declare
   v_at timestamptz := least(coalesce(p_at, now()), now() + interval '5 minutes');
   v_row public.ig_conversations;
 begin
-  -- Mesma mensagem recebida de novo (reentrega da Zernio): devolve a linha sem mexer em nada.
+  -- Mesma mensagem recebida de novo (reentrega da Zernio): não soma não lida nem mexe em last_*; só aplica a situação,
+  -- quando vem uma (a 1ª entrega pode ter ido para Aguardando você por falha e a reentrega ser a que o robô respondeu).
   -- ponytail: só guarda o último id; reentrega de mensagem mais velha depois de uma nova conta de novo (aceitável).
   if p_direction = 'in' and p_message_id is not null then
     select * into v_row from public.ig_conversations c
      where c.tenant_id = p_tenant and c.zernio_conversation_id = p_zernio_conversation_id
        and c.last_in_message_id = p_message_id;
-    if found then return v_row; end if;
+    if found then
+      if p_status is not null and p_status <> v_row.status then
+        update public.ig_conversations c set status = p_status where c.id = v_row.id returning c.* into v_row;
+      end if;
+      return v_row;
+    end if;
   end if;
 
   insert into public.ig_conversations as c

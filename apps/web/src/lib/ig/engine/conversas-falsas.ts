@@ -22,7 +22,11 @@ export function criarConversasFalsas(opts: { inicial?: Partial<IgConversationRow
       if (opts.falharTocar) throw new Error("ig_conversation_touch fora do ar");
       const atual = linhas.get(input.igUserId) ?? { ...vazia(input.igUserId), tenant_id: tenantId, zernio_conversation_id: input.zernioConversationId, status: input.status ?? "open" };
       // Mesma regra do banco: a mesma mensagem recebida de novo não muda nada.
-      if (input.direction === "in" && input.messageId && ultimas.get(input.igUserId) === input.messageId && linhas.has(input.igUserId)) return atual;
+      if (input.direction === "in" && input.messageId && ultimas.get(input.igUserId) === input.messageId && linhas.has(input.igUserId)) {
+        const mantida = input.status ? { ...atual, status: input.status } : atual;
+        linhas.set(input.igUserId, mantida);
+        return mantida;
+      }
       if (input.direction === "in" && input.messageId) ultimas.set(input.igUserId, input.messageId);
       const frente = !atual.last_message_at || Date.parse(input.at) >= Date.parse(atual.last_message_at);
       const row: IgConversationRow = {

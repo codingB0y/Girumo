@@ -156,6 +156,16 @@ test("reentrega do mesmo direct: não soma não lida de novo e não rebaixa uma 
   assert.equal(a.indice.toques.every((t) => t.messageId === "m-1"), true);
 });
 
+test("1ª entrega em retry fica Aguardando você; a reentrega em que o robô responde vira Aberta, sem somar não lida", async () => {
+  const fora = new ZernioError(503, "api_error", "temporarily_unavailable", null, "x");
+  const a = ambiente({ falhar: { sendMessage: fora } });
+  assert.equal((await tratarEvento(direct, a.amb)).kind, "retry");
+  assert.deepEqual([a.indice.linhas.get("u1")?.status, a.indice.linhas.get("u1")?.unread_count], ["waiting", 1]);
+  a.amb.transport = ambiente().amb.transport;
+  assert.equal((await tratarEvento(direct, a.amb)).kind, "handled");
+  assert.deepEqual([a.indice.linhas.get("u1")?.status, a.indice.linhas.get("u1")?.unread_count], ["open", 1]);
+});
+
 test("run já terminado (duplicado): toca o índice sem mudar a situação, sem mandar de novo", async () => {
   const feito = { id: "run-velho", tenant_id: "loja-a", ig_account_id: "a1", flow_id: "f-d", flow_version: 1, source_kind: "dm", source_id: "m-1", ig_user_id: "u1", username: null, matched_keyword: "quero", ref: "r", status: "done", node_id: "convite", waiting: null, wake_at: null, window_expires_at: "2026-10-07T11:59:58.000Z", clicked_at: null, error_code: null, error_message: null, started_at: T0.toISOString(), updated_at: T0.toISOString(), finished_at: T0.toISOString() } as RunRow;
   const a = ambiente({ existente: feito, conversas: { inicial: { ig_user_id: "u1", status: "open" } } });
