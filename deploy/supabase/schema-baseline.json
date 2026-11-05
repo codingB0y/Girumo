@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-11-05T02:23:20.972Z",
+  "gerado_em": "2026-11-05T03:03:48.380Z",
   "projeto": "wfjuwogxaupyadwhvoxy",
   "objetos": {
     "f|advance_automation_run(target_run_id uuid, next_step integer, next_at timestamp with time zone)": "9915acbf605c133627ee5aa950df3dc4",
@@ -43,6 +43,8 @@
     "f|ig_contact_apply(p_tenant uuid, p_ig_user_id text, p_username text, p_set jsonb, p_add text[], p_remove text[], p_seen_at timestamp with time zone, p_dm boolean, p_source_flow uuid)": "81cca9ea0aba56c26ea8f660510964d8",
     "f|ig_contact_field_values(p_tenant uuid, p_field text)": "5378df33e89a9d8af8830b49947485d3",
     "f|ig_contact_stats(p_tenant uuid)": "e0a7baae3ff3514f0ccc15b9858746c7",
+    "f|ig_conversation_touch(p_tenant uuid, p_zernio_conversation_id text, p_ig_user_id text, p_ig_account_id uuid, p_username text, p_display_name text, p_direction text, p_at timestamp with time zone, p_preview text, p_status text)": "a008139e7e4709499ce732c414120609",
+    "f|ig_conversations_rotina(p_now timestamp with time zone)": "c09104ffe04d868454bd38411fcd6bd6",
     "f|ig_purge_contacts(p_now timestamp with time zone)": "c09104ffe04d868454bd38411fcd6bd6",
     "f|increment_lp_counter(p_lp_id uuid, p_field text)": "88c7d4485a52fccae1e448cd2eca880e",
     "f|increment_template_uses(template_id uuid)": "88c7d4485a52fccae1e448cd2eca880e",
@@ -115,7 +117,11 @@
     "t|group_participants": "3f3381073d7a4bcc20d9744041153a46",
     "t|groups": "104a05ad12238d493f85fb9f2b0a873d",
     "t|ig_accounts": "fb87627e8828de54e3c361e6442d46b7",
+    "t|ig_canned_replies": "0f26bff4b45d778c11deeaf2ce51b229",
+    "t|ig_contact_tombstones": "fc8ae56b5f705d12eff7ea6f668b02d7",
     "t|ig_contacts": "ee2fc02aff718e0e0a2f86ded3c7359e",
+    "t|ig_conversation_events": "1c073cc464c83220780427419f42be55",
+    "t|ig_conversations": "ebbe46ce840f4232391aa54f438b39e4",
     "t|ig_flows": "523e6af09ae21a0e89a32b0e4723e02c",
     "t|ig_run_steps": "ad48d780aee8d41f219642d337d74246",
     "t|ig_runs": "bfd7d7e0bbfae071bae313cf048b3fc1",
