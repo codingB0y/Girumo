@@ -202,6 +202,19 @@ export async function listRuns(tenantId: string, flowId: string, limit = 50): Pr
   return (data ?? []) as unknown as RunRow[];
 }
 
+/** Os atendimentos de uma pessoa (ficha lateral de Pessoas), do mais recente. */
+export async function listRunsOfUser(tenantId: string, igUserId: string, limit = 20): Promise<RunRow[]> {
+  const { data, error } = await getSupabaseAdmin().from("ig_runs").select(COLS).eq("tenant_id", tenantId).eq("ig_user_id", igUserId).order("started_at", { ascending: false }).limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as RunRow[];
+}
+
+/** "Apagar da lista": todos os atendimentos desta pessoa na loja (os passos somem em cascata). */
+export async function deleteRunsOfUser(tenantId: string, igUserId: string): Promise<void> {
+  const { error } = await getSupabaseAdmin().from("ig_runs").delete().eq("tenant_id", tenantId).eq("ig_user_id", igUserId);
+  if (error) throw new Error(error.message);
+}
+
 /** Retenção de 90 dias (LGPD). Os passos somem em cascata. */
 export async function purgeOldRuns(tenantId: string, cutoffIso: string): Promise<void> {
   const { error } = await getSupabaseAdmin().from("ig_runs").delete().eq("tenant_id", tenantId).lt("started_at", cutoffIso);
