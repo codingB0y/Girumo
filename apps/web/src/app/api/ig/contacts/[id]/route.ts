@@ -14,6 +14,8 @@ import { listRunsOfUser } from "@/lib/stores/ig-runs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// O apagar chama a Zernio (até 25 s por conversa) ANTES de apagar da Girumo: o prazo padrão não pode cortar no meio.
+export const maxDuration = 60;
 
 type Ctx = { params: Promise<{ id: string }> };
 

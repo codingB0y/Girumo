@@ -36,7 +36,8 @@ export function criarAmbiente() {
     cannedCheio: false,
     cannedExiste: true,
     eventoFalha: false,
-    runsFalha: false,
+    /** `true` = sempre falha; número = falha essa quantidade de vezes e depois passa. */
+    runsFalha: false as boolean | number,
     indiceApagado: [{ zernio_conversation_id: "z-1", ig_account_id: "conta-1" }] as Linha[],
     zernio: ((): RespostaZernio => ({ status: 200, body: {} })) as (p: PedidoZernio) => RespostaZernio,
   };
@@ -101,7 +102,8 @@ export function criarAmbiente() {
       } else if (p === "/rest/v1/ig_conversation_events") {
         saida = m === "GET" ? e.eventos : [];
         if (m === "POST" && e.eventoFalha) status = 500;
-      } else if (p === "/rest/v1/ig_runs" && m === "PATCH" && e.runsFalha) {
+      } else if (p === "/rest/v1/ig_runs" && m === "PATCH" && (e.runsFalha === true || (typeof e.runsFalha === "number" && e.runsFalha > 0))) {
+        if (typeof e.runsFalha === "number") e.runsFalha -= 1;
         status = 500;
         saida = { code: "XX000", message: "falhou", details: null, hint: null };
       }

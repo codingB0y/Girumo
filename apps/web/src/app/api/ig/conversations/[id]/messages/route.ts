@@ -91,9 +91,11 @@ export async function POST(req: Request, { params }: Ctx) {
     const enviada = await zernioDaLoja().sendText({ conversationId: conversa.zernio_conversation_id, accountId, message: corpo.data.texto, humanAgent: envio.humanAgent, idempotencyKey: chaveDeEnvio(ctx.tenantId, id, corpo.data.idempotencyKey) });
     // A mensagem JÁ SAIU: nada abaixo pode virar erro para a loja. Primeiro o que protege a pessoa (§6: sem a pausa e sem
     // encerrar a espera, um "sim" dela retomaria um fluxo velho), depois o registro. Falhas só avisam `registroParcial`.
+    // A proteção ganha uma segunda tentativa: sem ela não há quem refaça a pausa nem o fim da espera depois do 200.
+    const comUmaRepeticao = <T,>(f: () => Promise<T>): Promise<T> => f().catch(() => f());
     const protecao = await Promise.allSettled([
-      updateConversation(ctx.tenantId, id, { unread_count: 0, bot_paused_until: pausaAte(agora) }),
-      stopWaitingRunsOfPerson(ctx.tenantId, { igUserId: conversa.ig_user_id, username: conversa.username }, "replied_by_store"),
+      comUmaRepeticao(() => updateConversation(ctx.tenantId, id, { unread_count: 0, bot_paused_until: pausaAte(agora) })),
+      comUmaRepeticao(() => stopWaitingRunsOfPerson(ctx.tenantId, { igUserId: conversa.ig_user_id, username: conversa.username }, "replied_by_store")),
     ]);
     const registro = await Promise.allSettled([
       enviada.messageId ? recordConversationEvent(ctx.tenantId, { conversationId: id, kind: "store_message", zernioMessageId: enviada.messageId, occurredAt: agora.toISOString() }) : Promise.resolve(),

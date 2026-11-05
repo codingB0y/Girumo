@@ -332,6 +332,14 @@ test("POST messages: a mensagem saiu, então falha ao gravar vira 200 com regist
   assert.ok(e.conversa.bot_paused_until, "a pausa gravou mesmo com o run falhando");
 });
 
+test("POST messages: encerrar a espera que falha uma vez é repetido e a proteção fica completa", async () => {
+  e.runsFalha = 1;
+  e.zernio = () => ({ status: 200, body: { data: { messageId: "mid-9" } } });
+  const corpo = await (await ENVIAR(amb.pedir("POST", `/api/ig/conversations/${CONV_ID}/messages`, { texto: "oi", idempotencyKey: UUID }), comId(CONV_ID))).json();
+  assert.equal(corpo.registroParcial, undefined);
+  assert.equal(amb.chamadas.filter((c) => `${c.metodo} ${c.url.pathname}` === "PATCH /rest/v1/ig_runs").length >= 2, true);
+});
+
 test("POST messages sem falha não traz registroParcial", async () => {
   e.zernio = () => ({ status: 200, body: { data: { messageId: "mid-8" } } });
   const corpo = await (await ENVIAR(amb.pedir("POST", `/api/ig/conversations/${CONV_ID}/messages`, { texto: "oi", idempotencyKey: UUID }), comId(CONV_ID))).json();
