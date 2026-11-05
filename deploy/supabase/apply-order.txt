@@ -615,3 +615,6 @@ apps/web/supabase/migrations/20261106120000_ig_conversations.sql
 # 07/11: dedupe da reentrega do direct (PR 2a-2): ig_conversations.last_in_message_id, ig_conversation_touch(p_message_id) e
 # evento do robô único por (conversa, mensagem). Conferir com infra/tests/ig-conversations-check.sql.
 apps/web/supabase/migrations/20261107120000_ig_conversations_dedupe.sql
+# 05/11: Rastreio do pedido, PR 8 — melhorenvio_connections e melhorenvio_oauth_states (só service_role) e rastreio_gravar_marco.
+# Depois do PR 1 do Rastreio. Muda a baseline; conferir com infra/tests/rastreio-melhor-envio-check.sql.
+apps/web/supabase/migrations/20261108120000_rastreio_melhor_envio.sql
