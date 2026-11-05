@@ -140,7 +140,7 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
     if (vez > MAX_VISITAS) return falha(no.id, "cycle", null);
     if (deps.now().getTime() > Date.parse(run.windowExpiresAt)) return falha(no.id, "window_expired", null);
     if (no.type === "trigger") return falha(no.id, "trigger_in_middle", null);
-    if (no.type === "condition") return falha(no.id, "unsupported_node", null);
+    if (no.type === "condition" || no.type === "tag") return falha(no.id, "unsupported_node", null);
 
     const viaPrivada = run.sourceKind === "comment" && directsSent === 0;
     let envio: Envio;

@@ -5,7 +5,22 @@
  * Tudo nesta pasta é PURO (sem I/O): painel e servidor validam com a mesma
  * função, e as duas visões saem do mesmo grafo.
  */
-export type FlowOut = "next" | "replied" | "timeout" | "yes" | "no" | "clicked" | "not_clicked";
+/** Uma saída por escolha de pergunta (ou valor de "Se…"), na ordem: `v0` … `v12`. */
+export type ChoiceOut = "v0" | "v1" | "v2" | "v3" | "v4" | "v5" | "v6" | "v7" | "v8" | "v9" | "v10" | "v11" | "v12";
+export type FlowOut = "next" | "replied" | "timeout" | "yes" | "no" | "clicked" | "not_clicked" | "other" | ChoiceOut;
+
+export const MAX_CHOICES = 13;
+export const MAX_CHOICE_LENGTH = 20;
+
+export function choiceOut(i: number): FlowOut {
+  return `v${i}` as FlowOut;
+}
+
+/** O índice da escolha que a saída `v<i>` representa; `null` para qualquer outra saída. */
+export function choiceIndex(out: FlowOut): number | null {
+  const m = /^v(\d{1,2})$/.exec(out);
+  return m && Number(m[1]) < MAX_CHOICES ? Number(m[1]) : null;
+}
 
 /** Saída sem aresta = o fluxo para ali. Não existe bloco "fim". */
 export type FlowEdge = { from: string; out: FlowOut; to: string };
@@ -34,6 +49,13 @@ export type MessageNode = {
    * `keywords`: só uma resposta com uma delas libera o próximo bloco; vazio ou ausente = qualquer resposta.
    */
   wait: { minutes: number; keywords?: string[] } | null;
+  /**
+   * Pergunta com escolhas (1 a 13, até 20 caracteres): sempre espera, sem botão. Cada escolha tem a
+   * própria saída (`v0` …) e há `other` para o que não casar. Vírgula separa alternativas ("Sim, quero").
+   */
+  choices?: string[];
+  /** Campo da ficha onde a resposta fica. */
+  saveTo?: string | null;
 };
 
 export type InviteNode = {
@@ -48,24 +70,43 @@ export type InviteNode = {
   remindAfterMinutes: number | null;
 };
 
-export type ConditionNode = { id: string; type: "condition"; check: "follows" };
+/** Põe e tira etiquetas da pessoa. Não manda mensagem, então pode vir em qualquer lugar. */
+export type TagNode = { id: string; type: "tag"; add: string[]; remove: string[] };
 
-export type FlowNode = TriggerNode | MessageNode | InviteNode | ConditionNode;
+export type ConditionNode = {
+  id: string;
+  type: "condition";
+  check: "follows" | "clicked" | "field" | "tag";
+  /** `field`: o campo da ficha comparado. */
+  field?: string;
+  /** `field`: um valor por saída (`v0` …); o valor inteiro é comparado. */
+  values?: string[];
+  /** `tag`: a etiqueta conferida. */
+  tag?: string;
+};
+
+export type FlowNode = TriggerNode | MessageNode | InviteNode | TagNode | ConditionNode;
 
 export type FlowDef = { v: 1; nodes: FlowNode[]; edges: FlowEdge[] };
 
 /** As saídas que a trilha principal segue, em ordem de preferência. */
-export const MAIN_OUTS: readonly FlowOut[] = ["next", "replied", "yes", "clicked"];
+export const MAIN_OUTS: readonly FlowOut[] = ["next", "replied", "v0", "yes", "clicked"];
+
+const choiceOuts = (n: number): FlowOut[] => Array.from({ length: Math.min(n, MAX_CHOICES) }, (_, i) => choiceOut(i));
 
 export function outsOf(node: FlowNode): FlowOut[] {
   switch (node.type) {
     case "trigger":
       return ["next"];
     case "message":
+      if (node.choices && node.choices.length > 0) return [...choiceOuts(node.choices.length), "other", ...(node.wait ? (["timeout"] as const) : [])];
       return node.wait ? ["replied", "timeout"] : ["next"];
     case "invite":
       return ["clicked", "not_clicked"];
+    case "tag":
+      return ["next"];
     case "condition":
+      if (node.check === "field") return [...choiceOuts(node.values?.length ?? 0), "other"];
       return ["yes", "no"];
   }
 }
@@ -82,3 +123,5 @@ export const MAX_KEYWORDS = 10;
 export const MAX_KEYWORD_LENGTH = 40;
 export const MAX_PUBLIC_REPLY = 300;
 export const MAX_NODES = 20;
+/** Uma pergunta cheia tem 13 escolhas + `other` + `timeout`. */
+export const MAX_EDGES = MAX_NODES * (MAX_CHOICES + 2);

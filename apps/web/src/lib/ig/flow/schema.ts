@@ -2,6 +2,8 @@ import { z } from "zod";
 import {
   MAX_BUTTON_LABEL,
   MAX_KEYWORDS,
+  MAX_CHOICES,
+  MAX_EDGES,
   MAX_KEYWORD_LENGTH,
   MAX_NODES,
   MAX_PUBLIC_REPLY,
@@ -19,6 +21,8 @@ const minutes = z.number().int().min(1).max(MAX_WAIT_MINUTES);
 const texto = z.string().max(4000);
 const keywords = z.array(z.string().max(MAX_KEYWORD_LENGTH)).max(MAX_KEYWORDS);
 
+// Estrutura só: os limites de escolha e o formato de nome ficam em `validate.ts` (o rascunho salva inválido).
+const lista = z.array(z.string().max(200)).max(MAX_CHOICES * 2);
 const triggerNode = z.strictObject({
   id,
   type: z.literal("trigger"),
@@ -34,6 +38,8 @@ const messageNode = z.strictObject({
   text: texto,
   button: z.string().max(MAX_BUTTON_LABEL).nullable(),
   wait: z.strictObject({ minutes, keywords: keywords.optional() }).nullable(),
+  choices: lista.optional(),
+  saveTo: z.string().max(64).nullable().optional(),
 });
 const inviteNode = z.strictObject({
   id,
@@ -43,15 +49,26 @@ const inviteNode = z.strictObject({
   button: z.string().max(MAX_BUTTON_LABEL).nullable().optional(),
   remindAfterMinutes: minutes.nullable(),
 });
-const conditionNode = z.strictObject({ id, type: z.literal("condition"), check: z.literal("follows") });
+const tagNode = z.strictObject({ id, type: z.literal("tag"), add: lista, remove: lista });
+const conditionNode = z.strictObject({
+  id,
+  type: z.literal("condition"),
+  check: z.enum(["follows", "clicked", "field", "tag"]),
+  field: z.string().max(64).optional(),
+  values: lista.optional(),
+  tag: z.string().max(64).optional(),
+});
 
-export const flowOutSchema = z.enum(["next", "replied", "timeout", "yes", "no", "clicked", "not_clicked"]);
-export const flowNodeSchema = z.discriminatedUnion("type", [triggerNode, messageNode, inviteNode, conditionNode]);
+export const flowOutSchema = z.enum([
+  "next", "replied", "timeout", "yes", "no", "clicked", "not_clicked", "other",
+  "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12",
+]);
+export const flowNodeSchema = z.discriminatedUnion("type", [triggerNode, messageNode, inviteNode, tagNode, conditionNode]);
 export const flowEdgeSchema = z.strictObject({ from: id, out: flowOutSchema, to: id });
 export const flowDefSchema = z.strictObject({
   v: z.literal(1),
   nodes: z.array(flowNodeSchema).min(1).max(MAX_NODES),
-  edges: z.array(flowEdgeSchema).max(MAX_NODES * 2),
+  edges: z.array(flowEdgeSchema).max(MAX_EDGES),
 });
 
 export function parseFlowDef(input: unknown): { ok: true; def: FlowDef } | { ok: false; error: string } {
