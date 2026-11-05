@@ -7,9 +7,19 @@ import type { Issue } from "./validate";
  * rascunho; não publica. Esperar a resposta já roda (fase 3a, 08/10): o run
  * retoma quando a pessoa responde no direct.
  */
+/**
+ * O motor (PR 1c) ainda não executa Pergunta com escolhas, Etiqueta nem Se… campo/etiqueta.
+ * O PR 1c liga isto trocando `false` por `true`, e só.
+ */
+export const MOTOR_DOS_BLOCOS_NOVOS = false;
+
 export function foraDaFase(def: FlowDef): Issue[] {
   const issues: Issue[] = [];
   for (const n of def.nodes) {
+    if (!MOTOR_DOS_BLOCOS_NOVOS) {
+      const nova = n.type === "tag" || (n.type === "message" && !!n.choices?.length) || (n.type === "condition" && (n.check === "field" || n.check === "tag"));
+      if (nova) issues.push({ code: "fase_seguinte", nodeId: n.id, text: "Este bloco chega na próxima fase: o robô ainda não executa pergunta com escolhas, etiqueta nem “Se…”." });
+    }
     if (n.type === "message" && n.wait && def.edges.some((e) => e.from === n.id && e.out === "timeout")) {
       issues.push({ code: "fase_seguinte", nodeId: n.id, text: "O caminho de quem não respondeu chega na próxima fase. Tire essa ligação: quem não responde para aqui." });
     }

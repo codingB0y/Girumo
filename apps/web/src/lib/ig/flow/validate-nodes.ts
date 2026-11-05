@@ -46,7 +46,9 @@ export function validateChoices(node: MessageNode, add: AddIssue): void {
 
 export function validateTag(node: TagNode, add: AddIssue): void {
   if (node.add.length === 0 && node.remove.length === 0) add("etiqueta_invalida", node.id, "Escolha uma etiqueta para pôr ou tirar.");
-  for (const tag of [...node.add, ...node.remove]) {
+  const todas = [...node.add, ...node.remove];
+  if (new Set(todas).size !== todas.length) add("etiqueta_invalida", node.id, "Etiqueta repetida: ela não pode aparecer duas vezes, nem em pôr e tirar.");
+  for (const tag of todas) {
     if (!TAG_RE.test(tag)) add("etiqueta_invalida", node.id, `“${tag}” não é uma etiqueta válida: minúsculas, números e hífen, até 40.`);
   }
 }

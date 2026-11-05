@@ -1,7 +1,7 @@
 import { nodeById, targetOf, triggerOf } from "./graph";
 import { linearize } from "./linearize";
 import { DEFAULT_TEXTS } from "./recipes";
-import { MAX_WAIT_MINUTES, type ConditionNode, type FlowDef, type FlowEdge, type FlowNode, type FlowOut, type InviteNode, type MessageNode, type TagNode, type TriggerNode } from "./types";
+import { MAX_CHOICES, MAX_WAIT_MINUTES, choiceOut, type ConditionNode, type FlowDef, type FlowEdge, type FlowNode, type FlowOut, type InviteNode, type MessageNode, type TagNode, type TriggerNode } from "./types";
 
 /**
  * Edição por operações nomeadas (spec §6): o painel não mexe no grafo à mão,
@@ -32,8 +32,10 @@ export function mainInvite(def: FlowDef): InviteNode | undefined {
     .find((n): n is InviteNode => n.type === "invite");
 }
 
+const isFollowGate = (n: FlowNode): boolean => n.type === "condition" && n.check === "follows";
+
 export function hasFollowGate(def: FlowDef): boolean {
-  return def.nodes.some((n) => n.type === "condition");
+  return def.nodes.some(isFollowGate);
 }
 
 export function canAddFollowGate(def: FlowDef): boolean {
@@ -69,7 +71,7 @@ export function setFollowGate(def: FlowDef, on: boolean): FlowDef {
     ];
     return ordenar({ ...def, nodes, edges });
   }
-  const segue = def.nodes.find((n) => n.type === "condition");
+  const segue = def.nodes.find(isFollowGate);
   const pedeId = targetOf(def, t.id, "next");
   const pede = pedeId ? nodeById(def, pedeId) : undefined;
   if (!segue || !pede || pede.type !== "message" || targetOf(def, pede.id, "replied") !== segue.id) return def;
@@ -126,7 +128,7 @@ function freshId(def: FlowDef, base: string): string {
 /** Ordem canônica (trilha primeiro, depois os desvios), para o deepEqual dos testes e um jsonb estável. */
 function ordenar(def: FlowDef): FlowDef {
   const ordem = ["gatilho", "pede", "segue", "pede_seguir", "convite", "lembrete"];
-  const saidas: FlowOut[] = ["next", "replied", "yes", "no", "clicked", "not_clicked", "timeout"];
+  const saidas: FlowOut[] = ["next", "replied", ...Array.from({ length: MAX_CHOICES }, (_, i) => choiceOut(i)), "other", "yes", "no", "clicked", "not_clicked", "timeout"];
   const posicao = (id: string) => (ordem.includes(id) ? ordem.indexOf(id) : ordem.length);
   const nodes = [...def.nodes].sort((a, b) => posicao(a.id) - posicao(b.id));
   const edges = [...def.edges].sort((a, b) => posicao(a.from) - posicao(b.from) || saidas.indexOf(a.out) - saidas.indexOf(b.out));

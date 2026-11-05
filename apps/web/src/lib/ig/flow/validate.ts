@@ -9,7 +9,7 @@ import {
   choiceIndex,
   outsOf,
   type FlowDef,
-  type FlowOut,
+  type FlowEdge,
   type TriggerNode,
 } from "./types";
 import { validateChoices, validateCondition, validateTag } from "./validate-nodes";
@@ -154,7 +154,7 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
     if ((primeiro?.type === "message" || primeiro?.type === "invite") && primeiro.button != null) {
       add("botao_no_primeiro_direct", primeiro.id, "O primeiro direct depois de um comentário não pode ter botão: o Instagram recusa pra quem não segue a loja, e a recusa gasta o único direct do comentário.");
     }
-    for (const id of alcancavelSem(def, trigger.id, esperaResposta)) {
+    for (const id of alcancavelSem(def, trigger.id, (e) => esperaResposta(def, e))) {
       if (id === trigger.id) continue;
       const node = def.nodes.find((n) => n.id === id);
       if (!node) continue;
@@ -185,22 +185,30 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
   return issues;
 }
 
-/** O primeiro bloco depois do gatilho que manda mensagem: etiqueta não manda, então é pulada. */
+/** O primeiro bloco depois do gatilho que manda mensagem: etiqueta e Se… campo/etiqueta não mandam, então são pulados. */
 function primeiroDirectId(def: FlowDef, triggerId: string): string | null {
   const visto = new Set<string>();
   let id = targetOf(def, triggerId, "next");
-  while (id && !visto.has(id) && def.nodes.find((n) => n.id === id)?.type === "tag") {
+  while (id && !visto.has(id)) {
+    const n = def.nodes.find((x) => x.id === id);
+    if (!n) break;
+    const silencioso = n.type === "tag" || (n.type === "condition" && (n.check === "field" || n.check === "tag"));
+    if (!silencioso) break;
     visto.add(id);
-    id = targetOf(def, id, "next");
+    id = targetOf(def, id, n.type === "tag" ? "next" : n.check === "field" ? "v0" : "yes");
   }
   return id;
 }
 
-/** As saídas que só disparam depois de a pessoa responder: `replied`, uma escolha ou `other`. */
-const esperaResposta = (out: FlowOut): boolean => out === "replied" || out === "other" || choiceIndex(out) !== null;
+/** Só uma Pergunta com escolhas espera resposta pelas saídas v0…v12 e other; num Se… campo elas são ramos comuns. */
+const esperaResposta = (def: FlowDef, e: FlowEdge): boolean => {
+  if (e.out === "replied") return true;
+  if (e.out !== "other" && choiceIndex(e.out) === null) return false;
+  return def.nodes.find((n) => n.id === e.from)?.type === "message";
+};
 
 /** Ids alcançáveis a partir de `start` sem atravessar uma aresta `bloqueada`. */
-function alcancavelSem(def: FlowDef, start: string, bloqueada: (out: FlowOut) => boolean): Set<string> {
+function alcancavelSem(def: FlowDef, start: string, bloqueada: (e: FlowEdge) => boolean): Set<string> {
   const seen = new Set<string>();
   const stack = [start];
   while (stack.length > 0) {
@@ -208,7 +216,7 @@ function alcancavelSem(def: FlowDef, start: string, bloqueada: (out: FlowOut) =>
     if (seen.has(id)) continue;
     seen.add(id);
     for (const e of def.edges) {
-      if (e.from === id && !bloqueada(e.out) && !seen.has(e.to)) stack.push(e.to);
+      if (e.from === id && !bloqueada(e) && !seen.has(e.to)) stack.push(e.to);
     }
   }
   return seen;

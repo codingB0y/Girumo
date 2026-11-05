@@ -56,3 +56,27 @@ export function moveChoice(def: FlowDef, nodeId: string, from: number, to: numbe
     },
   );
 }
+
+/**
+ * Liga, troca ou desliga as escolhas de uma mensagem mantendo as ligações coerentes:
+ * ligar leva `replied` para `v0` e tira o botão; desligar volta `v0` para `replied` e
+ * larga as outras `v*`/`other`; trocar por uma lista menor larga as ligações que sobram.
+ */
+export function setChoices(def: FlowDef, nodeId: string, choices: string[]): FlowDef {
+  const alvo = def.nodes.find((n) => n.id === nodeId);
+  if (!alvo || alvo.type !== "message") return def;
+  const tinha = (alvo.choices?.length ?? 0) > 0;
+  const tem = choices.length > 0;
+  const nodes = def.nodes.map((n) => (n.id === nodeId && n.type === "message" ? { ...n, choices, ...(tem ? { button: null } : {}) } : n));
+  const edges = def.edges.flatMap<FlowEdge>((e) => {
+    if (e.from !== nodeId) return [e];
+    if (!tinha && tem) return e.out === "replied" ? [{ ...e, out: choiceOut(0) }] : [e];
+    if (tinha && !tem) {
+      if (e.out === "v0") return [{ ...e, out: "replied" }];
+      return e.out === "other" || choiceIndex(e.out) !== null ? [] : [e];
+    }
+    const i = choiceIndex(e.out);
+    return i !== null && i >= choices.length ? [] : [e];
+  });
+  return { ...def, nodes, edges };
+}
