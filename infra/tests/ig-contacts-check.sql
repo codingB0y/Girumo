@@ -120,6 +120,12 @@ begin
     r := public.ig_contact_apply(t, 'u1', null, '{}', array['t' || i], '{}', null, false, null);
   end loop;
   if cardinality(r.tags) <> 50 then raise exception 'FALHOU: teto de 50 etiquetas (%)', cardinality(r.tags); end if;
+
+  -- data do webhook no futuro é limitada a agora + 5 min (20261105121000_ig_contacts_ajustes.sql).
+  r := public.ig_contact_apply(t, 'u1', null, '{}', '{}', '{}', now() + interval '10 days', true, null);
+  if r.last_seen_at > now() + interval '6 minutes' or r.last_dm_at > now() + interval '6 minutes' then
+    raise exception 'FALHOU: data futura deveria ser limitada';
+  end if;
 end $$;
 
 -- 3) Números e valores de campo (loja nova, 4 pessoas).
@@ -175,7 +181,7 @@ begin
   if (select count(*) from public.ig_contacts where tenant_id = t1) <> 0 then
     raise exception 'FALHOU: loja cancelada há 31 dias deveria perder as pessoas';
   end if;
-  if (r ->> 'inativas')::int < 1 or (r ->> 'loja_cancelada')::int < 1 then
+  if (r ->> 'inativas')::int < 1 or (r ->> 'loja_cancelada')::int < 1 or not (r ? 'atendimentos_loja_cancelada') then
     raise exception 'FALHOU: contagens do purge (%)', r;
   end if;
 end $$;
