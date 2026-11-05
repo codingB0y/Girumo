@@ -54,6 +54,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const contato = await getContactById(ctx.tenantId, id);
     if (!contato) return naoAchou();
     const nova = await editContact(ctx.tenantId, contato, { set: parsed.data.set, add, remove });
+    if (!nova) return naoAchou();
     return Response.json({ pessoa: paraPessoa(nova, await nomesDosFluxos(ctx.tenantId)) });
   } catch (e) {
     return responderErro(e);

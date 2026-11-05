@@ -11,7 +11,9 @@ export const PAGE_SIZE = 50;
 const LOTE = 1000;
 /** Teto de uma varredura (etiqueta em massa, CSV). Passou disso, erro explícito em vez de resultado cortado. */
 export const LIMITE_VARREDURA = 20_000;
-const SIMULTANEAS = 10;
+/** Etiqueta em massa por filtro: 1 RPC por ficha, então o teto é menor (cabe no `maxDuration` da rota). */
+export const LIMITE_EM_MASSA = 5_000;
+const SIMULTANEAS = 25;
 
 export type Recencia = "24h" | "7d" | "30d" | "tudo";
 export type ContactFilters = {
@@ -26,8 +28,8 @@ export type ContactFilters = {
 const JANELA_MS: Record<Exclude<Recencia, "tudo">, number> = { "24h": 86_400_000, "7d": 7 * 86_400_000, "30d": 30 * 86_400_000 };
 
 export class LimiteDeVarredura extends Error {
-  constructor() {
-    super(`Mais de ${LIMITE_VARREDURA} pessoas nesse filtro. Afine os filtros e tente de novo.`);
+  constructor(limite: number = LIMITE_VARREDURA) {
+    super(`Mais de ${limite} pessoas nesse filtro. Afine os filtros e tente de novo.`);
   }
 }
 
@@ -77,7 +79,7 @@ export async function listContacts(tenantId: string, f: ContactFilters, pagina: 
 }
 
 /** Todas as pessoas do filtro, em lotes de 1000. Passou do teto: `LimiteDeVarredura`, nunca lista cortada. */
-export async function collectContacts(tenantId: string, f: ContactFilters, agoraMs: number = Date.now()): Promise<IgContactRow[]> {
+export async function collectContacts(tenantId: string, f: ContactFilters, agoraMs: number = Date.now(), limite: number = LIMITE_VARREDURA): Promise<IgContactRow[]> {
   const todas: IgContactRow[] = [];
   for (let de = 0; ; de += LOTE) {
     const { data, error } = await aplicarFiltros(getSupabaseAdmin().from("ig_contacts").select(CONTACT_COLS), tenantId, f, agoraMs)
@@ -86,7 +88,7 @@ export async function collectContacts(tenantId: string, f: ContactFilters, agora
     if (error) throw new Error(error.message);
     const lote = (data ?? []) as unknown as IgContactRow[];
     todas.push(...lote);
-    if (todas.length > LIMITE_VARREDURA) throw new LimiteDeVarredura();
+    if (todas.length > limite) throw new LimiteDeVarredura(limite);
     if (lote.length < LOTE) return todas;
   }
 }
@@ -113,8 +115,14 @@ export type EdicaoDaFicha = {
  * Edição pela tela. A hora da interação é a que a ficha já tem: editar à mão não conta como ela ter
  * escrito (`ig_contact_apply` só anda `last_seen_at` para frente, então repetir o valor não mexe).
  */
-export function editContact(tenantId: string, atual: IgContactRow, edicao: EdicaoDaFicha): Promise<IgContactRow> {
-  return applyContact(tenantId, { igUserId: atual.ig_user_id, username: atual.username, ...edicao, seenAt: atual.last_seen_at, dm: false });
+export async function editContact(tenantId: string, atual: IgContactRow, edicao: EdicaoDaFicha): Promise<IgContactRow | null> {
+  const nova = await applyContact(tenantId, { igUserId: atual.ig_user_id, username: atual.username, ...edicao, seenAt: atual.last_seen_at, dm: false });
+  if (nova.id === atual.id) return nova;
+  // `ig_contact_apply` é upsert: id diferente = a pessoa foi apagada entre a leitura e a gravação e a função
+  // criou uma ficha nova. Apaga essa (LGPD: apagar não pode voltar) e trata a pessoa como ausente.
+  const { error } = await getSupabaseAdmin().from("ig_contacts").delete().eq("tenant_id", tenantId).eq("id", nova.id);
+  if (error) throw new Error(error.message);
+  return null;
 }
 
 export type AlvoEmMassa = { ids: string[] } | { filtros: ContactFilters };
@@ -122,9 +130,11 @@ export type AlvoEmMassa = { ids: string[] } | { filtros: ContactFilters };
 /** Pôr/tirar etiqueta em quem foi selecionado ou em todos os filtrados. Devolve quantas fichas foram tocadas. */
 export async function bulkTags(tenantId: string, alvo: AlvoEmMassa, add: string[], remove: string[], agoraMs: number = Date.now()): Promise<number> {
   // Lê TUDO antes de gravar: mudar etiqueta enquanto pagina o filtro "tem todas" faria as páginas andarem.
-  const pessoas = "ids" in alvo ? await contactsByIds(tenantId, alvo.ids) : await collectContacts(tenantId, alvo.filtros, agoraMs);
+  const pessoas = "ids" in alvo ? await contactsByIds(tenantId, alvo.ids) : await collectContacts(tenantId, alvo.filtros, agoraMs, LIMITE_EM_MASSA);
+  let atualizadas = 0;
   for (let i = 0; i < pessoas.length; i += SIMULTANEAS) {
-    await Promise.all(pessoas.slice(i, i + SIMULTANEAS).map((p) => editContact(tenantId, p, { add, remove })));
+    const feitas = await Promise.all(pessoas.slice(i, i + SIMULTANEAS).map((p) => editContact(tenantId, p, { add, remove })));
+    atualizadas += feitas.filter((f) => f !== null).length;
   }
-  return pessoas.length;
+  return atualizadas;
 }

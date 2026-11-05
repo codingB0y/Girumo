@@ -20,6 +20,7 @@ let ligado = true;
 let desligadoEm: string | null = null;
 /** A loja dona da ficha no "banco": quem pergunta com outro tenant_id não a vê. */
 let donoDaFicha = "loja-b";
+let rpcDevolveOutroId = false;
 let campos: Record<string, unknown> = { tamanho: "Infantil" };
 
 const ficha = () => ({ id: ID, tenant_id: donoDaFicha, ig_user_id: "u1", username: "ana", fields: campos, tags: ["vip"], first_seen_at: "2026-11-01T00:00:00Z", last_seen_at: "2026-11-02T00:00:00Z", last_dm_at: null, source_flow_id: null, updated_at: "2026-11-02T00:00:00Z" });
@@ -41,7 +42,7 @@ const supabase = createServer((req, res) => {
     } else if (url.pathname === "/rest/v1/ig_contacts" && req.method === "GET") {
       const lista = visivel ? [ficha()] : [];
       corpo = objeto ? (lista[0] ?? null) : lista;
-    } else if (url.pathname === "/rest/v1/rpc/ig_contact_apply") corpo = ficha();
+    } else if (url.pathname === "/rest/v1/rpc/ig_contact_apply") corpo = rpcDevolveOutroId ? { ...ficha(), id: "nova-ficha" } : ficha();
     res.setHeader("Content-Type", "application/json");
     if (req.method === "HEAD") res.setHeader("Content-Range", "*/1");
     res.end(req.method === "HEAD" ? undefined : JSON.stringify(corpo));
@@ -179,6 +180,17 @@ test("operador edita campo e etiqueta; a gravação vai pelo apply atômico da l
   assert.equal(r.status, 200);
   const apply = chamadas.find((c) => c.url.pathname === "/rest/v1/rpc/ig_contact_apply");
   assert.deepEqual(apply?.corpo, { p_tenant: "loja-b", p_ig_user_id: "u1", p_username: "ana", p_set: { tamanho: null }, p_add: ["quer-infantil"], p_remove: [], p_seen_at: "2026-11-02T00:00:00Z", p_dm: false, p_source_flow: null });
+});
+
+test("PATCH em pessoa apagada no meio do caminho é 404 e a ficha recriada é apagada", async () => {
+  rpcDevolveOutroId = true;
+  try {
+    assert.equal((await PATCH(pedir("PATCH", `/api/ig/contacts/${ID}`, { add: ["vip"] }), comId(ID))).status, 404);
+    const apagou = chamadas.find((c) => c.metodo === "DELETE" && c.url.pathname === "/rest/v1/ig_contacts");
+    assert.equal(apagou?.url.searchParams.get("tenant_id"), "eq.loja-b");
+  } finally {
+    rpcDevolveOutroId = false;
+  }
 });
 
 test("etiqueta em massa por ids grava só fichas da loja", async () => {

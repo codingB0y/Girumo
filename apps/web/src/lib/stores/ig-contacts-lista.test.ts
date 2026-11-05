@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
-import { bulkTags, collectContacts, editContact, escapeLike, LimiteDeVarredura, listContacts, LIMITE_VARREDURA } from "./ig-contacts-lista";
+import { bulkTags, collectContacts, editContact, escapeLike, LimiteDeVarredura, listContacts, LIMITE_EM_MASSA, LIMITE_VARREDURA } from "./ig-contacts-lista";
 
 type Pedido = { metodo: string; url: URL; corpo: unknown };
 const pedidos: Pedido[] = [];
 /** Quantas linhas o "banco" tem no total; o fake devolve fichas numeradas dentro do `range` pedido. */
 let totalNoBanco = 0;
+let recriar = false;
 
 const ficha = (n: number) => ({ id: `p${n}`, tenant_id: "loja-a", ig_user_id: `u${n}`, username: `ana${n}`, fields: {}, tags: [], first_seen_at: "2026-11-01T00:00:00Z", last_seen_at: "2026-11-02T00:00:00Z", last_dm_at: null, source_flow_id: null, updated_at: "2026-11-02T00:00:00Z" });
 
@@ -18,7 +19,13 @@ const postgrest = createServer((req, res) => {
   req.on("end", () => {
     pedidos.push({ metodo: req.method ?? "", url, corpo: bruto ? JSON.parse(bruto) : null });
     res.setHeader("Content-Type", "application/json");
-    if (url.pathname.startsWith("/rest/v1/rpc/")) { res.end(JSON.stringify(ficha(1))); return; }
+    if (url.pathname.startsWith("/rest/v1/rpc/")) {
+      // O apply devolve a ficha do u{n} (id p{n}); `recriar` simula pessoa apagada: nasce uma linha nova, de outro id.
+      const n = Number(String((bruto && JSON.parse(bruto).p_ig_user_id) || "u1").slice(1));
+      res.end(JSON.stringify(recriar ? { ...ficha(n), id: `nova${n}` } : ficha(n)));
+      return;
+    }
+    if (req.method === "DELETE") { res.end("[]"); return; }
     // `.range(a, b)` do supabase-js vira offset + limit na URL.
     const de = Number(url.searchParams.get("offset") ?? 0);
     const limite = url.searchParams.get("limit");
@@ -91,6 +98,28 @@ test("editContact grava com a hora que a ficha já tem e sem marcar direct", asy
     p_tenant: "loja-a", p_ig_user_id: "u1", p_username: "ana1", p_set: { tamanho: null }, p_add: ["vip"], p_remove: [],
     p_seen_at: "2026-11-02T00:00:00Z", p_dm: false, p_source_flow: null,
   });
+});
+
+test("etiqueta em massa por filtro tem teto de 5.000 (422 com o limite na mensagem); o CSV segue com 20 mil", async () => {
+  totalNoBanco = LIMITE_EM_MASSA + 1;
+  await assert.rejects(() => bulkTags("loja-a", { filtros: {} }, ["x"], [], AGORA), (e: Error) => e instanceof LimiteDeVarredura && e.message.includes("5000"));
+  assert.equal((await collectContacts("loja-a", {}, AGORA)).length, LIMITE_EM_MASSA + 1);
+});
+
+test("pessoa apagada entre a leitura e a gravação: a ficha recriada pelo upsert é apagada e vira ausente", async () => {
+  pedidos.length = 0;
+  recriar = true;
+  try {
+    assert.equal(await editContact("loja-a", ficha(1), { add: ["vip"] }), null);
+    const apagou = pedidos.find((p) => p.metodo === "DELETE");
+    assert.equal(apagou?.url.pathname, "/rest/v1/ig_contacts");
+    assert.deepEqual([apagou?.url.searchParams.get("tenant_id"), apagou?.url.searchParams.get("id")], ["eq.loja-a", "eq.nova1"]);
+
+    totalNoBanco = 3;
+    assert.equal(await bulkTags("loja-a", { ids: ["p0", "p1", "p2"] }, ["quente"], [], AGORA), 0, "nenhuma conta como atualizada");
+  } finally {
+    recriar = false;
+  }
 });
 
 test("bulkTags por ids lê só da loja e grava uma ficha por vez no apply atômico", async () => {
