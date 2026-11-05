@@ -10,8 +10,8 @@
  * `LEGAL_EFFECTIVE_DATE` no mesmo commit.
  */
 
-export const LEGAL_VERSION = "2026-10-08.1";
-export const LEGAL_EFFECTIVE_DATE = "8 de outubro de 2026";
+export const LEGAL_VERSION = "2026-11-05.1";
+export const LEGAL_EFFECTIVE_DATE = "5 de novembro de 2026";
 
 /**
  * Identificação do responsável pela plataforma.

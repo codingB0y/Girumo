@@ -603,3 +603,9 @@ apps/web/supabase/migrations/20261030160000_numero_do_atendimento.sql
 # Só o corpo de app.mention_all_daily_budget, com trava de md5: não muda a baseline. Conferir com
 # infra/tests/antiban-saidas-e-todos-check.sql nos dois bancos (expectativas do orçamento atualizadas).
 apps/web/supabase/migrations/20261103120000_mention_all_budget_zero.sql
+# 05/11: Pessoas do Instagram (PR 1a): ig_contacts, ig_contact_apply/stats/field_values/purge, tenant_settings.instagram_disabled_at
+# e a receita comment_choose_group na CHECK de ig_flows. Baseline muda (tabela e funcoes novas); conferir com infra/tests/ig-contacts-check.sql.
+apps/web/supabase/migrations/20261105120000_ig_contacts.sql
+# 05/11: ajustes da revisão do PR 1a (Pessoas do Instagram): data futura limitada no apply, purga leva os
+# atendimentos de loja cancelada, carimbo de quem já tinha cancelado. Conferir com infra/tests/ig-contacts-check.sql.
+apps/web/supabase/migrations/20261105121000_ig_contacts_ajustes.sql
