@@ -13,11 +13,7 @@ export type AtualizarConversa = (tenantId: string, id: string, patch: { status: 
  * mensagem. Sem conversa no índice não há onde gravar (o `ig_conversations` exige o id da conversa da Zernio, que um
  * comentário ainda não tem): a pessoa entra no índice quando responder.
  */
-export async function passarPraLoja(conversas: Conversas, atualizar: AtualizarConversa | undefined, tenantId: string, i: { igUserId: string; runId: string; agora: Date }): Promise<void> {
-  if (!atualizar) {
-    console.error("[ig/conversas] atualizarConversa não está ligado: o bloco Passar pra loja não pausou o robô");
-    return;
-  }
+export async function passarPraLoja(conversas: Conversas, atualizar: AtualizarConversa, tenantId: string, i: { igUserId: string; runId: string; agora: Date }): Promise<void> {
   try {
     const conversa = await lerConversa(conversas, tenantId, i.igUserId);
     if (!conversa) return;

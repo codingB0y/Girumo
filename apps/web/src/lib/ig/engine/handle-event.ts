@@ -40,7 +40,7 @@ export type Ambiente = {
   /** O índice das Conversas (`ig_conversations`) e seus eventos. */
   conversas: Conversas;
   /** `updateConversation` da store: o bloco Passar pra loja põe a conversa em Aguardando você e pausa o robô. */
-  atualizarConversa?: AtualizarConversa;
+  atualizarConversa: AtualizarConversa;
   /** Quanto o ack espera a gravação da ficha (padrão 1,5 s: a Zernio reenvia depois de 5 s). */
   tetoDaFichaMs?: number;
 };
