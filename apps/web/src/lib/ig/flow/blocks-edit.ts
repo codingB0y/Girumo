@@ -6,7 +6,7 @@ import { MAIN_OUTS, MAX_WAIT_MINUTES, outsOf, type FlowDef, type FlowEdge, type 
  * Operações de edição dos blocos novos (Pergunta, Etiqueta, Se…): inserir depois de um passo,
  * apagar religando, ligar cada saída a um bloco. Puras, como o resto desta pasta.
  */
-export type NovoBloco = "pergunta" | "etiqueta" | "se";
+export type NovoBloco = "pergunta" | "etiqueta" | "se" | "loja";
 
 const mainOut = (node: FlowNode): FlowOut | null => {
   const outs = outsOf(node);
@@ -15,6 +15,7 @@ const mainOut = (node: FlowNode): FlowOut | null => {
 
 function novoNo(kind: NovoBloco, id: string): FlowNode {
   if (kind === "etiqueta") return { id, type: "tag", add: [], remove: [] };
+  if (kind === "loja") return { id, type: "handoff", text: null };
   if (kind === "se") return { id, type: "condition", check: "field", field: "", values: [""] };
   return { id, type: "message", text: "", button: null, wait: { minutes: MAX_WAIT_MINUTES }, choices: ["Sim", "Não"], saveTo: null };
 }
@@ -25,14 +26,16 @@ export function insertAfter(def: FlowDef, afterId: string, kind: NovoBloco): Flo
   const saida = alvo ? mainOut(alvo) : null;
   if (!alvo || !saida) return def;
   const seguinte = targetOf(def, afterId, saida);
+  // Passar pra loja é fim de caminho: com algo depois, esse resto ficaria solto.
+  if (kind === "loja" && seguinte) return def;
   const novo = novoNo(kind, freshId(def, kind === "se" ? "se" : kind));
-  const saidaNova = mainOut(novo) as FlowOut;
+  const saidaNova = mainOut(novo);
   const nodes = [...def.nodes];
   nodes.splice(nodes.findIndex((n) => n.id === afterId) + 1, 0, novo);
   const edges: FlowEdge[] = [
     ...def.edges.filter((e) => !(e.from === afterId && e.out === saida)),
     { from: afterId, out: saida, to: novo.id },
-    ...(seguinte ? [{ from: novo.id, out: saidaNova, to: seguinte }] : []),
+    ...(seguinte && saidaNova ? [{ from: novo.id, out: saidaNova, to: seguinte }] : []),
   ];
   return { ...def, nodes, edges };
 }

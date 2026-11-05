@@ -1,15 +1,17 @@
 import type { Conversas } from "@/lib/ig/conversas/indice";
-import type { ConversationEventInput, IgConversationRow, TouchInput } from "@/lib/stores/ig-conversations";
+import type { AtualizarConversa } from "@/lib/ig/conversas/passar-pra-loja";
+import type { ConversationEventInput, ConversationPatch, IgConversationRow, TouchInput } from "@/lib/stores/ig-conversations";
 
 /**
  * Índice das Conversas dos testes do motor, em memória, com a mesma regra do `ig_conversation_touch`:
  * soma não lida só em `in`, a última mensagem só anda para frente, `status` null mantém. Sem "server-only".
  */
-export function criarConversasFalsas(opts: { inicial?: Partial<IgConversationRow> & { ig_user_id: string }; falharTocar?: boolean; falharEvento?: boolean } = {}) {
+export function criarConversasFalsas(opts: { inicial?: Partial<IgConversationRow> & { ig_user_id: string }; falharTocar?: boolean; falharEvento?: boolean; falharAtualizar?: boolean } = {}) {
   const linhas = new Map<string, IgConversationRow>();
   const toques: TouchInput[] = [];
   const eventos: ConversationEventInput[] = [];
   const ultimas = new Map<string, string>();
+  const atualizacoes: Array<{ id: string; patch: ConversationPatch }> = [];
   if (opts.inicial) linhas.set(opts.inicial.ig_user_id, { ...vazia(opts.inicial.ig_user_id), ...opts.inicial });
 
   const conversas: Conversas = {
@@ -45,7 +47,17 @@ export function criarConversasFalsas(opts: { inicial?: Partial<IgConversationRow
       eventos.push(e);
     },
   };
-  return { conversas, toques, eventos, linhas };
+  /** O `updateConversation` da store, em memória. */
+  const atualizar: AtualizarConversa = async (tenantId, id, patch) => {
+    atualizacoes.push({ id, patch });
+    if (opts.falharAtualizar) throw new Error("ig_conversations fora do ar");
+    const alvo = [...linhas.values()].find((l) => l.id === id && l.tenant_id === tenantId);
+    if (!alvo) return null;
+    const nova = { ...alvo, ...patch };
+    linhas.set(alvo.ig_user_id, nova);
+    return nova;
+  };
+  return { conversas, atualizar, atualizacoes, toques, eventos, linhas };
 }
 
 function vazia(igUserId: string): IgConversationRow {

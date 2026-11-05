@@ -53,3 +53,20 @@ test("a prévia mostra as escolhas como respostas rápidas, menos no 1º direct 
   const h2 = renderToStaticMarkup(createElement(Previa, { def: { ...comentario, nodes: [t, pergunta], edges: [{ from: t.id, out: "next", to: "p" }] }, handle: null }));
   assert.doesNotMatch(h2, /Respostas rápidas/);
 });
+
+test("Passar pra loja mostra o texto opcional com a dica e a prévia leva a marca", () => {
+  const sem: FlowNode = { id: "loja", type: "handoff", text: null };
+  const h = render(sem);
+  assert.match(h, /aria-label="Mensagem ao passar pra loja: Passar pra loja \(loja\)"/);
+  assert.match(h, /Já já alguém da loja te responde por aqui\./);
+  assert.match(h, /Aguardando você/);
+  const dm = RECIPES.dm_invite.build();
+  const t = dm.nodes[0];
+  const def = (text: string | null): FlowDef => ({ ...dm, nodes: [t, { id: "loja", type: "handoff", text }], edges: [{ from: t.id, out: "next", to: "loja" }] });
+  const com = renderToStaticMarkup(createElement(Previa, { def: def("Oi, já já!"), handle: null }));
+  assert.match(com, /Oi, já já!/);
+  assert.match(com, /Passa pra loja/);
+  const nada = renderToStaticMarkup(createElement(Previa, { def: def(null), handle: null }));
+  assert.doesNotMatch(nada, /sem texto ainda/);
+  assert.match(nada, /Passa pra loja/);
+});

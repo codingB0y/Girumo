@@ -42,6 +42,8 @@ export type Resultado = {
   errorCode: string | null;
   errorMessage: string | null;
   directsSent: number;
+  /** O caminho terminou num bloco Passar pra loja: quem chama põe a conversa em Aguardando você e pausa o robô. */
+  handoff?: true;
 };
 
 export type Deps = {
@@ -89,7 +91,7 @@ async function montarDirect(no: FlowNode, run: RunState, viaPrivada: boolean, de
   }
   // O toque só vale onde há quem espere por ele; o payload leva o run pra um botão velho de outro fluxo não liberar este.
   if (no.type === "message" && no.button && no.wait && !viaPrivada) return { texto: no.text, botao: { type: "postback", title: no.button, payload: payloadDoBotao(run.id, no.id) } };
-  return { texto: no.type === "message" ? no.text : "", botao: null };
+  return { texto: no.type === "message" ? no.text : no.type === "handoff" ? (no.text ?? "") : "", botao: null };
 }
 
 async function enviar(run: RunState, nodeId: string, direct: Direct, viaPrivada: boolean, transport: Transport): Promise<Envio> {
@@ -190,9 +192,25 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
       atualId = seguinte;
       continue;
     }
+    const viaPrivada = run.sourceKind === "comment" && directsSent === 0;
+    if (no.type === "handoff") {
+      // Fim de caminho. O texto é cortesia: fora da janela ou recusado não impede a loja de assumir a conversa.
+      const janelaAberta = deps.now().getTime() <= Date.parse(run.windowExpiresAt);
+      if (no.text && janelaAberta) {
+        const envio = await enviar(run, no.id, await montarDirect(no, run, viaPrivada, deps), viaPrivada, deps.transport);
+        if (envio.ok) {
+          directsSent += 1;
+          deps.enviado?.(no.id, envio.messageId, no.type);
+        } else {
+          // Só o código: a loja assume do mesmo jeito, mas fica o rastro de que o texto não saiu.
+          console.error("[ig/motor] texto do Passar pra loja recusado:", envio.code);
+        }
+      }
+      await deps.step(no.id, "next");
+      return resultado("done", no.id, { handoff: true });
+    }
     if (deps.now().getTime() > Date.parse(run.windowExpiresAt)) return falha(no.id, "window_expired", null);
 
-    const viaPrivada = run.sourceKind === "comment" && directsSent === 0;
     let envio: Envio;
     try {
       envio = await enviar(run, no.id, await montarDirect(no, run, viaPrivada, deps), viaPrivada, deps.transport);

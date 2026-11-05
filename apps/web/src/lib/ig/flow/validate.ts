@@ -12,7 +12,7 @@ import {
   type FlowEdge,
   type TriggerNode,
 } from "./types";
-import { validateChoices, validateCondition, validateTag } from "./validate-nodes";
+import { validateChoices, validateCondition, validateHandoff, validateTag } from "./validate-nodes";
 
 export type IssueCode =
   | "sem_gatilho"
@@ -127,6 +127,7 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
       if (node.wait && (node.wait.minutes < 1 || node.wait.minutes > MAX_WAIT_MINUTES)) add("espera_longa", node.id, "A espera vai de 1 minuto a 23 horas.");
     }
     if (node.type === "tag") validateTag(node, add);
+    if (node.type === "handoff") validateHandoff(node, add);
     if (node.type === "condition") validateCondition(node, add);
     if (node.type === "invite") {
       if (node.text.trim() === "") add("texto_vazio", node.id, "Escreva o texto do convite.");
@@ -159,8 +160,9 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
       const node = def.nodes.find((n) => n.id === id);
       if (!node) continue;
       // O primeiro direct é o único permitido; já uma condição logo no começo continua errada.
-      if (id === primeiroId && (node.type === "message" || node.type === "invite")) continue;
-      if (node.type === "message" || node.type === "invite") {
+      const mandaDirect = node.type === "message" || node.type === "invite" || (node.type === "handoff" && node.text !== null);
+      if (id === primeiroId && mandaDirect) continue;
+      if (mandaDirect) {
         add("segundo_direct_sem_resposta", id, "Depois de um comentário só sai um direct. Este só pode vir depois de a pessoa responder.");
       }
       if (node.type === "condition" && node.check === "follows") {

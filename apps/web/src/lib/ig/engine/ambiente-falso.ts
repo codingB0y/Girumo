@@ -25,10 +25,13 @@ export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFa
   const dmLive = { ...dmDef, nodes: dmDef.nodes.map((n) => (n.type === "invite" ? { ...n, campaignSlug: "vip" } : n)) };
   const fichas = criarContatosFalsos(opts.contatos);
   const indice = criarConversasFalsas(opts.conversas);
+  const seguras: Promise<unknown>[] = [];
   const amb: Ambiente = {
     transport,
     contatos: fichas.contatos,
     conversas: indice.conversas,
+    atualizarConversa: indice.atualizar,
+    segurarAteTerminar: (tarefa) => { seguras.push(tarefa); },
     now: () => T0,
     novoRef: () => "ref-fixo-12345",
     contaPorIdDaZernio: async (id) => (opts.conta === null || id !== "z1" ? null : { id: "a1", tenant_id: "loja-a", username: "vireimoda", status: "active", provider: "zernio", provider_account_id: "z1", provider_profile_id: "p1", connected_at: "t", ...opts.conta } as never),
@@ -54,5 +57,5 @@ export function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFa
     },
     link: async (_t, slug, ref) => `https://app/r/${slug}?ig=${ref}`,
   };
-  return { amb, chamadas, criados, patches, estados, buscas, reivindicacoes, fichas, indice };
+  return { amb, chamadas, criados, patches, estados, buscas, reivindicacoes, fichas, indice, seguras };
 }

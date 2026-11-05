@@ -1,3 +1,4 @@
+import { passarPraLoja, type AtualizarConversa } from "@/lib/ig/conversas/passar-pra-loja";
 import { falhaPassageira, gravarEnvios, lerConversa, registrarEnviada, registrarFalha, registrarRecebida, robotPausado, type Conversas, type EnvioDoRobo, type ModoDaSituacao } from "@/lib/ig/conversas/indice";
 import type { FlowOut } from "@/lib/ig/flow/types";
 import { TETO_RUNS_POR_HORA } from "@/lib/ig/limites";
@@ -38,6 +39,10 @@ export type Ambiente = {
   contatos: Contatos;
   /** O índice das Conversas (`ig_conversations`) e seus eventos. */
   conversas: Conversas;
+  /** `updateConversation` da store: o bloco Passar pra loja põe a conversa em Aguardando você e pausa o robô. */
+  atualizarConversa: AtualizarConversa;
+  /** `after()` da rota: mantém a função viva até a tarefa acabar, mesmo depois do ack. */
+  segurarAteTerminar: (tarefa: Promise<unknown>) => void;
   /** Quanto o ack espera a gravação da ficha (padrão 1,5 s: a Zernio reenvia depois de 5 s). */
   tetoDaFichaMs?: number;
 };
@@ -118,6 +123,8 @@ type Contexto = {
   pausado: boolean;
   /** Só no comentário: a conversa já conhecida da pessoa, onde a resposta privada deixa o evento. */
   conversaDoComentario: IgConversationRow | null;
+  /** O run terminou num Passar pra loja: depois do índice, a conversa vai para Aguardando você e o robô pausa. */
+  handoff: { igUserId: string; runId: string } | null;
 };
 
 /**
@@ -133,11 +140,22 @@ function registrarNoIndice(ev: EventoZernio, d: Desfecho, ctx: Contexto, amb: Am
   const { tenantId } = ctx;
   if (!tenantId) return;
   const agora = amb.now();
+  const { handoff } = ctx;
+  // Depois da gravação do índice (que cria a conversa e decide a situação): o Passar pra loja tem a última palavra.
+  // O teto da ficha solta o ack, mas a pausa do robô não pode morrer com a função: o run já está `done`, e a
+  // reentrega cai em "duplicado" sem refazer o handoff. Por isso ela também fica segura até terminar.
+  // ponytail: um direct que chegue no intervalo entre o envio e a pausa (milissegundos) ainda pode abrir outro fluxo.
+  const depois = (gravando: Promise<unknown>) => {
+    if (!handoff) return gravando;
+    const tudo = gravando.then(() => passarPraLoja(amb.conversas, amb.atualizarConversa, tenantId, { ...handoff, agora }));
+    amb.segurarAteTerminar(tudo);
+    return tudo;
+  };
   if (ev.event === "message.received" && ev.message.platform === "instagram" && ev.message.direction === "incoming") {
-    ctx.pendentes.push(registrarRecebida(amb.conversas, tenantId, ev, { igAccountId: ctx.igAccountId, envios: ctx.envios, pausado: ctx.pausado, runId: d.kind === "handled" ? d.runId : null, agora, situacao: modoDaSituacao(d) }));
+    ctx.pendentes.push(depois(registrarRecebida(amb.conversas, tenantId, ev, { igAccountId: ctx.igAccountId, envios: ctx.envios, pausado: ctx.pausado || handoff !== null, runId: d.kind === "handled" ? d.runId : null, agora, situacao: modoDaSituacao(d) })));
   } else if (ev.event === "comment.received" && d.kind === "handled") {
     // A resposta privada não devolve a conversa: sem conversa conhecida, não há onde gravar.
-    ctx.pendentes.push(gravarEnvios(amb.conversas, tenantId, ctx.conversaDoComentario?.id ?? null, ctx.envios, d.runId, agora));
+    ctx.pendentes.push(depois(gravarEnvios(amb.conversas, tenantId, ctx.conversaDoComentario?.id ?? null, ctx.envios, d.runId, agora)));
   } else if (ev.event === "message.sent" && ev.message.platform === "instagram") {
     ctx.pendentes.push(registrarEnviada(amb.conversas, tenantId, ev, agora));
   }
@@ -149,7 +167,7 @@ function registrarNoIndice(ev: EventoZernio, d: Desfecho, ctx: Contexto, amb: Am
  * Nada que não casa deixa rastro no banco, fora a ficha e o índice das Conversas.
  */
 export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Desfecho> {
-  const ctx: Contexto = { pendentes: [], envios: [], tenantId: null, igAccountId: "", pausado: false, conversaDoComentario: null };
+  const ctx: Contexto = { pendentes: [], envios: [], tenantId: null, igAccountId: "", pausado: false, conversaDoComentario: null, handoff: null };
   try {
     let d: Desfecho;
     try {
@@ -289,6 +307,7 @@ async function processar(ev: EventoZernio, amb: Ambiente, ctx: Contexto): Promis
   try {
     const r = await advance(escolha.def, estado, depsDoRun(tenantId, run, contato, amb, ctx, saidas));
     await gravar(tenantId, run.id, r, amb);
+    if (r.handoff) ctx.handoff = { igUserId: entrada.igUserId, runId: run.id };
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {
     // O run fica `queued`: o reenvio da Zernio o retoma depois de 2 min. Se o direct que
@@ -435,6 +454,7 @@ async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAcco
     const saidas = achado.reenvio ? saidasReusaveis(await amb.runs.passos(tenantId, run.id), nodeId) : undefined;
     const r = await advance(def, estado, depsDoRun(tenantId, run, contato, amb, ctx, saidas), retomada);
     await gravar(tenantId, run.id, r, amb);
+    if (r.handoff) ctx.handoff = { igUserId: entrada.igUserId, runId: run.id };
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {
     // Volta pra espera: o reenvio reivindica de novo e a Idempotency-Key segura o direct repetido.

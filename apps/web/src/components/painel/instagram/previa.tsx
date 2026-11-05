@@ -7,7 +7,7 @@ import type { FlowDef } from "@/lib/ig/flow/types";
 export function Previa({ def, handle }: { def: FlowDef; handle: string | null }) {
   const trigger = triggerOf(def);
   const palavra = trigger?.keywords[0] ?? "quero";
-  const directs = linearize(def).map((p) => p.node).filter((n) => n.type === "message" || n.type === "invite");
+  const directs = linearize(def).map((p) => p.node).filter((n) => n.type === "message" || n.type === "invite" || n.type === "handoff");
   const loja = handle ?? "sua loja";
   return (
     <section aria-labelledby="previa" className="rounded-[10px] border border-line-200 bg-paper-0">
@@ -22,6 +22,14 @@ export function Previa({ def, handle }: { def: FlowDef; handle: string | null })
         )}
         <p className="mt-3 text-12 text-[#737373]">No direct</p>
         {directs.map((n, i) => {
+          if (n.type === "handoff") {
+            return (
+              <div key={n.id}>
+                {n.text && <div className="mt-2 max-w-[85%] overflow-hidden rounded-xl bg-[#efefef]"><p className="px-3 py-2">{n.text}</p></div>}
+                <p className="mt-2 w-fit rounded border border-dashed border-[#9aa0a6] px-1.5 py-0.5 text-12 text-[#5f6368]">Passa pra loja</p>
+              </div>
+            );
+          }
           const botao = n.type === "invite" ? (n.button ?? null) : n.button;
           const escolhas = n.type === "message" ? (n.choices ?? []).filter((c) => c.trim()) : [];
           // 1º direct depois de comentário: o Instagram recusa interativo, então as escolhas valem só digitando.

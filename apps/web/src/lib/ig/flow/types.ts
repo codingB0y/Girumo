@@ -85,7 +85,10 @@ export type ConditionNode = {
   tag?: string;
 };
 
-export type FlowNode = TriggerNode | MessageNode | InviteNode | TagNode | ConditionNode;
+/** Fim de caminho: manda o texto (se houver), põe a conversa em Aguardando você e pausa o robô com a pessoa por 24 h. Sem saída. */
+export type HandoffNode = { id: string; type: "handoff"; text: string | null };
+
+export type FlowNode = TriggerNode | MessageNode | InviteNode | TagNode | ConditionNode | HandoffNode;
 
 export type FlowDef = { v: 1; nodes: FlowNode[]; edges: FlowEdge[] };
 
@@ -105,6 +108,8 @@ export function outsOf(node: FlowNode): FlowOut[] {
       return ["clicked", "not_clicked"];
     case "tag":
       return ["next"];
+    case "handoff":
+      return [];
     case "condition":
       if (node.check === "field") return [...choiceOuts(node.values?.length ?? 0), "other"];
       return ["yes", "no"];

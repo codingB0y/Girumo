@@ -27,6 +27,7 @@ export const DEFAULT_TEXTS = {
   escolheConfirma: "Oi! Vi seu comentário. Quer que eu te envie o link do grupo? Responde SIM.",
   escolheIdade: "É pra qual idade?",
   conviteGrupo: "Aqui está o link do grupo VIP:",
+  passaPraLoja: "Já já alguém da loja te responde por aqui.",
 } as const;
 
 /** Escolhas de exemplo da receita "Comentou, escolhe o grupo"; o lojista troca pelas dele. */
@@ -78,7 +79,7 @@ export const RECIPES: Record<RecipeId, Recipe> = {
     id: "comment_choose_group",
     titulo: "Comentou, escolhe o grupo",
     descricao: "Pergunta se a pessoa quer o link e em qual grupo ela entra; cada escolha leva ao convite certo.",
-    cadeia: ["Comentário", "Pergunta: quer o link?", "Pergunta: qual grupo?", "Um convite por escolha"],
+    cadeia: ["Comentário", "Pergunta: quer o link?", "Pergunta: qual grupo?", "Um convite por escolha", "Outra resposta: passa pra loja"],
     gatilho: "Comentário",
     build: () => ({
       v: 1,
@@ -87,10 +88,13 @@ export const RECIPES: Record<RecipeId, Recipe> = {
         { id: "pergunta", type: "message", text: DEFAULT_TEXTS.escolheConfirma, button: null, wait: { minutes: MAX_WAIT_MINUTES }, choices: ["Sim, quero"] },
         { id: "idade", type: "message", text: DEFAULT_TEXTS.escolheIdade, button: null, wait: { minutes: MAX_WAIT_MINUTES }, choices: [...ESCOLHAS_EXEMPLO], saveTo: "tamanho" },
         ...ESCOLHAS_EXEMPLO.map((_, i) => ({ id: `convite_${i + 1}`, type: "invite" as const, text: DEFAULT_TEXTS.conviteGrupo, campaignSlug: null, remindAfterMinutes: null })),
+        { id: "passa", type: "handoff", text: DEFAULT_TEXTS.passaPraLoja },
       ],
       edges: [
         { from: "gatilho", out: "next", to: "pergunta" },
         { from: "pergunta", out: "v0", to: "idade" },
+        { from: "pergunta", out: "other", to: "passa" },
+        { from: "idade", out: "other", to: "passa" },
         { from: "idade", out: "v0", to: "convite_1" },
         { from: "idade", out: "v1", to: "convite_2" },
         { from: "idade", out: "v2", to: "convite_3" },

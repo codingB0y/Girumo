@@ -9,14 +9,15 @@ const OPCOES: [NovoBloco, string][] = [
   ["etiqueta", "Etiqueta"],
   ["se", "Se…"],
 ];
+const OPCAO_LOJA: [NovoBloco, string] = ["loja", "Passar pra loja"];
 
 /** "Depois deste passo": o bloco entra na saída principal e o que vinha depois passa a vir depois dele. */
-export function AdicionarBloco({ depoisDe, naPrimeiraResposta, editar }: { depoisDe: string; naPrimeiraResposta: boolean; editar: (fn: (d: FlowDef) => FlowDef) => void }) {
+export function AdicionarBloco({ depoisDe, naPrimeiraResposta, fimDeCaminho, editar }: { depoisDe: string; naPrimeiraResposta: boolean; /** Passar pra loja encerra o caminho: só aparece onde nada vem depois. */ fimDeCaminho: boolean; editar: (fn: (d: FlowDef) => FlowDef) => void }) {
   const quando = naPrimeiraResposta ? "da 1ª resposta" : "depois";
   return (
     <div role="group" aria-label={`Adicionar ${quando} do passo ${depoisDe}`} className="mt-4 flex flex-wrap items-center gap-2">
       <span className="text-12 text-slate-600">{naPrimeiraResposta ? "Adicionar depois da 1ª resposta:" : "Adicionar depois:"}</span>
-      {OPCOES.map(([tipo, texto]) => (
+      {(fimDeCaminho ? [...OPCOES, OPCAO_LOJA] : OPCOES).map(([tipo, texto]) => (
         <button
           key={tipo}
           type="button"
