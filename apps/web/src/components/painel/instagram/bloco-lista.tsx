@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { MAX_CHOICES } from "@/lib/ig/flow/types";
 import { campo } from "./bloco-comum";
@@ -22,8 +22,17 @@ export function ListaEditavel({ itens, rotuloItem, rotuloAdicionar, maxCaractere
   aoRemover: (i: number) => void;
   aoMover: (de: number, para: number) => void;
 }) {
+  const raiz = useRef<HTMLDivElement>(null);
+  // Apagar tira o campo em que o foco estava: ele vai para o que ocupou o lugar (ou o último).
+  const apagar = (i: number) => {
+    aoRemover(i);
+    requestAnimationFrame(() => {
+      const campos = raiz.current?.querySelectorAll("input");
+      campos?.[Math.min(i, campos.length - 1)]?.focus();
+    });
+  };
   return (
-    <div>
+    <div ref={raiz}>
       <ol className="grid gap-2">
         {itens.map((item, i) => {
           const tamanho = [...item].length;
@@ -32,6 +41,7 @@ export function ListaEditavel({ itens, rotuloItem, rotuloAdicionar, maxCaractere
               <input
                 aria-label={`${rotuloItem} ${i + 1}`}
                 value={item}
+                maxLength={maxCaracteres}
                 onChange={(e) => aoEditar(i, e.target.value)}
                 className={`${campo} min-w-0 flex-1`}
               />
@@ -42,7 +52,7 @@ export function ListaEditavel({ itens, rotuloItem, rotuloAdicionar, maxCaractere
               <button type="button" aria-label={`Descer ${rotuloItem.toLowerCase()} ${i + 1}`} disabled={i === itens.length - 1} onClick={() => aoMover(i, i + 1)} className={icone}>
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
               </button>
-              <button type="button" aria-label={`Apagar ${rotuloItem.toLowerCase()} ${i + 1}`} disabled={itens.length <= 1} onClick={() => aoRemover(i)} className={icone}>
+              <button type="button" aria-label={`Apagar ${rotuloItem.toLowerCase()} ${i + 1}`} disabled={itens.length <= 1} onClick={() => apagar(i)} className={icone}>
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </li>

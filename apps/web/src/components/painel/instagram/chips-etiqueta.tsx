@@ -32,7 +32,10 @@ export function ChipsEtiqueta({ etiquetas, aoMudar, rotulo, max = 20 }: { etique
           aria-label={rotulo}
           value={digitando}
           disabled={cheio}
-          onChange={(e) => setDigitando(e.target.value)}
+          onChange={(e) => {
+            setDigitando(e.target.value);
+            setRecusou(false);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === ",") {
               e.preventDefault();

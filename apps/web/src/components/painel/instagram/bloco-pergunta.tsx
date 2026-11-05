@@ -45,7 +45,7 @@ function Modo({ comEscolhas, aoMudar, nome }: { comEscolhas: boolean; aoMudar: (
   );
 }
 
-function Escolhas({ node, primeiroDepoisDoComentario, aoMudar, editarDef, nome }: Pick<FormProps, "primeiroDepoisDoComentario" | "aoMudar" | "editarDef"> & { node: MessageNode; nome: (c: string) => string }) {
+function Escolhas({ node, primeiroDepoisDoComentario, aoMudar, editarDef }: Pick<FormProps, "primeiroDepoisDoComentario" | "aoMudar" | "editarDef"> & { node: MessageNode }) {
   const escolhas = node.choices ?? [];
   return (
     <div>
@@ -64,7 +64,7 @@ function Escolhas({ node, primeiroDepoisDoComentario, aoMudar, editarDef, nome }
       </div>
       <p className={ajuda}>Separe por vírgula para aceitar mais de uma resposta: “Sim, quero” vale para quem digitar “sim” ou “quero”.</p>
       {primeiroDepoisDoComentario && (
-        <p className={ajuda} aria-label={nome("Aviso das escolhas")}>
+        <p className={ajuda} role="note">
           As escolhas valem só digitando: neste primeiro direct o Instagram não aceita botão. Diga na mensagem o que a pessoa pode responder.
         </p>
       )}
@@ -72,7 +72,7 @@ function Escolhas({ node, primeiroDepoisDoComentario, aoMudar, editarDef, nome }
   );
 }
 
-export function BlocoMensagem({ node, primeiroDepoisDoComentario, issues, chaves, aoMudar, editarDef }: Omit<FormProps, "node" | "campanhas"> & { node: MessageNode }) {
+export function BlocoMensagem({ node, primeiroDepoisDoComentario, issues, chaves, aoMudar, editarDef }: Omit<FormProps, "node" | "campanhas" | "def" | "confirmar"> & { node: MessageNode }) {
   const nome = nomeAcessivel(tituloDoBloco(node), node.id);
   const doBloco = issues.filter((i) => i.nodeId === node.id);
   const comEscolhas = (node.choices?.length ?? 0) > 0;
@@ -94,7 +94,7 @@ export function BlocoMensagem({ node, primeiroDepoisDoComentario, issues, chaves
           </div>
         </div>
       )}
-      {comEscolhas && <Escolhas node={node} primeiroDepoisDoComentario={primeiroDepoisDoComentario} aoMudar={aoMudar} editarDef={editarDef} nome={nome} />}
+      {comEscolhas && <Escolhas node={node} primeiroDepoisDoComentario={primeiroDepoisDoComentario} aoMudar={aoMudar} editarDef={editarDef} />}
       <div className="grid gap-4 sm:grid-cols-2">
         {node.wait && (
           <div>

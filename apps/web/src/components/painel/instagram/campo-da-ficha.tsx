@@ -24,8 +24,11 @@ export function CampoDaFicha({ valor, chaves, aoConfirmar, rotulo, idLista }: {
     const vazio = !texto.trim();
     const chave = vazio ? null : toFieldKey(texto);
     setInvalido(!vazio && chave === null);
-    if (vazio || chave !== null) aoConfirmar(chave);
-    setTexto(null);
+    if (vazio || chave !== null) {
+      aoConfirmar(chave);
+      setTexto(null);
+    }
+    // Chave inválida: o texto digitado fica na tela, com o erro, pra pessoa corrigir.
   };
   return (
     <div>
@@ -34,7 +37,10 @@ export function CampoDaFicha({ valor, chaves, aoConfirmar, rotulo, idLista }: {
         list={idLista}
         maxLength={40}
         value={mostrado}
-        onChange={(e) => setTexto(e.target.value)}
+        onChange={(e) => {
+          setTexto(e.target.value);
+          setInvalido(false);
+        }}
         onBlur={confirmar}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();

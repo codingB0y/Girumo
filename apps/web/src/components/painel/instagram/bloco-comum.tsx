@@ -5,8 +5,13 @@ import type { Issue } from "@/lib/ig/flow/validate";
 export type CampanhaOpcao = { slug: string; name: string };
 
 /** O que cada formulário de bloco recebe. `editarDef` serve às operações que mexem nas ligações. */
+export type Confirmar = (pedido: { titulo: string; texto: string; rotulo: string; destrutivo?: boolean }) => Promise<boolean>;
+
 export type FormProps = {
   node: FlowNode;
+  def: FlowDef;
+  /** Pergunta antes de uma troca que solta ligações (o `useConfirmacao` do painel). */
+  confirmar: Confirmar;
   primeiroDepoisDoComentario: boolean;
   campanhas: CampanhaOpcao[];
   issues: Issue[];

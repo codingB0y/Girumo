@@ -2,8 +2,8 @@
 
 import React from "react";
 import { moveChoice, removeChoice } from "@/lib/ig/flow/choices-edit";
-import { setConditionCheck } from "@/lib/ig/flow/blocks-edit";
-import { tituloDoBloco } from "@/lib/ig/flow/labels";
+import { planConditionCheck } from "@/lib/ig/flow/blocks-edit";
+import { rotuloDaSaida, tituloDoBloco } from "@/lib/ig/flow/labels";
 import type { ConditionNode } from "@/lib/ig/flow/types";
 import { ajuda, campo, nomeAcessivel, Problemas, rotulo, type FormProps } from "./bloco-comum";
 import { ListaEditavel } from "./bloco-lista";
@@ -21,7 +21,16 @@ const CONFERENCIAS = [
   ["clicked", "Clicou no link (chega na fase 3)", true],
 ] as const;
 
-export function BlocoSe({ node, issues, chaves, aoMudar, editarDef }: Pick<FormProps, "issues" | "chaves" | "aoMudar" | "editarDef"> & { node: ConditionNode }) {
+export function BlocoSe({ node, def, confirmar, issues, chaves, aoMudar, editarDef }: Pick<FormProps, "def" | "confirmar" | "issues" | "chaves" | "aoMudar" | "editarDef"> & { node: ConditionNode }) {
+  const trocar = async (novo: "field" | "tag") => {
+    const { lost } = planConditionCheck(def, node.id, novo);
+    if (lost.length > 0) {
+      const nomes = lost.map((o) => `“${rotuloDaSaida(o, node)}”`).join(", ");
+      const ok = await confirmar({ titulo: "Trocar o que o Se… confere", texto: `As ligações das respostas ${nomes} vão ficar soltas. Os blocos delas não são apagados.`, rotulo: "Trocar" });
+      if (!ok) return;
+    }
+    editarDef((d) => planConditionCheck(d, node.id, novo).def);
+  };
   const nome = nomeAcessivel(tituloDoBloco(node), node.id);
   const doBloco = issues.filter((i) => i.nodeId === node.id);
   if (node.check === "follows") {
@@ -38,7 +47,7 @@ export function BlocoSe({ node, issues, chaves, aoMudar, editarDef }: Pick<FormP
         <select
           aria-label={nome("O que conferir")}
           value={node.check}
-          onChange={(e) => editarDef((d) => setConditionCheck(d, node.id, e.target.value === "tag" ? "tag" : "field"))}
+          onChange={(e) => void trocar(e.target.value === "tag" ? "tag" : "field")}
           className={`${campo} mt-1`}
         >
           {CONFERENCIAS.map(([valor, texto, desativado]) => <option key={valor} value={valor} disabled={desativado}>{texto}</option>)}

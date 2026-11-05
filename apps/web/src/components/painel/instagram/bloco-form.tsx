@@ -28,7 +28,7 @@ const LEMBRETES = [60, 180, 360, MAX_WAIT_MINUTES];
 /** Opções do select; se o valor salvo não é uma das fixas (rascunho antigo), ele entra na lista pra não sumir. */
 const comAtual = (opcoes: number[], atual: number) => (opcoes.includes(atual) ? opcoes : [...opcoes, atual].sort((a, b) => a - b));
 
-export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues, chaves, aoMudar, editarDef }: FormProps) {
+export function BlocoForm({ node, def, confirmar, primeiroDepoisDoComentario, campanhas, issues, chaves, aoMudar, editarDef }: FormProps) {
   const doBloco = issues.filter((i) => i.nodeId === node.id);
   const nome = nomeAcessivel(tituloDoBloco(node), node.id);
   if (node.type === "trigger") {
@@ -129,5 +129,5 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
   }
 
   if (node.type === "tag") return <BlocoEtiqueta node={node} issues={issues} aoMudar={aoMudar} />;
-  return <BlocoSe node={node} issues={issues} chaves={chaves} aoMudar={aoMudar} editarDef={editarDef} />;
+  return <BlocoSe node={node} def={def} confirmar={confirmar} issues={issues} chaves={chaves} aoMudar={aoMudar} editarDef={editarDef} />;
 }

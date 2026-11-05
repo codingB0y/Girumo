@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fieldKeysIn, insertAfter, linkOut, removeBlock, setConditionCheck } from "./blocks-edit";
+import { setChoices } from "./choices-edit";
+import { fieldKeysIn, insertAfter, linkOut, planConditionCheck, planRemoveBlock, removeBlock, setConditionCheck } from "./blocks-edit";
 import { RECIPES } from "./recipes";
 import type { FlowDef } from "./types";
 
@@ -87,4 +88,48 @@ test("fieldKeysIn junta os campos de perguntas e Se…, sem repetir", () => {
     edges: [],
   };
   assert.deepEqual(fieldKeysIn(def), ["cidade", "tamanho"]);
+});
+
+test("campo → etiqueta leva v0 para yes e other para no, e avisa das saídas sem par", () => {
+  const def: FlowDef = {
+    v: 1,
+    nodes: [
+      { id: "g", type: "trigger", on: "dm", keywords: ["a"], postId: null, publicReply: null, storyReplies: false },
+      { id: "se", type: "condition", check: "field", field: "x", values: ["a", "b"] },
+      { id: "t1", type: "tag", add: ["a"], remove: [] },
+      { id: "t2", type: "tag", add: ["b"], remove: [] },
+      { id: "t3", type: "tag", add: ["c"], remove: [] },
+    ],
+    edges: [
+      { from: "g", out: "next", to: "se" },
+      { from: "se", out: "v0", to: "t1" },
+      { from: "se", out: "v1", to: "t2" },
+      { from: "se", out: "other", to: "t3" },
+    ],
+  };
+  const plano = planConditionCheck(def, "se", "tag");
+  assert.deepEqual(plano.lost, ["v1"]);
+  assert.deepEqual(plano.def.edges.filter((e) => e.from === "se").map((e) => [e.out, e.to]), [["yes", "t1"], ["no", "t3"]]);
+  const volta = planConditionCheck(plano.def, "se", "field");
+  assert.deepEqual(volta.lost, []);
+  assert.deepEqual(volta.def.edges.filter((e) => e.from === "se").map((e) => [e.out, e.to]), [["v0", "t1"], ["other", "t3"]]);
+});
+
+test("planRemoveBlock lista os blocos que ficam sem caminho", () => {
+  const def = insertAfter(base(), "gatilho", "pergunta");
+  const ligado = linkOut({ ...def, nodes: [...def.nodes, { id: "x", type: "tag", add: ["a"], remove: [] }] }, "pergunta", "v1", "x");
+  const plano = planRemoveBlock(ligado, "pergunta");
+  assert.deepEqual(plano.loose, ["x"]);
+  assert.ok(plano.def.edges.some((e) => e.from === "gatilho" && e.to === "convite"), "a principal religa");
+  assert.deepEqual(planRemoveBlock(base(), "convite").loose, []);
+});
+
+test("ligar escolhas limpa as palavras da espera", () => {
+  const def: FlowDef = {
+    v: 1,
+    nodes: [{ id: "p", type: "message", text: "?", button: null, wait: { minutes: 60, keywords: ["sim"] } }],
+    edges: [],
+  };
+  const com = setChoices(def, "p", ["Sim", "Não"]).nodes[0];
+  assert.deepEqual(com.type === "message" && com.wait, { minutes: 60 });
 });

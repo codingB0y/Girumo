@@ -9,7 +9,7 @@ import { Previa } from "./previa";
 
 const noop = () => {};
 const render = (node: FlowNode, primeiro = false) =>
-  renderToStaticMarkup(createElement(BlocoForm, { node, primeiroDepoisDoComentario: primeiro, campanhas: [], issues: [], chaves: ["cidade"], aoMudar: noop, editarDef: noop }));
+  renderToStaticMarkup(createElement(BlocoForm, { node, primeiroDepoisDoComentario: primeiro, def: { v: 1, nodes: [node], edges: [] }, confirmar: async () => true, campanhas: [], issues: [], chaves: ["cidade"], aoMudar: noop, editarDef: noop }));
 
 const pergunta: FlowNode = { id: "p", type: "message", text: "Qual tamanho?", button: null, wait: { minutes: 1380 }, choices: ["P", "M, medio"], saveTo: "tamanho" };
 

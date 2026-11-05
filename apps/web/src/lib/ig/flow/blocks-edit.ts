@@ -1,5 +1,5 @@
 import { freshId } from "./edit";
-import { nodeById, targetOf } from "./graph";
+import { nodeById, reachableIds, targetOf } from "./graph";
 import { MAIN_OUTS, MAX_WAIT_MINUTES, outsOf, type FlowDef, type FlowEdge, type FlowNode, type FlowOut } from "./types";
 
 /**
@@ -37,10 +37,13 @@ export function insertAfter(def: FlowDef, afterId: string, kind: NovoBloco): Flo
   return { ...def, nodes, edges };
 }
 
-/** Apaga o bloco; quem chegava nele passa a chegar no que vinha depois da saída principal. O gatilho fica. */
-export function removeBlock(def: FlowDef, id: string): FlowDef {
+/**
+ * Apaga o bloco; quem chegava nele passa a chegar no que vinha depois da saída principal. O gatilho fica.
+ * `loose`: os blocos que deixam de ter caminho até eles (vão para "Blocos soltos"); a tela confirma antes.
+ */
+export function planRemoveBlock(def: FlowDef, id: string): { def: FlowDef; loose: string[] } {
   const alvo = nodeById(def, id);
-  if (!alvo || alvo.type === "trigger") return def;
+  if (!alvo || alvo.type === "trigger") return { def, loose: [] };
   const saida = mainOut(alvo);
   const seguinte = saida ? targetOf(def, id, saida) : null;
   const edges = def.edges.flatMap<FlowEdge>((e) => {
@@ -48,8 +51,13 @@ export function removeBlock(def: FlowDef, id: string): FlowDef {
     if (e.to !== id) return [e];
     return seguinte && seguinte !== id && seguinte !== e.from ? [{ ...e, to: seguinte }] : [];
   });
-  return { ...def, nodes: def.nodes.filter((n) => n.id !== id), edges };
+  const depois: FlowDef = { ...def, nodes: def.nodes.filter((n) => n.id !== id), edges };
+  const antes = reachableIds(def);
+  const ficam = reachableIds(depois);
+  return { def: depois, loose: [...antes].filter((x) => x !== id && !ficam.has(x)) };
 }
+
+export const removeBlock = (def: FlowDef, id: string): FlowDef => planRemoveBlock(def, id).def;
 
 /** Liga a saída `out` de `from` ao bloco `to`; `null` desliga (o fluxo para ali). */
 export function linkOut(def: FlowDef, from: string, out: FlowOut, to: string | null): FlowDef {
@@ -60,21 +68,33 @@ export function linkOut(def: FlowDef, from: string, out: FlowOut, to: string | n
   return { ...def, edges: to ? [...edges, { from, out, to }] : edges };
 }
 
-/** Troca o que o Se… confere. As ligações acompanham: a primeira saída (`v0`) vira `yes` e vice-versa. */
-export function setConditionCheck(def: FlowDef, id: string, check: "field" | "tag"): FlowDef {
+const CAMPO_PARA_ETIQUETA: Partial<Record<FlowOut, FlowOut>> = { v0: "yes", other: "no" };
+const ETIQUETA_PARA_CAMPO: Partial<Record<FlowOut, FlowOut>> = { yes: "v0", no: "other" };
+
+/**
+ * Troca o que o Se… confere. Campo → etiqueta: `v0` vira `yes` e `other` vira `no`; etiqueta → campo, o inverso.
+ * `lost`: as saídas ligadas que não têm par (`v1`…) e por isso perdem a ligação; a tela confirma antes.
+ */
+export function planConditionCheck(def: FlowDef, id: string, check: "field" | "tag"): { def: FlowDef; lost: FlowOut[] } {
   const alvo = nodeById(def, id);
-  if (!alvo || alvo.type !== "condition" || alvo.check === check) return def;
+  if (!alvo || alvo.type !== "condition" || alvo.check === check) return { def, lost: [] };
+  const mapa = check === "tag" ? CAMPO_PARA_ETIQUETA : ETIQUETA_PARA_CAMPO;
   const nodes = def.nodes.map<FlowNode>((n) => {
     if (n.id !== id) return n;
     return check === "tag" ? { id, type: "condition", check, tag: "" } : { id, type: "condition", check, field: "", values: [""] };
   });
+  const lost: FlowOut[] = [];
   const edges = def.edges.flatMap<FlowEdge>((e) => {
     if (e.from !== id) return [e];
-    if (check === "tag") return e.out === "v0" ? [{ ...e, out: "yes" }] : [];
-    return e.out === "yes" ? [{ ...e, out: "v0" }] : [];
+    const nova = mapa[e.out];
+    if (nova) return [{ ...e, out: nova }];
+    lost.push(e.out);
+    return [];
   });
-  return { ...def, nodes, edges };
+  return { def: { ...def, nodes, edges }, lost };
 }
+
+export const setConditionCheck = (def: FlowDef, id: string, check: "field" | "tag"): FlowDef => planConditionCheck(def, id, check).def;
 
 /** Os campos da ficha que o próprio fluxo já usa (Pergunta guarda, Se… confere): sugestão ao digitar. */
 export function fieldKeysIn(def: FlowDef): string[] {
