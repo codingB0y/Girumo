@@ -1,5 +1,6 @@
 ﻿import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
+import { assinaturaDeEnvio } from "@/lib/ig/conversas/campo";
 import { chaveDeEnvio } from "@/lib/ig/conversas/fio";
 import { comId, CONV_ID, criarAmbiente, horasAtras } from "@/test/ig-conversas-fake";
 import { POST as CONVIDAR } from "./[id]/invite/route";
@@ -22,7 +23,7 @@ const idDaMidia = (tenant: string, arquivo = "5d4c3b2a-1908-4a7b-8c6d-5e4f3a2b1c
 
 type Upload = { tenant: string; path: string; mime: string; size: number; kind: string };
 let uploads: Upload[] = [];
-let campanhas: Array<{ id: string; tenant_id: string; slug: string }> = [];
+let campanhas: Array<{ id: string; tenant_id: string; slug: string; group_ids: string[]; whatsapp_community_jid: string | null }> = [];
 let uploadsLidos: URL[] = [];
 let campanhasLidas: URL[] = [];
 let assinaturas: number[] = [];
@@ -63,7 +64,7 @@ beforeEach(() => {
   e.ficha = { ...e.ficha, tenant_id: LOJA };
   e.zernio = () => ({ status: 200, body: { success: true, data: { messageId: "mid-a", messageIds: ["mid-a", "mid-t"] } } });
   uploads = [{ tenant: LOJA, path: `${LOJA}/media/5d4c3b2a-1908-4a7b-8c6d-5e4f3a2b1c0d.png`, mime: "image/png", size: 500_000, kind: "media" }];
-  campanhas = [{ id: CAMPANHA, tenant_id: LOJA, slug: "vip-moda" }];
+  campanhas = [{ id: CAMPANHA, tenant_id: LOJA, slug: "vip-moda", group_ids: ["g1"], whatsapp_community_jid: null }];
   uploadsLidos = [];
   campanhasLidas = [];
   assinaturas = [];
@@ -128,7 +129,7 @@ test("texto + foto: um envio com link assinado curto, dois eventos Você, pausa 
   const c = envio.corpo as Record<string, string>;
   assert.deepEqual([c.accountId, c.attachmentType, c.message], ["acc-z", "image", "Olha a peça"]);
   assert.match(c.attachmentUrl, new RegExp(`^http://127\\.0\\.0\\.1:\\d+/storage/v1/object/sign/uploads/arquivo\\.png\\?token=${TOKEN}$`));
-  assert.equal(envio.headers["idempotency-key"], chaveDeEnvio(LOJA, CONV_ID, UUID));
+  assert.equal(envio.headers["idempotency-key"], chaveDeEnvio(LOJA, CONV_ID, UUID, assinaturaDeEnvio("midia", { texto: "Olha a peça", midiaId: idDaMidia(LOJA) })));
   assert.ok(assinaturas[0] >= 300 && assinaturas[0] <= 600, `link de 5 a 10 min, veio ${assinaturas[0]} s`);
   assert.deepEqual(eventos().map((x) => [x.kind, x.zernio_message_id, x.tenant_id]), [["store_message", "mid-a", LOJA], ["store_message", "mid-t", LOJA]]);
   const touch = amb.chamadas.find((x) => x.url.pathname === "/rest/v1/rpc/ig_conversation_touch")?.corpo as Record<string, unknown>;
@@ -168,7 +169,7 @@ test("a Zernio não baixar o anexo (422 attachment_fetch_failed) vira erro legí
 });
 
 test("convite de campanha de outra loja ou que não existe é 404, filtrando a loja, sem Zernio", async () => {
-  campanhas = [{ id: CAMPANHA, tenant_id: OUTRA, slug: "vip-alheio" }];
+  campanhas = [{ id: CAMPANHA, tenant_id: OUTRA, slug: "vip-alheio", group_ids: ["g1"], whatsapp_community_jid: null }];
   const r = await convidar({ campanhaId: CAMPANHA, idempotencyKey: UUID });
   assert.equal(r.status, 404);
   assert.equal(campanhasLidas[0].searchParams.get("tenant_id"), `eq.${LOJA}`);
@@ -206,7 +207,7 @@ test("convite: texto curto com botão de URL do link puro da campanha, evento Vo
   assert.deepEqual([c.buttons[0].type, c.buttons[0].title], ["url", "Entrar no grupo VIP"]);
   assert.match(c.buttons[0].url, /\/r\/vip-moda$/, "o link da campanha sem ?ig=");
   assert.equal(c.buttons[0].url.includes("ig="), false);
-  assert.equal(amb.pedidosZernio[0].headers["idempotency-key"], chaveDeEnvio(LOJA, CONV_ID, UUID));
+  assert.equal(amb.pedidosZernio[0].headers["idempotency-key"], chaveDeEnvio(LOJA, CONV_ID, UUID, assinaturaDeEnvio("convite", { campanhaId: CAMPANHA })));
   assert.deepEqual(eventos().map((x) => [x.kind, x.zernio_message_id]), [["store_message", "mid-c"]]);
   assert.ok(Math.abs(Date.parse(e.conversa.bot_paused_until as string) - (Date.now() + 12 * 3600_000)) < 60_000);
   assert.equal(amb.chamadas.filter((x) => x.url.pathname === "/rest/v1/ig_runs" && x.metodo === "PATCH").length, 2);
@@ -219,4 +220,27 @@ test("convite: vendedora é 403 e conversa de outra loja é 404", async () => {
   e.donoDaConversa = OUTRA;
   assert.equal((await convidar({ campanhaId: CAMPANHA, idempotencyKey: UUID })).status, 404);
   assert.equal(amb.pedidosZernio.length, 0);
+});
+
+test("convite de campanha sem grupo nem comunidade é 409 campanha_sem_grupo; com só a comunidade passa", async () => {
+  campanhas = [{ ...campanhas[0], group_ids: [] }];
+  const r = await convidar({ campanhaId: CAMPANHA, idempotencyKey: UUID });
+  assert.equal(r.status, 409);
+  const corpo = await r.json();
+  assert.equal(corpo.code, "campanha_sem_grupo");
+  assert.match(corpo.error, /grupo/);
+  assert.equal(amb.pedidosZernio.length, 0);
+  assert.deepEqual(amb.escritas(), []);
+  campanhas = [{ ...campanhas[0], group_ids: [], whatsapp_community_jid: "123@g.us" }];
+  e.zernio = () => ({ status: 200, body: { success: true, data: { messageId: "mid-c" } } });
+  assert.equal((await convidar({ campanhaId: CAMPANHA, idempotencyKey: UUID })).status, 200);
+});
+
+test("o mesmo UUID com conteúdo diferente vira outra Idempotency-Key; o mesmo conteúdo repete a chave", async () => {
+  await enviar({ texto: "um", idempotencyKey: UUID });
+  await enviar({ texto: "dois", idempotencyKey: UUID });
+  await enviar({ texto: "um", idempotencyKey: UUID });
+  const [a, b, c] = amb.pedidosZernio.map((p) => p.headers["idempotency-key"]);
+  assert.notEqual(a, b);
+  assert.equal(a, c);
 });

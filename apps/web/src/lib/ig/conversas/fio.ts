@@ -70,9 +70,10 @@ export function linkDeAnexoSeguro(url: string): boolean {
 
 /**
  * `Idempotency-Key` enviada à Zernio: uma só chave de API serve todas as lojas, então a chave do navegador não vai
- * crua. sha256(loja:conversa:chave) no formato de UUID; o mesmo reenvio gera a mesma chave.
+ * crua. sha256(loja:conversa:chave:assinatura) no formato de UUID; o mesmo reenvio gera a mesma chave. A `assinatura`
+ * do conteúdo (`assinaturaDeEnvio`) impede que reusar o UUID com outra mensagem faça a Zernio repetir a primeira.
  */
-export function chaveDeEnvio(tenantId: string, conversationId: string, chaveDoNavegador: string): string {
-  const h = createHash("sha256").update(`${tenantId}:${conversationId}:${chaveDoNavegador}`).digest("hex");
+export function chaveDeEnvio(tenantId: string, conversationId: string, chaveDoNavegador: string, assinatura: string): string {
+  const h = createHash("sha256").update(`${tenantId}:${conversationId}:${chaveDoNavegador}:${assinatura}`).digest("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }

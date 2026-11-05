@@ -4,13 +4,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { ImageIcon, Link2, MessageSquareText, Settings2 } from "lucide-react";
 import { useRole } from "@/components/painel/role-provider";
 import { ANEXO_ACCEPT } from "@/lib/ig/conversas/anexo";
-import { consultaDaBarra, filtrarRespostas, moverAtivo, type RespostaPronta } from "@/lib/ig/conversas/campo";
+import { aplicarResposta, consultaDaBarra, filtrarRespostas, moverAtivo, type RespostaPronta } from "@/lib/ig/conversas/campo";
 import { NOTA_DA_PAUSA, quando, type EstadoDoCampo } from "@/lib/ig/conversas/tela";
 import { cn } from "@/lib/utils";
 import { PreviaDoAnexo } from "./anexo-do-campo";
 import { ConviteDoGrupo } from "./convite-do-grupo";
 import { GerenciarRespostas } from "./gerenciar-respostas";
-import { ID_DA_LISTA, idDaOpcao, ListaDeRespostas } from "./respostas-prontas";
+import { ID_DA_LISTA, idDaOpcao, ListaDeRespostas, temOpcoes } from "./respostas-prontas";
 import { useAnexo } from "./use-anexo";
 import type { Envio, Resultado } from "./use-fio";
 import { useRespostasProntas } from "./use-respostas-prontas";
@@ -38,19 +38,26 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
   const [ativo, setAtivo] = useState(0);
   const campo = useRef<HTMLTextAreaElement>(null);
   const arquivo = useRef<HTMLInputElement>(null);
-  const { role } = useRole();
+  const botaoConvite = useRef<HTMLButtonElement>(null);
+  const botaoGerenciar = useRef<HTMLButtonElement>(null);
+  // Trava síncrona: dois Ctrl+Enter ou cliques antes de `enviando` renderizar mandariam duas vezes.
+  const emVoo = useRef(false);
+  const { role, tenantId } = useRole();
   const podeGerenciar = role === "owner" || role === "admin";
-  const prontas = useRespostasProntas();
+  const prontas = useRespostasProntas(tenantId);
   const { anexo, erro: erroDoAnexo, escolher, remover } = useAnexo();
   const agora = new Date();
   const vazio = texto.trim() === "";
-  const pode = estado.podeEnviar && !enviando && anexo.fase !== "enviando" && (!vazio || anexo.fase === "pronto");
 
   // A lista abre com `/` no começo do texto ou pelo botão; Esc fecha até o texto mudar.
+  const abertaPelaBarra = consultaDaBarra(texto) !== null;
   const consulta = consultaDaBarra(texto) ?? (viaBotao ? "" : null);
   const aberta = estado.podeEnviar && consulta !== null && !suprimida;
   const filtradas = filtrarRespostas(prontas.respostas, consulta ?? "");
   const indice = filtradas.length ? Math.min(ativo, filtradas.length - 1) : -1;
+  const comOpcoes = aberta && temOpcoes(prontas.carga, filtradas);
+  // Com a lista aberta o Enter/Ctrl+Enter e o botão não mandam o "/pedido" por engano.
+  const pode = estado.podeEnviar && !enviando && !aberta && anexo.fase !== "enviando" && (!vazio || anexo.fase === "pronto");
   const { carregar } = prontas;
   const gerenciando = painel === "gerenciar";
   useEffect(() => {
@@ -59,13 +66,15 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
 
   const aoDigitar = (valor: string) => {
     setTexto(valor);
+    setErro(null);
     setSuprimida(false);
     setAtivo(0);
     if (consultaDaBarra(valor) === null) setViaBotao(false);
   };
 
   const escolherResposta = (r: RespostaPronta) => {
-    setTexto(r.texto.slice(0, LIMITE));
+    const el = campo.current;
+    setTexto(aplicarResposta(texto, r.texto, abertaPelaBarra, el?.selectionStart ?? texto.length, el?.selectionEnd ?? texto.length, LIMITE));
     setViaBotao(false);
     setSuprimida(true);
     campo.current?.focus();
@@ -73,10 +82,18 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
 
   const alternarLista = () => {
     setPainel(null);
+    // O botão fecha a lista mesmo aberta pela `/`; fechada, abre.
     setViaBotao(!aberta);
-    setSuprimida(false);
+    setSuprimida(aberta);
     setAtivo(0);
     campo.current?.focus();
+  };
+
+  /** Fecha o painel inline e devolve o foco ao botão que o abriu. */
+  const fecharPainel = () => {
+    const alvo = painel === "convite" ? botaoConvite.current : botaoGerenciar.current;
+    setPainel(null);
+    alvo?.focus();
   };
 
   const aoTeclar = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -97,10 +114,12 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
   };
 
   const enviar = async () => {
-    if (!pode) return;
+    if (!pode || emVoo.current) return;
+    emVoo.current = true;
     setEnviando(true);
     setErro(null);
     const r = await aoEnviar({ texto: texto.trim() || undefined, midiaId: anexo.fase === "pronto" ? anexo.midiaId : undefined });
+    emVoo.current = false;
     setEnviando(false);
     if (r.ok) {
       setTexto("");
@@ -132,37 +151,43 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
         <span aria-hidden="true" className="h-2 w-2 rounded-full bg-current" />
         {estado.faixa}
       </p>
+      <p role="status" className="sr-only">{aberta && prontas.carga === "ok" && filtradas.length > 0 ? (filtradas.length === 1 ? "1 resposta" : `${filtradas.length} respostas`) : ""}</p>
       {aberta && <ListaDeRespostas itens={filtradas} total={prontas.respostas.length} carga={prontas.carga} ativo={indice} podeGerenciar={podeGerenciar} aoEscolher={escolherResposta} aoTentarDeNovo={() => void carregar()} />}
-      {painel === "convite" && estado.podeEnviar && <ConviteDoGrupo aoConvidar={aoConvidar} aoFechar={() => setPainel(null)} />}
-      {painel === "gerenciar" && podeGerenciar && <GerenciarRespostas respostas={prontas.respostas} aoCriar={prontas.criar} aoApagar={prontas.apagar} aoFechar={() => setPainel(null)} />}
-      <PreviaDoAnexo anexo={anexo} aoRemover={remover} />
+      {painel === "convite" && estado.podeEnviar && <ConviteDoGrupo aoConvidar={aoConvidar} aoFechar={fecharPainel} />}
+      {painel === "gerenciar" && podeGerenciar && <GerenciarRespostas respostas={prontas.respostas} carga={prontas.carga} aoCriar={prontas.criar} aoApagar={prontas.apagar} aoTentarDeNovo={() => void carregar()} aoFechar={fecharPainel} />}
+      <PreviaDoAnexo anexo={anexo} aoRemover={remover} bloqueado={enviando} />
       <label>
         <span className="sr-only">Responder {quem}</span>
         <textarea
           ref={campo}
           rows={3}
           value={estado.podeEnviar ? texto : ""}
-          disabled={!estado.podeEnviar}
+          disabled={!estado.podeEnviar || enviando}
           maxLength={LIMITE}
           placeholder={estado.podeEnviar ? "Escreva a resposta ou digite / para as respostas prontas" : "Fechada pelo Instagram"}
           onChange={(e) => aoDigitar(e.target.value)}
           onKeyDown={aoTeclar}
-          {...(aberta ? { role: "combobox", "aria-expanded": true, "aria-autocomplete": "list" as const, "aria-controls": filtradas.length ? ID_DA_LISTA : undefined, "aria-activedescendant": indice >= 0 ? idDaOpcao(filtradas[indice].id) : undefined } : {})}
+          role="combobox"
+          aria-expanded={comOpcoes}
+          aria-haspopup="listbox"
+          aria-autocomplete="list"
+          aria-controls={comOpcoes ? ID_DA_LISTA : undefined}
+          aria-activedescendant={comOpcoes && indice >= 0 ? idDaOpcao(filtradas[indice].id) : undefined}
           className="w-full resize-none rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 py-2 text-14 text-volt-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:bg-canvas-100"
         />
       </label>
       {erro && <p role="alert" className="text-13 text-danger-700">{erro}</p>}
       {erroDoAnexo && <p role="alert" className="text-13 text-danger-700">{erroDoAnexo}</p>}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" disabled={!estado.podeEnviar} aria-expanded={aberta && viaBotao} onClick={alternarLista} className={BOTAO}>
+        <button type="button" disabled={!estado.podeEnviar || enviando} aria-expanded={aberta} onClick={alternarLista} className={BOTAO}>
           <MessageSquareText aria-hidden="true" className="h-4 w-4" />
           Respostas prontas
         </button>
-        <button type="button" disabled={!estado.podeEnviar} aria-expanded={painel === "convite"} onClick={() => setPainel(painel === "convite" ? null : "convite")} className={BOTAO}>
+        <button ref={botaoConvite} type="button" disabled={!estado.podeEnviar || enviando} aria-expanded={painel === "convite"} onClick={() => setPainel(painel === "convite" ? null : "convite")} className={BOTAO}>
           <Link2 aria-hidden="true" className="h-4 w-4" />
           Convite do grupo
         </button>
-        <button type="button" disabled={!estado.podeEnviar || anexo.fase === "enviando"} onClick={() => arquivo.current?.click()} className={BOTAO}>
+        <button type="button" disabled={!estado.podeEnviar || enviando || anexo.fase === "enviando"} onClick={() => arquivo.current?.click()} className={BOTAO}>
           <ImageIcon aria-hidden="true" className="h-4 w-4" />
           Foto ou vídeo
         </button>
@@ -180,7 +205,7 @@ export function CampoDeResposta({ estado, quem, aoEnviar, aoConvidar, aoRetomar 
           }}
         />
         {podeGerenciar && (
-          <button type="button" aria-expanded={painel === "gerenciar"} onClick={() => setPainel(painel === "gerenciar" ? null : "gerenciar")} className={BOTAO}>
+          <button ref={botaoGerenciar} type="button" aria-expanded={painel === "gerenciar"} onClick={() => setPainel(painel === "gerenciar" ? null : "gerenciar")} className={BOTAO}>
             <Settings2 aria-hidden="true" className="h-4 w-4" />
             Gerenciar respostas
           </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import type { RespostaPronta } from "@/lib/ig/conversas/campo";
 import { cn } from "@/lib/utils";
 import type { CargaDasRespostas } from "./use-respostas-prontas";
@@ -20,11 +20,20 @@ type Props = {
   aoTentarDeNovo: () => void;
 };
 
+/** A lista só é um listbox (e o campo só anuncia `aria-expanded`) quando há opções para mostrar. */
+export const temOpcoes = (carga: CargaDasRespostas, itens: readonly RespostaPronta[]): boolean => carga === "ok" && itens.length > 0;
+
 /**
  * A lista das respostas prontas, aberta pelo `/` ou pelo botão. O foco FICA no campo de texto (que é o combobox):
  * quem aponta a opção ativa é o `aria-activedescendant` dele. `onMouseDown` não deixa o clique roubar o foco.
  */
 export function ListaDeRespostas({ itens, total, carga, ativo, podeGerenciar, aoEscolher, aoTentarDeNovo }: Props) {
+  const idAtivo = ativo >= 0 && itens[ativo] ? idDaOpcao(itens[ativo].id) : null;
+  // A opção ativa acompanha a seta mesmo numa lista que rola.
+  useEffect(() => {
+    if (idAtivo) document.getElementById(idAtivo)?.scrollIntoView?.({ block: "nearest" });
+  }, [idAtivo]);
+
   const aviso = (texto: string) => (
     <p role="status" className="rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 py-2 text-13 text-slate-600">
       {texto}

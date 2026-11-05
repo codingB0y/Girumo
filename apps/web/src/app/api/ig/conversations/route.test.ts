@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
+import { assinaturaDeEnvio } from "@/lib/ig/conversas/campo";
 import { chaveDeEnvio } from "@/lib/ig/conversas/fio";
 import { tombstoneHash } from "@/lib/ig/conversas/situacao";
 import { comId, CONV_ID, criarAmbiente, horasAtras, LOJA } from "@/test/ig-conversas-fake";
@@ -176,7 +177,7 @@ test("POST messages dentro de 24 h: sem tag; pausa 12 h, grava o evento, zera nÃ
   const envio = amb.pedidosZernio[0];
   assert.equal(envio.url.pathname, "/api/v1/inbox/conversations/z-1/messages");
   assert.deepEqual(envio.corpo, { accountId: "acc-z", message: "Oi, tudo bem?" });
-  assert.equal(envio.headers["idempotency-key"], chaveDeEnvio(LOJA, CONV_ID, UUID));
+  assert.equal(envio.headers["idempotency-key"], chaveDeEnvio(LOJA, CONV_ID, UUID, assinaturaDeEnvio("texto", { texto: "Oi, tudo bem?" })));
   assert.notEqual(envio.headers["idempotency-key"], UUID);
   const evento = amb.chamadas.find((c) => c.url.pathname === "/rest/v1/ig_conversation_events" && c.metodo === "POST")?.corpo as Record<string, unknown>;
   assert.deepEqual([evento.kind, evento.zernio_message_id, evento.conversation_id, evento.tenant_id], ["store_message", "mid-9", CONV_ID, LOJA]);

@@ -34,7 +34,8 @@ test("campo: Gerenciar respostas não aparece sem o papel de dono ou admin conhe
   const h = campo({ estado: "aberta", ultimaDelaEm: ha(2) });
   assert.doesNotMatch(h, /Gerenciar respostas/);
   assert.doesNotMatch(h, /role="listbox"/);
-  assert.doesNotMatch(h, /role="combobox"/, "o campo só vira combobox com a lista aberta");
+  assert.match(h, /<textarea[^>]*role="combobox"[^>]*aria-expanded="false"/, "o campo é sempre combobox; só anuncia aberto com opções na tela");
+  assert.doesNotMatch(h, /aria-controls/);
 });
 
 test("campo: com a janela fechada os três botões ficam desabilitados", () => {
@@ -66,27 +67,34 @@ test("a lista explica cada vazio: carregando, erro com nova tentativa, nenhuma a
 });
 
 test("gerenciar: lista com Apagar nomeado por resposta, contador do teto de 50 e formulário com rótulos e limites", () => {
-  const h = renderToStaticMarkup(createElement(GerenciarRespostas, { respostas: RESPOSTAS, aoCriar: ok, aoApagar: ok, aoFechar: noop }));
-  assert.match(h, /<section aria-label="Gerenciar respostas prontas"/);
-  assert.match(h, /Respostas prontas \(2\/50\)/);
+  const h = renderToStaticMarkup(createElement(GerenciarRespostas, { respostas: RESPOSTAS, carga: "ok", aoCriar: ok, aoApagar: ok, aoTentarDeNovo: noop, aoFechar: noop }));
+  assert.match(h, /<section aria-labelledby="ig-gerenciar-respostas-titulo"/);
+  assert.match(h, /<h3 id="ig-gerenciar-respostas-titulo"[^>]*>Gerenciar respostas prontas \(2\/50\)/);
   assert.match(h, /aria-label="Apagar Prazo de envio"/);
   assert.match(h, /Título[\s\S]*<input[^>]*maxLength="40"/);
   assert.match(h, /Texto da resposta[\s\S]*<textarea[^>]*maxLength="1000"/);
   assert.match(h, /<button[^>]* disabled=""[^>]*>Criar resposta</, "sem título e texto não cria");
   assert.doesNotMatch(h, /Editar/, "não há edição: apaga e cria");
+  const carregando = renderToStaticMarkup(createElement(GerenciarRespostas, { respostas: [], carga: "carregando", aoCriar: ok, aoApagar: ok, aoTentarDeNovo: noop, aoFechar: noop }));
+  assert.doesNotMatch(carregando, /\(0\/50\)/, "carregando não finge que são zero");
+  assert.match(carregando, /role="status"[^>]*>Carregando as respostas prontas/);
+  const erro = renderToStaticMarkup(createElement(GerenciarRespostas, { respostas: [], carga: "erro", aoCriar: ok, aoApagar: ok, aoTentarDeNovo: noop, aoFechar: noop }));
+  assert.match(erro, /role="alert"[^>]*>Não deu pra carregar[\s\S]*Tentar de novo/);
 });
 
 test("convite: abre carregando as campanhas e só deixa enviar com uma escolhida", () => {
   const h = renderToStaticMarkup(createElement(ConviteDoGrupo, { aoConvidar: ok, aoFechar: noop }));
-  assert.match(h, /<section aria-label="Convite do grupo"/);
+  assert.match(h, /<section aria-labelledby="ig-convite-do-grupo-titulo"/);
+  assert.match(h, /<h3 id="ig-convite-do-grupo-titulo"[^>]*>Convite do grupo</);
   assert.match(h, /role="status"[^>]*>Carregando as campanhas/);
   assert.match(h, /<button[^>]* disabled=""[^>]*>Enviar convite</);
 });
 
 test("prévia: some sem arquivo, mostra a barra enquanto sobe, foto e vídeo depois com Remover", () => {
   const pre = (anexo: Parameters<typeof PreviaDoAnexo>[0]["anexo"]) => renderToStaticMarkup(createElement(PreviaDoAnexo, { anexo, aoRemover: noop }));
-  assert.equal(pre({ fase: "vazio" }), "");
-  assert.match(pre({ fase: "enviando", nome: "a.png" }), /role="status"[\s\S]*<progress aria-label="Enviando a\.png"[\s\S]*Enviando o arquivo/);
+  assert.match(pre({ fase: "vazio" }), /<p role="status" class="sr-only"><\/p>/, "a região de status existe mesmo sem arquivo");
+  assert.doesNotMatch(pre({ fase: "vazio" }), /<img|<video|<progress/);
+  assert.match(pre({ fase: "enviando", nome: "a.png" }), /role="status"[^>]*>Enviando o arquivo[\s\S]*<progress aria-label="Enviando a\.png"/);
   const foto = pre({ fase: "pronto", nome: "a.png", tipo: "image", midiaId: "m", previa: "blob:http://x/1" });
   assert.match(foto, /<img src="blob:http:\/\/x\/1" alt="Prévia: a\.png"/);
   assert.match(foto, />Remover</);

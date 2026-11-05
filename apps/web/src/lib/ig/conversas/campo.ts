@@ -38,3 +38,42 @@ export function campanhasParaConvite(lista: unknown): CampanhaDoConvite[] {
     return [{ id: o.id, nome: typeof o.name === "string" && o.name ? o.name : o.slug }];
   });
 }
+
+export type TipoDeEnvio = "texto" | "midia" | "convite";
+
+/**
+ * O conteúdo de um envio, em texto estável. Entra na `Idempotency-Key` do servidor (o mesmo UUID do navegador com outro
+ * conteúdo é outra chave) e indexa as chaves guardadas na tela.
+ */
+export function assinaturaDeEnvio(tipo: TipoDeEnvio, c: { texto?: string; midiaId?: string; campanhaId?: string }): string {
+  return JSON.stringify([tipo, c.texto ?? "", c.midiaId ?? "", c.campanhaId ?? ""]);
+}
+
+/** A chave guardada para essa assinatura, ou uma nova (`gerar`) já guardada. O mapa devolvido é novo. */
+export function chaveParaAssinatura(mapa: ReadonlyMap<string, string>, assinatura: string, gerar: () => string): { chave: string; mapa: Map<string, string> } {
+  const existente = mapa.get(assinatura);
+  if (existente) return { chave: existente, mapa: new Map(mapa) };
+  const chave = gerar();
+  return { chave, mapa: new Map(mapa).set(assinatura, chave) };
+}
+
+export function semAssinatura(mapa: ReadonlyMap<string, string>, assinatura: string): Map<string, string> {
+  const novo = new Map(mapa);
+  novo.delete(assinatura);
+  return novo;
+}
+
+/**
+ * Põe a resposta pronta no campo sem perder o rascunho. Aberta pela `/`, o texto inteiro é o `/pedido` digitado e é
+ * trocado. Pelo botão, entra na posição do cursor (`ini`..`fim`) com um espaço de separação quando cola em texto.
+ */
+export function aplicarResposta(texto: string, resposta: string, abertaPelaBarra: boolean, ini: number, fim: number, limite: number): string {
+  if (abertaPelaBarra) return resposta.slice(0, limite);
+  const a = Math.max(0, Math.min(ini, texto.length));
+  const b = Math.max(a, Math.min(fim, texto.length));
+  const antes = texto.slice(0, a);
+  const depois = texto.slice(b);
+  const sepAntes = antes && !/\s$/.test(antes) ? " " : "";
+  const sepDepois = depois && !/^\s/.test(depois) ? " " : "";
+  return `${antes}${sepAntes}${resposta}${sepDepois}${depois}`.slice(0, limite);
+}

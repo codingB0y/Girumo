@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { abrirEnvio, concluirEnvio, responderErroDoEnvio } from "@/lib/ig/conversas/envio";
+import { assinaturaDeEnvio } from "@/lib/ig/conversas/campo";
 import { chaveDeEnvio } from "@/lib/ig/conversas/fio";
 import { corpoInvalido, requireConversas, zernioDaLoja } from "@/lib/ig/conversas/http";
 import { linkDaCampanha } from "@/lib/ig/engine/link";
@@ -25,6 +26,8 @@ export async function POST(req: Request, { params }: Ctx) {
     const aberto = await abrirEnvio(ctx.tenantId, id);
     const campanha = await getCampaignGroupById(ctx.tenantId, corpo.data.campanhaId);
     if (!campanha?.slug) return Response.json({ error: "Campanha não encontrada.", code: "campanha_nao_achou" }, { status: 404 });
+    // Sem grupo nem comunidade o botão levaria a uma página sem destino.
+    if (campanha.group_ids.length === 0 && !campanha.whatsapp_community_jid) return Response.json({ error: "Esta campanha ainda não tem grupo. Adicione um grupo à campanha antes de convidar.", code: "campanha_sem_grupo" }, { status: 409 });
     const url = await linkDaCampanha(ctx.tenantId, campanha.slug);
     const { messageId } = await zernioDaLoja().sendButtons({
       conversationId: aberto.conversa.zernio_conversation_id,
@@ -32,7 +35,7 @@ export async function POST(req: Request, { params }: Ctx) {
       message: DEFAULT_TEXTS.conviteComBotao,
       buttons: [{ type: "url", title: DEFAULT_TEXTS.botaoConvite, url }],
       humanAgent: aberto.humanAgent,
-      idempotencyKey: chaveDeEnvio(ctx.tenantId, id, corpo.data.idempotencyKey),
+      idempotencyKey: chaveDeEnvio(ctx.tenantId, id, corpo.data.idempotencyKey, assinaturaDeEnvio("convite", { campanhaId: corpo.data.campanhaId })),
     });
     const { registroParcial } = await concluirEnvio(ctx.tenantId, aberto, { mensagemIds: messageId ? [messageId] : [], previa: DEFAULT_TEXTS.botaoConvite });
     return Response.json({ ok: true, messageId, ...(registroParcial ? { registroParcial: true } : {}) });

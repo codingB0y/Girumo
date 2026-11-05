@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { classificarAnexo } from "@/lib/ig/conversas/anexo";
+import { assinaturaDeEnvio } from "@/lib/ig/conversas/campo";
 import { abrirEnvio, concluirEnvio, responderErroDoEnvio, type EnvioAberto } from "@/lib/ig/conversas/envio";
 import { chaveDeEnvio, marcasDoFio, rotulosPorMensagem, ultimaDela } from "@/lib/ig/conversas/fio";
 import { carregarConversa, corpoInvalido, pausaVigente, requireConversas, responderErroConversa, zernioDaLoja } from "@/lib/ig/conversas/http";
@@ -92,7 +93,7 @@ type Corpo = z.infer<typeof enviarSchema>;
  * fica só aqui: não vai ao navegador nem ao log.
  */
 async function mandar(tenantId: string, id: string, aberto: EnvioAberto, corpo: Corpo): Promise<{ ids: string[]; previa: string } | Response> {
-  const comum = { conversationId: aberto.conversa.zernio_conversation_id, accountId: aberto.accountId, humanAgent: aberto.humanAgent, idempotencyKey: chaveDeEnvio(tenantId, id, corpo.idempotencyKey) };
+  const comum = { conversationId: aberto.conversa.zernio_conversation_id, accountId: aberto.accountId, humanAgent: aberto.humanAgent, idempotencyKey: chaveDeEnvio(tenantId, id, corpo.idempotencyKey, assinaturaDeEnvio(corpo.midiaId ? "midia" : "texto", corpo)) };
   if (!corpo.midiaId) {
     const texto = corpo.texto ?? "";
     const { messageId } = await zernioDaLoja().sendText({ ...comum, message: texto });

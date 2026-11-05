@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { campanhasParaConvite, consultaDaBarra, filtrarRespostas, moverAtivo, type RespostaPronta } from "./campo";
+import { aplicarResposta, assinaturaDeEnvio, campanhasParaConvite, chaveParaAssinatura, semAssinatura, consultaDaBarra, filtrarRespostas, moverAtivo, type RespostaPronta } from "./campo";
 
 const R = (id: string, titulo: string): RespostaPronta => ({ id, titulo, texto: `texto ${id}` });
 const LISTA = [R("1", "Prazo de envio"), R("2", "Troca e devolução"), R("3", "Preço")];
@@ -41,4 +41,33 @@ test("o convite oferece as campanhas com link; sem nome usa o link; entrada tort
     { id: "b", nome: "x" },
   ]);
   assert.deepEqual(campanhasParaConvite({ erro: true }), []);
+});
+
+test("a assinatura muda com o tipo e com cada parte do conteúdo", () => {
+  const base = assinaturaDeEnvio("texto", { texto: "oi" });
+  assert.equal(base, assinaturaDeEnvio("texto", { texto: "oi" }));
+  for (const outra of [assinaturaDeEnvio("midia", { texto: "oi" }), assinaturaDeEnvio("texto", { texto: "oi!" }), assinaturaDeEnvio("midia", { texto: "oi", midiaId: "m" }), assinaturaDeEnvio("convite", { campanhaId: "c" })]) assert.notEqual(base, outra);
+  assert.notEqual(assinaturaDeEnvio("texto", { texto: "a", midiaId: "b" }), assinaturaDeEnvio("texto", { texto: "", midiaId: "ab" }), "sem colisão por concatenação");
+});
+
+test("chaves por assinatura: repete a do mesmo conteúdo, gera outra para conteúdo novo e não perde as antigas", () => {
+  let n = 0;
+  const gerar = () => `k${++n}`;
+  const a = chaveParaAssinatura(new Map(), "texto", gerar);
+  const b = chaveParaAssinatura(a.mapa, "convite", gerar);
+  const c = chaveParaAssinatura(b.mapa, "texto", gerar);
+  assert.deepEqual([a.chave, b.chave, c.chave], ["k1", "k2", "k1"], "o convite não apagou a chave do texto que falhou");
+  assert.equal(n, 2);
+  assert.deepEqual([...semAssinatura(c.mapa, "texto").keys()], ["convite"]);
+  assert.equal(a.mapa.size, 1, "o mapa antigo não muda");
+});
+
+test("resposta pronta: aberta pela barra troca o /pedido; pelo botão entra no cursor sem perder o rascunho", () => {
+  assert.equal(aplicarResposta("/ofe", "Oferta X", true, 4, 4, 1000), "Oferta X");
+  assert.equal(aplicarResposta("Oi Ana,", "Oferta X", false, 7, 7, 1000), "Oi Ana, Oferta X");
+  assert.equal(aplicarResposta("Oi Ana, tchau", "Oferta X", false, 8, 8, 1000), "Oi Ana, Oferta X tchau");
+  assert.equal(aplicarResposta("Oi ", "Oferta X", false, 3, 3, 1000), "Oi Oferta X");
+  assert.equal(aplicarResposta("", "Oferta X", false, 0, 0, 1000), "Oferta X");
+  assert.equal(aplicarResposta("abc XYZ def", "R", false, 4, 7, 1000), "abc R def", "a seleção é substituída");
+  assert.equal(aplicarResposta("oi", "x".repeat(50), false, 99, 99, 10), "oi xxxxxxx", "cursor fora e limite");
 });
