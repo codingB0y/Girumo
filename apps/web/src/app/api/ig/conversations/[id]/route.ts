@@ -31,7 +31,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const { patch, evento } = efeito(corpo.data.acao, agora);
     const nova = await updateConversation(ctx.tenantId, id, patch);
     if (!nova) return naoAchouConversa();
-    await recordConversationEvent(ctx.tenantId, { conversationId: id, ...evento, occurredAt: agora.toISOString() });
+    // A conversa já mudou: falha ao anotar o evento não pode virar 500 (só o tipo vai para o log).
+    await recordConversationEvent(ctx.tenantId, { conversationId: id, ...evento, occurredAt: agora.toISOString() }).catch((err) => console.error("[ig/conversas] evento não gravado:", err instanceof Error ? err.name : typeof err));
     return Response.json({ conversa: paraConversa(nova, agora) });
   } catch (e) {
     return responderErroConversa(e);

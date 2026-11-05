@@ -32,6 +32,22 @@ test("apaga o índice, grava o marcador (hash, não o id) e pede à Zernio para 
   assert.deepEqual(amb.pedidosZernio.map((p) => [p.metodo, p.url.pathname, p.url.searchParams.get("accountId")]), [["DELETE", "/api/v1/inbox/conversations/z-1", "acc-z"], ["DELETE", "/api/v1/inbox/conversations/z-2", "acc-z"]]);
 });
 
+test("os ids são lidos ANTES de apagar qualquer coisa (LGPD: banco falhar no meio não perde a cópia da Zernio)", async () => {
+  await apagar();
+  const ordem = amb.chamadas.map((c) => `${c.metodo} ${c.url.pathname}`);
+  const leitura = ordem.indexOf("GET /rest/v1/ig_conversations");
+  const primeiraEscrita = ordem.findIndex((x) => /^(POST|DELETE|PATCH) \/rest\/v1\/ig_/.test(x));
+  assert.ok(leitura >= 0 && leitura < primeiraEscrita, ordem.join(" | "));
+  const zernio = amb.pedidosZernio.length;
+  assert.equal(zernio, 1);
+});
+
+test("conversa de outra conta (não a conectada agora) não é apagada com a conta errada: a cópia fica", async () => {
+  e.indiceApagado = [{ zernio_conversation_id: "z-velha", ig_account_id: "conta-antiga" }];
+  assert.deepEqual(await (await apagar()).json(), { ok: true, copiaNaZernio: true });
+  assert.equal(amb.pedidosZernio.length, 0);
+});
+
 test("a Zernio falhar não é erro: a pessoa já sumiu da Girumo e a resposta diz que a cópia ficou", async () => {
   e.zernio = () => ({ status: 503, body: {} });
   const r = await apagar();

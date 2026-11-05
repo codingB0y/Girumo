@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { janela, type JanelaMeta } from "./situacao";
 import type { ConversationEventRow } from "@/lib/stores/ig-conversations";
 
@@ -46,7 +47,8 @@ export function ultimaDela(mensagens: Array<{ direction: "incoming" | "outgoing"
 
 /** `mid` e `i` da rota de mídia: formato e faixa. `null` = recusa. */
 export function lerAnexo(mid: string | null, i: string | null): { mid: string; indice: number } | null {
-  if (!mid || !/^[\w=.+-]{1,400}$/.test(mid)) return null;
+  // Começa por alfanumérico: `..` e `.` colapsariam o caminho na URL da Zernio.
+  if (!mid || !/^[A-Za-z0-9][\w=+.-]{0,399}$/.test(mid)) return null;
   if (i === null || !/^\d{1,2}$/.test(i)) return null;
   const indice = Number(i);
   return indice < 20 ? { mid, indice } : null;
@@ -64,4 +66,13 @@ export function linkDeAnexoSeguro(url: string): boolean {
   const h = u.hostname.toLowerCase();
   if (!h.includes(".") || h === "localhost" || h.endsWith(".localhost") || h.startsWith("[") || /^\d+(\.\d+){3}$/.test(h)) return false;
   return true;
+}
+
+/**
+ * `Idempotency-Key` enviada à Zernio: uma só chave de API serve todas as lojas, então a chave do navegador não vai
+ * crua. sha256(loja:conversa:chave) no formato de UUID; o mesmo reenvio gera a mesma chave.
+ */
+export function chaveDeEnvio(tenantId: string, conversationId: string, chaveDoNavegador: string): string {
+  const h = createHash("sha256").update(`${tenantId}:${conversationId}:${chaveDoNavegador}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { decidirEnvio, marcasDoFio, pausaAte, rotulosPorMensagem, ultimaDela } from "@/lib/ig/conversas/fio";
+import { chaveDeEnvio, decidirEnvio, marcasDoFio, pausaAte, rotulosPorMensagem, ultimaDela } from "@/lib/ig/conversas/fio";
 import { carregarConversa, corpoInvalido, pausaVigente, requireConversas, responderErroConversa, zernioDaLoja } from "@/lib/ig/conversas/http";
 import { janela, situacaoAoResponderPelaLoja } from "@/lib/ig/conversas/situacao";
 import type { FioDaConversa, MensagemDto } from "@/lib/ig/conversas/tipos";
@@ -16,6 +16,8 @@ export const maxDuration = 60;
 type Ctx = { params: Promise<{ id: string }> };
 
 const PAGINA = 50;
+/** O cursor é da Zernio e opaco; passa adiante, mas com teto de tamanho. */
+const CURSOR_MAX = 512;
 
 const enviarSchema = z.object({ texto: z.string().trim().min(1).max(1000), idempotencyKey: z.string().uuid() });
 
@@ -44,6 +46,7 @@ export async function GET(req: Request, { params }: Ctx) {
     const { id } = await params;
     const { conversa, accountId } = await carregarConversa(ctx.tenantId, id);
     const cursor = new URL(req.url).searchParams.get("cursor") || undefined;
+    if (cursor && cursor.length > CURSOR_MAX) return corpoInvalido();
     const [pagina, eventos, ficha] = await Promise.all([
       zernioDaLoja().listMessages({ conversationId: conversa.zernio_conversation_id, accountId, cursor, limit: PAGINA }),
       listConversationEvents(ctx.tenantId, id),
@@ -85,14 +88,21 @@ export async function POST(req: Request, { params }: Ctx) {
     const ficha = await getContactByIgUserId(ctx.tenantId, conversa.ig_user_id);
     const envio = decidirEnvio(ficha?.last_dm_at ?? null, agora);
     if (!envio.ok) return Response.json({ error: "A janela de 7 dias fechou. Só dá para responder quando a pessoa escrever de novo.", code: "janela_fechada" }, { status: 409 });
-    const enviada = await zernioDaLoja().sendText({ conversationId: conversa.zernio_conversation_id, accountId, message: corpo.data.texto, humanAgent: envio.humanAgent, idempotencyKey: corpo.data.idempotencyKey });
-    // A mensagem já saiu. Se algo abaixo falhar, o reenvio com a mesma chave não manda de novo (a Zernio repete a resposta) e refaz o registro.
-    if (enviada.messageId) await recordConversationEvent(ctx.tenantId, { conversationId: id, kind: "store_message", zernioMessageId: enviada.messageId, occurredAt: agora.toISOString() });
-    await touchConversation(ctx.tenantId, { zernioConversationId: conversa.zernio_conversation_id, igUserId: conversa.ig_user_id, igAccountId: conversa.ig_account_id, direction: "out", at: agora.toISOString(), preview: corpo.data.texto, status: situacaoAoResponderPelaLoja() });
-    const nova = await updateConversation(ctx.tenantId, id, { unread_count: 0, bot_paused_until: pausaAte(agora) });
-    // §6: sem isto, um "sim" dela depois da pausa retomaria um fluxo velho.
-    await stopWaitingRunsOfPerson(ctx.tenantId, { igUserId: conversa.ig_user_id, username: conversa.username }, "replied_by_store");
-    return Response.json({ ok: true, messageId: enviada.messageId, roboPausadoAte: nova?.bot_paused_until ?? null });
+    const enviada = await zernioDaLoja().sendText({ conversationId: conversa.zernio_conversation_id, accountId, message: corpo.data.texto, humanAgent: envio.humanAgent, idempotencyKey: chaveDeEnvio(ctx.tenantId, id, corpo.data.idempotencyKey) });
+    // A mensagem JÁ SAIU: nada abaixo pode virar erro para a loja. Primeiro o que protege a pessoa (§6: sem a pausa e sem
+    // encerrar a espera, um "sim" dela retomaria um fluxo velho), depois o registro. Falhas só avisam `registroParcial`.
+    const protecao = await Promise.allSettled([
+      updateConversation(ctx.tenantId, id, { unread_count: 0, bot_paused_until: pausaAte(agora) }),
+      stopWaitingRunsOfPerson(ctx.tenantId, { igUserId: conversa.ig_user_id, username: conversa.username }, "replied_by_store"),
+    ]);
+    const registro = await Promise.allSettled([
+      enviada.messageId ? recordConversationEvent(ctx.tenantId, { conversationId: id, kind: "store_message", zernioMessageId: enviada.messageId, occurredAt: agora.toISOString() }) : Promise.resolve(),
+      touchConversation(ctx.tenantId, { zernioConversationId: conversa.zernio_conversation_id, igUserId: conversa.ig_user_id, igAccountId: conversa.ig_account_id, direction: "out", at: agora.toISOString(), preview: corpo.data.texto, status: situacaoAoResponderPelaLoja() }),
+    ]);
+    const falhas = [...protecao, ...registro].filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    // Só o tipo do erro: a mensagem do PostgREST pode trazer dado da loja.
+    for (const f of falhas) console.error("[ig/conversas] registro do envio falhou:", f.reason instanceof Error ? f.reason.name : typeof f.reason);
+    return Response.json({ ok: true, messageId: enviada.messageId, ...(falhas.length ? { registroParcial: true } : {}) });
   } catch (e) {
     return responderErroConversa(e);
   }

@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { tombstoneHash } from "@/lib/ig/conversas/situacao";
 import {
-  addTombstone, countConversations, deleteConversationsOf, getConversationById, getConversationByIgUserId, getConversationByZernioId, hasTombstone,
+  addTombstone, countConversations, deleteConversationsOf, getConversationById, listConversationsOf, settleImportedConversation, getConversationByIgUserId, getConversationByZernioId, hasTombstone,
   listConversationEvents, listConversations, listIgUserIdsByTag, recordConversationEvent, runConversationRoutine, touchConversation, updateConversation,
 } from "./ig-conversations";
 
@@ -164,4 +164,19 @@ test("ids de quem tem a etiqueta: fichas da loja, mais recentes primeiro, com te
   proxima = { status: 200, body: [{ ig_user_id: "u1" }, { ig_user_id: "u2" }] };
   assert.deepEqual(await listIgUserIdsByTag("loja-a", "vip", 2), ["u1", "u2"]);
   assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", tags: "cs.{vip}", order: "last_seen_at.desc", limit: "2" });
+});
+
+test("acerto da importação: só se não chegou mensagem mais nova, filtrando a loja", async () => {
+  pedidos.length = 0;
+  await settleImportedConversation("loja-a", "c1", "2026-11-06T10:00:00.000Z", "resolved");
+  assert.equal(pedidos[0].metodo, "PATCH");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.c1", last_message_at: "lte.2026-11-06T10:00:00.000Z" });
+  assert.deepEqual(pedidos[0].corpo, { status: "resolved", unread_count: 0 });
+});
+
+test("conversas da pessoa: ids da Zernio e conta de cada uma, filtrando a loja", async () => {
+  pedidos.length = 0;
+  proxima = { status: 200, body: [{ zernio_conversation_id: "z1", ig_account_id: "a1" }] };
+  assert.deepEqual(await listConversationsOf("loja-a", "u1"), [{ zernioConversationId: "z1", igAccountId: "a1" }]);
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", ig_user_id: "eq.u1" });
 });

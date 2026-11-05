@@ -157,6 +157,22 @@ export async function listIgUserIdsByTag(tenantId: string, tag: string, limite: 
   return ((data as unknown as Array<{ ig_user_id: string }> | null) ?? []).map((r) => r.ig_user_id);
 }
 
+/**
+ * Acerto da importação (varredura): situação de importada e não lidas zeradas, SÓ se não chegou mensagem mais nova
+ * que a importada. Sem isso, o webhook que criou a conversa no meio da varredura seria rebaixado e perderia a não lida.
+ */
+export async function settleImportedConversation(tenantId: string, id: string, atIso: string, status: StatusConversa): Promise<void> {
+  const { error } = await getSupabaseAdmin().from("ig_conversations").update({ status, unread_count: 0 }).eq("tenant_id", tenantId).eq("id", id).lte("last_message_at", atIso);
+  if (error) throw erroDoBanco(error);
+}
+
+/** Os ids da Zernio e a conta de cada conversa da pessoa, para pedir a exclusão ANTES de apagar o índice. */
+export async function listConversationsOf(tenantId: string, igUserId: string): Promise<Array<{ zernioConversationId: string; igAccountId: string | null }>> {
+  const { data, error } = await getSupabaseAdmin().from("ig_conversations").select("zernio_conversation_id, ig_account_id").eq("tenant_id", tenantId).eq("ig_user_id", igUserId);
+  if (error) throw erroDoBanco(error);
+  return ((data as unknown as Array<{ zernio_conversation_id: string; ig_account_id: string | null }> | null) ?? []).map((r) => ({ zernioConversationId: r.zernio_conversation_id, igAccountId: r.ig_account_id }));
+}
+
 export type ConversationPatch = Partial<{ status: StatusConversa; bot_paused_until: string | null; unread_count: number }>;
 
 /** `null` = a conversa não existe nesta loja. */

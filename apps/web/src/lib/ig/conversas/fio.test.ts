@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { decidirEnvio, lerAnexo, linkDeAnexoSeguro, marcasDoFio, pausaAte, rotulosPorMensagem, ultimaDela } from "./fio";
+import { chaveDeEnvio, decidirEnvio, lerAnexo, linkDeAnexoSeguro, marcasDoFio, pausaAte, rotulosPorMensagem, ultimaDela } from "./fio";
 import type { ConversationEventRow } from "@/lib/stores/ig-conversations";
 
 const AGORA = new Date("2026-11-05T12:00:00Z");
@@ -38,10 +38,20 @@ test("última mensagem dela: a mais recente incoming; sem nenhuma, null", () => 
 
 test("anexo: mid e índice validados", () => {
   assert.deepEqual(lerAnexo("aWdf-Z_1=", "0"), { mid: "aWdf-Z_1=", indice: 0 });
-  for (const [mid, i] of [[null, "0"], ["", "0"], ["a/b", "0"], ["a b", "0"], ["x", null], ["x", "-1"], ["x", "1.5"], ["x", "20"], ["x", "abc"]] as const) assert.equal(lerAnexo(mid, i), null, `${mid} ${i}`);
+  for (const [mid, i] of [["..", "0"], [".", "0"], [".x", "0"], ["a".repeat(401), "0"], [null, "0"], ["", "0"], ["a/b", "0"], ["a b", "0"], ["x", null], ["x", "-1"], ["x", "1.5"], ["x", "20"], ["x", "abc"]] as const) assert.equal(lerAnexo(mid, i), null, `${mid} ${i}`);
 });
 
 test("link do anexo: só https com nome de host de verdade", () => {
   assert.equal(linkDeAnexoSeguro("https://scontent.cdninstagram.com/v/x.jpg?sig=1"), true);
   for (const ruim of ["http://cdn.exemplo.com/x", "javascript:alert(1)", "https://u:p@cdn.exemplo.com/x", "https://localhost/x", "https://127.0.0.1/x", "https://intranet/x", "https://[::1]/x", "nao-e-url"]) assert.equal(linkDeAnexoSeguro(ruim), false, ruim);
+});
+
+test("chave de envio: UUID derivado da loja, da conversa e da chave do navegador (não repassa a crua)", () => {
+  const u = "9b2f6c1e-3d4a-4b5c-8d7e-0a1b2c3d4e5f";
+  const a = chaveDeEnvio("loja-a", "c1", u);
+  assert.match(a, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  assert.notEqual(a, u);
+  assert.equal(a, chaveDeEnvio("loja-a", "c1", u), "estável: o reenvio repete a chave");
+  assert.notEqual(a, chaveDeEnvio("loja-b", "c1", u));
+  assert.notEqual(a, chaveDeEnvio("loja-a", "c2", u));
 });

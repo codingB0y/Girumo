@@ -9,7 +9,7 @@ import { InboxError } from "@/lib/ig/zernio-inbox";
 import { getAccount } from "@/lib/stores/ig-accounts";
 import { deleteContact, getContactById } from "@/lib/stores/ig-contacts";
 import { editContact } from "@/lib/stores/ig-contacts-lista";
-import { addTombstone, deleteConversationsOf } from "@/lib/stores/ig-conversations";
+import { addTombstone, deleteConversationsOf, listConversationsOf } from "@/lib/stores/ig-conversations";
 import { listRunsOfUser } from "@/lib/stores/ig-runs";
 
 export const runtime = "nodejs";
@@ -73,28 +73,36 @@ export async function DELETE(req: Request, { params }: Ctx) {
     if (!isUuid(id)) return naoAchou();
     const contato = await getContactById(ctx.tenantId, id);
     if (!contato) return naoAchou();
-    // Marcador antes de tudo (o "Atualizar" não traz a pessoa de volta), depois o índice, depois a ficha e os atendimentos.
+    // LGPD: lê os ids das conversas ANTES de apagar qualquer coisa e pede a exclusão da cópia na Zernio primeiro;
+    // se o banco falhar no meio, o reenvio ainda acha os ids. Falha da Zernio não é erro: a resposta avisa que a cópia ficou.
+    const conversas = await listConversationsOf(ctx.tenantId, contato.ig_user_id);
+    const copiaNaZernio = await apagarCopiasNaZernio(ctx.tenantId, conversas);
+    // Marcador (a varredura não traz a pessoa de volta), depois o índice, depois a ficha e os atendimentos.
     await addTombstone(ctx.tenantId, contato.ig_user_id);
-    const conversas = await deleteConversationsOf(ctx.tenantId, contato.ig_user_id);
+    await deleteConversationsOf(ctx.tenantId, contato.ig_user_id);
     await deleteContact(ctx.tenantId, id);
-    // A pessoa já sumiu da Girumo. Falha ao apagar a cópia na Zernio não é erro: a resposta avisa que ela ficou.
-    // ponytail: se `deleteContact` cair aqui, o reenvio acha a ficha mas já não acha os ids da Zernio; apagar à mão no painel dela.
-    return Response.json({ ok: true, copiaNaZernio: await apagarCopiasNaZernio(ctx.tenantId, conversas) });
+    return Response.json({ ok: true, copiaNaZernio });
   } catch (e) {
     return responderErro(e);
   }
 }
 
-/** `true` = alguma cópia ficou na Zernio (sem conta conectada, sem chave ou erro dela). */
-async function apagarCopiasNaZernio(tenantId: string, conversas: Array<{ zernioConversationId: string }>): Promise<boolean> {
+/**
+ * `true` = alguma cópia ficou na Zernio (sem conta, conta que não é a da conversa, sem chave ou erro dela). Cada conversa
+ * é apagada com a conta DELA (`ig_account_id` da linha); só há uma conta por loja, então conversa de outra conta não se alcança.
+ * 404 da Zernio conta como apagada porque a conta é a da conversa.
+ */
+async function apagarCopiasNaZernio(tenantId: string, conversas: Array<{ zernioConversationId: string; igAccountId: string | null }>): Promise<boolean> {
   if (conversas.length === 0) return false;
   try {
     const conta = await getAccount(tenantId);
     if (!conta?.provider_account_id) return true;
+    const accountId = conta.provider_account_id;
+    const alcancaveis = conversas.filter((c) => c.igAccountId === null || c.igAccountId === conta.id);
     const zernio = zernioDaLoja();
-    const resultados = await Promise.allSettled(conversas.map((c) => zernio.deleteConversation({ conversationId: c.zernioConversationId, accountId: conta.provider_account_id as string })));
-    // 404 = a cópia já não existe: conta como apagada.
-    return resultados.some((r) => r.status === "rejected" && !(r.reason instanceof InboxError && r.reason.kind === "not_found"));
+    const resultados = await Promise.allSettled(alcancaveis.map((c) => zernio.deleteConversation({ conversationId: c.zernioConversationId, accountId })));
+    const falhou = resultados.some((r) => r.status === "rejected" && !(r.reason instanceof InboxError && r.reason.kind === "not_found"));
+    return falhou || alcancaveis.length < conversas.length;
   } catch {
     return true;
   }

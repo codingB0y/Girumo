@@ -35,6 +35,8 @@ export function criarAmbiente() {
     canned: [] as Linha[],
     cannedCheio: false,
     cannedExiste: true,
+    eventoFalha: false,
+    runsFalha: false,
     indiceApagado: [{ zernio_conversation_id: "z-1", ig_account_id: "conta-1" }] as Linha[],
     zernio: ((): RespostaZernio => ({ status: 200, body: {} })) as (p: PedidoZernio) => RespostaZernio,
   };
@@ -56,6 +58,8 @@ export function criarAmbiente() {
     e.canned = [{ id: "p1", tenant_id: LOJA, title: "Prazo", text: "Enviamos em 2 dias.", created_at: horasAtras(5) }];
     e.cannedCheio = false;
     e.cannedExiste = true;
+    e.eventoFalha = false;
+    e.runsFalha = false;
     e.indiceApagado = [{ zernio_conversation_id: "z-1", ig_account_id: "conta-1" }];
     e.zernio = () => ({ status: 200, body: {} });
   }
@@ -82,7 +86,8 @@ export function criarAmbiente() {
       else if (p === "/rest/v1/ig_accounts") lista(e.conta && dela ? [e.conta] : []);
       else if (p === "/rest/v1/ig_conversations" && m === "HEAD") saida = undefined;
       else if (p === "/rest/v1/ig_conversations" && m === "GET") {
-        if (url.searchParams.has("id")) lista(dela && valor("id") === CONV_ID ? [e.conversa] : []);
+        if (url.searchParams.get("ig_user_id")?.startsWith("eq.")) saida = dela ? e.indiceApagado : [];
+        else if (url.searchParams.has("id")) lista(dela && valor("id") === CONV_ID ? [e.conversa] : []);
         else if (url.searchParams.has("zernio_conversation_id")) lista(dela && e.existentesNoIndice.has(valor("zernio_conversation_id") ?? "") ? [e.conversa] : []);
         else lista(dela ? [e.conversa] : []);
       } else if (p === "/rest/v1/ig_conversations" && m === "PATCH") {
@@ -93,7 +98,13 @@ export function criarAmbiente() {
       else if (p === "/rest/v1/rpc/ig_conversation_touch") {
         const b = corpo as Linha;
         saida = { ...e.conversa, status: b.p_status ?? e.conversa.status, unread_count: b.p_direction === "in" ? 1 : 0 };
-      } else if (p === "/rest/v1/ig_conversation_events") saida = m === "GET" ? e.eventos : [];
+      } else if (p === "/rest/v1/ig_conversation_events") {
+        saida = m === "GET" ? e.eventos : [];
+        if (m === "POST" && e.eventoFalha) status = 500;
+      } else if (p === "/rest/v1/ig_runs" && m === "PATCH" && e.runsFalha) {
+        status = 500;
+        saida = { code: "XX000", message: "falhou", details: null, hint: null };
+      }
       else if (p === "/rest/v1/ig_contacts" && m === "GET") {
         if (url.searchParams.has("tags")) saida = e.tagIds.map((id) => ({ ig_user_id: id }));
         else lista(dela && e.ficha ? [e.ficha] : []);

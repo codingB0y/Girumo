@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
+import { chaveDeEnvio } from "@/lib/ig/conversas/fio";
 import { tombstoneHash } from "@/lib/ig/conversas/situacao";
 import { comId, CONV_ID, criarAmbiente, horasAtras, LOJA } from "@/test/ig-conversas-fake";
 import { PATCH } from "./[id]/route";
@@ -159,7 +160,8 @@ test("POST messages dentro de 24 h: sem tag; pausa 12 h, grava o evento, zera n�
   const envio = amb.pedidosZernio[0];
   assert.equal(envio.url.pathname, "/api/v1/inbox/conversations/z-1/messages");
   assert.deepEqual(envio.corpo, { accountId: "acc-z", message: "Oi, tudo bem?" });
-  assert.equal(envio.headers["idempotency-key"], UUID);
+  assert.equal(envio.headers["idempotency-key"], chaveDeEnvio(LOJA, CONV_ID, UUID));
+  assert.notEqual(envio.headers["idempotency-key"], UUID);
   const evento = amb.chamadas.find((c) => c.url.pathname === "/rest/v1/ig_conversation_events" && c.metodo === "POST")?.corpo as Record<string, unknown>;
   assert.deepEqual([evento.kind, evento.zernio_message_id, evento.conversation_id, evento.tenant_id], ["store_message", "mid-9", CONV_ID, LOJA]);
   const touch = amb.chamadas.find((c) => c.url.pathname === "/rest/v1/rpc/ig_conversation_touch")?.corpo as Record<string, unknown>;
@@ -264,11 +266,11 @@ test("sync: cria índice e ficha de cada conversa, sem somar não lidas, Aberta 
   const pedido = amb.pedidosZernio[0];
   assert.deepEqual([pedido.url.pathname, pedido.url.searchParams.get("accountId"), pedido.url.searchParams.get("limit"), pedido.url.searchParams.has("folder")], ["/api/v1/inbox/conversations", "acc-z", "100", false]);
   const toques = amb.chamadas.filter((c) => c.url.pathname === "/rest/v1/rpc/ig_conversation_touch").map((c) => c.corpo as Record<string, unknown>);
-  assert.deepEqual(toques.map((t) => [t.p_ig_user_id, t.p_status]).sort(), [["p0", "open"], ["p1", "resolved"]]);
-  assert.ok(toques.every((t) => t.p_tenant === "loja-sync-1" && t.p_direction === "in"));
-  const zeros = amb.chamadas.filter((c) => c.metodo === "PATCH" && c.url.pathname === "/rest/v1/ig_conversations");
-  assert.equal(zeros.length, 2, "o touch soma 1 e a varredura zera");
-  assert.ok(zeros.every((z) => (z.corpo as Record<string, unknown>).unread_count === 0));
+  assert.ok(toques.every((t) => t.p_tenant === "loja-sync-1" && t.p_direction === "in" && t.p_status === null), "o touch não decide a situação: quem decide é o acerto condicional");
+  assert.deepEqual(toques.map((t) => t.p_ig_user_id).sort(), ["p0", "p1"]);
+  const acertos = amb.chamadas.filter((c) => c.metodo === "PATCH" && c.url.pathname === "/rest/v1/ig_conversations");
+  assert.deepEqual(acertos.map((z) => z.corpo as Record<string, unknown>).map((b) => [b.status, b.unread_count]).sort(), [["open", 0], ["resolved", 0]]);
+  assert.ok(acertos.every((z) => /^lte\./.test(z.url.searchParams.get("last_message_at") ?? "") && z.url.searchParams.get("tenant_id") === "eq.loja-sync-1"), "só se não chegou mensagem mais nova");
   const fichas = amb.chamadas.filter((c) => c.url.pathname === "/rest/v1/rpc/ig_contact_apply").map((c) => c.corpo as Record<string, unknown>);
   assert.equal(fichas.length, 2);
   assert.ok(fichas.every((f) => f.p_dm === false), "sem p_dm: last_dm_at fica vazio");
@@ -292,7 +294,8 @@ test("sync: segunda varredura em menos de 2 minutos da mesma loja é 429; outra 
   const r = await SYNC(amb.pedir("POST", "/api/ig/conversations/sync", undefined, "loja-sync-3"));
   assert.equal(r.status, 429);
   assert.equal(r.headers.get("retry-after"), "120");
-  assert.equal(amb.pedidosZernio.length, 1, "a segunda nem chegou na Zernio");
+  assert.equal(amb.pedidosZernio.length, 2, "a segunda só leu a 1ª página (o portão de 2 min vem depois dela) e não importou nada");
+  assert.equal(amb.chamadas.filter((c) => c.url.pathname === "/rest/v1/rpc/ig_conversation_touch").length, 0);
   e.donoDaConversa = "loja-sync-4";
   assert.equal((await SYNC(amb.pedir("POST", "/api/ig/conversations/sync", undefined, "loja-sync-4"))).status, 200);
 });
@@ -304,4 +307,46 @@ test("sync sem conta conectada é 409 e não gasta a espera de 2 minutos", async
   e.conta = { id: "conta-1", status: "active", provider_account_id: "acc-z" };
   e.zernio = zernioComConversas(0);
   assert.equal((await SYNC(amb.pedir("POST", "/api/ig/conversations/sync", undefined, "loja-sync-5"))).status, 200);
+});
+
+test("sync: falha na primeira página não gasta a espera de 2 minutos", async () => {
+  e.donoDaConversa = "loja-sync-6";
+  e.zernio = () => ({ status: 503, body: {} });
+  assert.equal((await SYNC(amb.pedir("POST", "/api/ig/conversations/sync", undefined, "loja-sync-6"))).status, 502);
+  e.zernio = zernioComConversas(0);
+  assert.equal((await SYNC(amb.pedir("POST", "/api/ig/conversations/sync", undefined, "loja-sync-6"))).status, 200);
+});
+
+test("POST messages: a mensagem saiu, então falha ao gravar vira 200 com registroParcial; pausa e espera vêm antes do registro", async () => {
+  e.runsFalha = true;
+  e.eventoFalha = true;
+  e.zernio = () => ({ status: 200, body: { data: { messageId: "mid-7" } } });
+  const r = await ENVIAR(amb.pedir("POST", `/api/ig/conversations/${CONV_ID}/messages`, { texto: "oi", idempotencyKey: UUID }), comId(CONV_ID));
+  assert.equal(r.status, 200);
+  const corpo = await r.json();
+  assert.deepEqual([corpo.ok, corpo.messageId, corpo.registroParcial], [true, "mid-7", true]);
+  const ordem = amb.chamadas.map((c) => `${c.metodo} ${c.url.pathname}`);
+  const pausa = ordem.findIndex((x) => x === "PATCH /rest/v1/ig_conversations");
+  const evento = ordem.findIndex((x) => x === "POST /rest/v1/ig_conversation_events");
+  assert.ok(pausa >= 0 && evento > pausa && ordem.findIndex((x) => x === "PATCH /rest/v1/ig_runs") < evento, ordem.join(" | "));
+  assert.ok(e.conversa.bot_paused_until, "a pausa gravou mesmo com o run falhando");
+});
+
+test("POST messages sem falha não traz registroParcial", async () => {
+  e.zernio = () => ({ status: 200, body: { data: { messageId: "mid-8" } } });
+  const corpo = await (await ENVIAR(amb.pedir("POST", `/api/ig/conversations/${CONV_ID}/messages`, { texto: "oi", idempotencyKey: UUID }), comId(CONV_ID))).json();
+  assert.equal(corpo.registroParcial, undefined);
+});
+
+test("PATCH: falha ao gravar o evento depois de mudar a conversa não vira 500; responde o estado novo", async () => {
+  e.eventoFalha = true;
+  const r = await PATCH(amb.pedir("PATCH", `/api/ig/conversations/${CONV_ID}`, { acao: "resolver" }), comId(CONV_ID));
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).conversa.situacao, "resolved");
+});
+
+test("GET messages: cursor gigante é 400 sem falar com a Zernio", async () => {
+  const r = await FIO(amb.pedir("GET", `/api/ig/conversations/${CONV_ID}/messages?cursor=${"a".repeat(513)}`), comId(CONV_ID));
+  assert.equal(r.status, 400);
+  assert.equal(amb.pedidosZernio.length, 0);
 });
