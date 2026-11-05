@@ -166,7 +166,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
     return (
       <div className="p-6">
         <p className="text-15 text-volt-950">Fluxo não encontrado.</p>
-        <Link href="/painel/instagram" className="mt-2 inline-block text-13 text-cobalt-500">Voltar pra lista</Link>
+        <Link href="/painel/instagram/fluxos" className="mt-2 inline-block text-13 text-cobalt-500">Voltar pra lista</Link>
       </div>
     );
   }
@@ -174,7 +174,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
     return (
       <div className="p-6">
         <p className="text-13 text-slate-600">
-          Não deu pra carregar o fluxo. <Link href="/painel/instagram" className="text-cobalt-500">Voltar</Link>
+          Não deu pra carregar o fluxo. <Link href="/painel/instagram/fluxos" className="text-cobalt-500">Voltar</Link>
         </p>
       </div>
     );
@@ -188,7 +188,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
     <div className="flex min-h-screen flex-col bg-canvas-100">
       <header className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-200 bg-paper-0 px-4 py-2">
         <h1 className="sr-only">{flow.name}</h1>
-        <Link href="/painel/instagram" aria-label="Voltar pra lista de fluxos" className="flex h-9 items-center gap-1 text-13 text-slate-600 hover:text-volt-950">
+        <Link href="/painel/instagram/fluxos" aria-label="Voltar pra lista de fluxos" className="flex h-9 items-center gap-1 text-13 text-slate-600 hover:text-volt-950">
           <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4" aria-hidden="true" />
           <span className="hidden sm:inline">Instagram</span>
         </Link>

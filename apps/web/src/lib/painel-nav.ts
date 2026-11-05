@@ -195,7 +195,9 @@ export function podePostar(acesso: Acesso | null): boolean {
  * dela está entre os seis do dono.
  */
 export function itensDaBarra(acesso: Acesso | null, liberacoes: Liberacoes | null): NavItem[] {
-  const base = acessoRestrito(acesso) ? NAV_ALL : liberacoes?.recuperar ? NAV_BARRA_COM_RECUPERAR : NAV_BARRA_DESKTOP;
+  // Instagram ligado entra no fim da barra: ele leva o número de conversas "aguardando você" (spec Instagram §7.7).
+  const doDia = liberacoes?.recuperar ? NAV_BARRA_COM_RECUPERAR : NAV_BARRA_DESKTOP;
+  const base = acessoRestrito(acesso) ? NAV_ALL : liberacoes?.instagram ? [...doDia, INSTAGRAM] : doDia;
   return base.filter((item) => visivelNoMenu(item, acesso, liberacoes));
 }
 

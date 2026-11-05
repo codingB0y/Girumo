@@ -220,8 +220,10 @@ test("Postar segue Disparos", () => {
   assert.equal(podePostar(null), false);
 });
 
-test("barra de cima: o dono vê os seis do dia; a vendedora, só o que é dela", () => {
-  assert.deepEqual(itensDaBarra(DONO, COM_INSTAGRAM).map((i) => i.href), NAV_BARRA_DESKTOP.map((i) => i.href));
+test("barra de cima: o dono vê os seis do dia (e o Instagram no fim, se ligado); a vendedora, só o que é dela", () => {
+  const seis = NAV_BARRA_DESKTOP.map((i) => i.href);
+  assert.deepEqual(itensDaBarra(DONO, COM_INSTAGRAM).map((i) => i.href), [...seis, "/painel/instagram"]);
+  assert.deepEqual(itensDaBarra(DONO, { instagram: false, recuperar: false, rastreio: false }).map((i) => i.href), seis);
   assert.deepEqual(itensDaBarra(VENDEDORA, null).map((i) => i.href), ["/painel/vendas"]);
   assert.deepEqual(itensDaBarra(VENDEDORA_POSTA, null).map((i) => i.href), ["/painel/vendas", "/painel/disparos"]);
 });
@@ -253,7 +255,7 @@ test("sem acesso conhecido, a barra de cima não traz o que depende de módulo",
   const hrefs = itensDaBarra(null, COM_INSTAGRAM).map((i) => i.href);
   assert.ok(!hrefs.includes("/painel/disparos"));
   assert.ok(!hrefs.includes("/painel/vendas"));
-  assert.deepEqual(hrefs, NAV_BARRA_DESKTOP.filter((i) => i.modulo === undefined).map((i) => i.href));
+  assert.deepEqual(hrefs, [...NAV_BARRA_DESKTOP.filter((i) => i.modulo === undefined).map((i) => i.href), "/painel/instagram"]);
 });
 
 test("Link da bio fica em Lotar logo depois de Páginas, fora das barras, e a vendedora não vê", () => {

@@ -17,7 +17,7 @@ type Erro = "estado" | "cancelado" | "conta" | "outra_loja" | "permissao" | "zer
 // no perfil. Sempre termina num 303 pra lista, com `conectado=1` ou `erro=`.
 export async function GET(req: Request) {
   const query = new URL(req.url).searchParams;
-  const lista = `${getAppUrl()}/painel/instagram`;
+  const lista = `${getAppUrl()}/painel/instagram/fluxos`;
   const volta = (resultado: "conectado=1" | `erro=${Erro}`) => Response.redirect(`${lista}?${resultado}`, 303);
   try {
     const ctx = await requireInstagram(req);
