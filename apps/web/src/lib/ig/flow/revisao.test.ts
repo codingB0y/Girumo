@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canAddFollowGate, hasFollowGate, setFollowGate } from "./edit";
 import { setChoices } from "./choices-edit";
-import { MOTOR_DOS_BLOCOS_NOVOS, foraDaFase } from "./fase";
+import { foraDaFase } from "./fase";
 import { RECIPES } from "./recipes";
 import type { FlowDef, FlowNode } from "./types";
 import { validateFlow, type ValidateContext } from "./validate";
@@ -12,16 +12,15 @@ const codes = (d: FlowDef) => validateFlow(d, ctx).map((i) => i.code).sort();
 const gatilho: FlowNode = { id: "gatilho", type: "trigger", on: "comment", keywords: ["quero"], postId: null, publicReply: null, storyReplies: false };
 const convite = (id: string): FlowNode => ({ id, type: "invite", text: "L", campaignSlug: "vip", remindAfterMinutes: null });
 
-test("1. a receita escolhe-o-grupo valida, mas o motor ainda não roda: foraDaFase cobre os blocos novos", () => {
-  assert.equal(MOTOR_DOS_BLOCOS_NOVOS, false);
+test("1. o motor roda os blocos novos: foraDaFase não os trava mais (follows e clicked continuam)", () => {
   const def = RECIPES.comment_choose_group.build();
-  const ids = foraDaFase(def).map((i) => i.nodeId).sort();
-  assert.deepEqual(ids, ["idade", "pergunta"]);
+  assert.deepEqual(foraDaFase(def), []);
   const tag: FlowDef = { ...def, nodes: [...RECIPES.comment_invite.build().nodes, { id: "t", type: "tag", add: ["a"], remove: [] }], edges: [] };
-  assert.deepEqual(foraDaFase(tag).map((i) => i.nodeId), ["t"]);
+  assert.deepEqual(foraDaFase(tag), []);
   for (const c of [{ check: "field" as const, field: "x", values: ["a"] }, { check: "tag" as const, tag: "x" }]) {
-    assert.equal(foraDaFase({ v: 1, nodes: [gatilho, { id: "c", type: "condition", ...c }], edges: [] }).length, 1);
+    assert.equal(foraDaFase({ v: 1, nodes: [gatilho, { id: "c", type: "condition", ...c }], edges: [] }).length, 0);
   }
+  assert.equal(foraDaFase({ v: 1, nodes: [gatilho, { id: "c", type: "condition", check: "follows" }], edges: [] }).length, 1);
 });
 
 test("2. Se campo/etiqueta logo depois do comentário não contam como primeiro direct", () => {

@@ -41,7 +41,10 @@ test("eventos de conta entram; outro tipo, corpo torto ou campo obrigatório fal
   assert.equal(lerEvento({ id: "1", event: "account.connected", account: { accountId: "z1", profileId: "p", platform: "instagram", username: "u" }, timestamp: "t" })?.event, "account.connected");
   const d = lerEvento({ id: "1", event: "account.disconnected", account: { accountId: "z1", profileId: "p", platform: "instagram", username: "u", disconnectionType: "unintentional", reason: "token" }, timestamp: "t" });
   assert.equal(d?.event === "account.disconnected" ? d.account.reason : null, "token");
-  assert.equal(lerEvento({ ...mensagem, event: "message.sent" }), null);
+  assert.equal(lerEvento({ ...mensagem, event: "message.sent", conversation: {} }), null);
+  const enviada = lerEvento({ ...mensagem, event: "message.sent", message: { ...mensagem.message, direction: "outgoing", sentVia: "api" } });
+  assert.equal(enviada?.event, "message.sent");
+  if (enviada?.event === "message.sent") assert.deepEqual(enviada.conversation, { id: mensagem.conversation.id, participantId: "1808886413685415", participantUsername: "igortoled0" });
   assert.equal(lerEvento("texto"), null);
   assert.equal(lerEvento(null), null);
   assert.equal(lerEvento({ ...comentario, comment: { ...comentario.comment, id: "" } }), null);

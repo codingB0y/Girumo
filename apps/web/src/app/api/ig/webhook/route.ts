@@ -6,8 +6,10 @@ import { assinaturaConfere } from "@/lib/ig/transport/signature";
 import { createZernioTransport } from "@/lib/ig/transport/zernio";
 import { lerEvento } from "@/lib/ig/webhook/events";
 import { getAccountByProviderId, setAccountStatus } from "@/lib/stores/ig-accounts";
+import { getConversationByIgUserId, recordConversationEvent, touchConversation } from "@/lib/stores/ig-conversations";
+import { applyContact, getContactByIgUserId } from "@/lib/stores/ig-contacts";
 import { listLiveFlows } from "@/lib/stores/ig-flows";
-import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getRunResumedBy, getWaitingRun, hasRecentRun, purgeOldRuns, recordStep, retakeStalledRun, updateRun } from "@/lib/stores/ig-runs";
+import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getRunResumedBy, getWaitingRun, hasRecentRun, listRunSteps, purgeOldRuns, recordStep, retakeStalledRun, updateRun } from "@/lib/stores/ig-runs";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
 
 export const runtime = "nodejs";
@@ -24,8 +26,10 @@ function ambiente(): Ambiente {
     mudarEstadoDaConta: setAccountStatus,
     lojaLiberada: async (tenantId) => (await getTenantSettings(tenantId)).instagramEnabled,
     fluxosNoAr: listLiveFlows,
-    runs: { criar: createRun, porOrigem: getRunBySourceId, atualizar: updateRun, passo: recordStep, iniciadosDesde: countRunsStartedSince, entradaRecente: hasRecentRun, esperando: getWaitingRun, reivindicar: claimWaitingRun, retomadoPor: getRunResumedBy, retomarParado: retakeStalledRun },
+    runs: { criar: createRun, porOrigem: getRunBySourceId, atualizar: updateRun, passo: recordStep, iniciadosDesde: countRunsStartedSince, entradaRecente: hasRecentRun, esperando: getWaitingRun, reivindicar: claimWaitingRun, passos: listRunSteps, retomadoPor: getRunResumedBy, retomarParado: retakeStalledRun },
     link: linkDoConvite,
+    contatos: { ler: getContactByIgUserId, aplicar: applyContact },
+    conversas: { ler: getConversationByIgUserId, tocar: touchConversation, evento: recordConversationEvent },
   };
 }
 

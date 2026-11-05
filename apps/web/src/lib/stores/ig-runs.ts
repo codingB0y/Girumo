@@ -166,6 +166,13 @@ export async function recordStep(tenantId: string, input: { flowId: string; runI
   if (error) throw new Error(error.message);
 }
 
+/** Os passos do run em ordem de gravação (o reenvio reusa a saída que cada Se… já tomou). */
+export async function listRunSteps(tenantId: string, runId: string): Promise<Array<{ node_id: string; out: string }>> {
+  const { data, error } = await getSupabaseAdmin().from("ig_run_steps").select("node_id, out").eq("tenant_id", tenantId).eq("run_id", runId).order("id", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Array<{ node_id: string; out: string }>;
+}
+
 /** Teto por conta (a Meta permite 750 respostas privadas por hora). */
 export async function countRunsStartedSince(tenantId: string, igAccountId: string, sinceIso: string): Promise<number> {
   const { count, error } = await getSupabaseAdmin().from("ig_runs").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("ig_account_id", igAccountId).gte("started_at", sinceIso);
@@ -193,6 +200,19 @@ export async function listRuns(tenantId: string, flowId: string, limit = 50): Pr
   const { data, error } = await getSupabaseAdmin().from("ig_runs").select(COLS).eq("tenant_id", tenantId).eq("flow_id", flowId).order("started_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as RunRow[];
+}
+
+/** Os atendimentos de uma pessoa (ficha lateral de Pessoas), do mais recente. */
+export async function listRunsOfUser(tenantId: string, igUserId: string, limit = 20): Promise<RunRow[]> {
+  const { data, error } = await getSupabaseAdmin().from("ig_runs").select(COLS).eq("tenant_id", tenantId).eq("ig_user_id", igUserId).order("started_at", { ascending: false }).limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as RunRow[];
+}
+
+/** "Apagar da lista": todos os atendimentos desta pessoa na loja (os passos somem em cascata). */
+export async function deleteRunsOfUser(tenantId: string, igUserId: string): Promise<void> {
+  const { error } = await getSupabaseAdmin().from("ig_runs").delete().eq("tenant_id", tenantId).eq("ig_user_id", igUserId);
+  if (error) throw new Error(error.message);
 }
 
 /** Retenção de 90 dias (LGPD). Os passos somem em cascata. */

@@ -23,10 +23,10 @@ function comPergunta(patch: Partial<Extract<FlowNode, { type: "message" }>>): Fl
   };
 }
 
-test("a receita Comentou, escolhe o grupo valida limpa; só o freio do motor (foraDaFase) segura a publicação", () => {
+test("a receita Comentou, escolhe o grupo valida limpa e o motor já a publica (foraDaFase vazio)", () => {
   const def = comCampanha(RECIPES.comment_choose_group.build());
   assert.deepEqual(validateFlow(def, ctx), []);
-  assert.deepEqual(foraDaFase(def).map((i) => i.nodeId).sort(), ["idade", "pergunta"]);
+  assert.deepEqual(foraDaFase(def), []);
   assert.equal(parseFlowDef(def).ok, true);
 });
 
@@ -100,15 +100,15 @@ test("Se…: campo sem valores, tag sem etiqueta, formato; valores repetidos", (
   assert.deepEqual(codes(comCond({ id: "c", type: "condition", check: "tag", tag: "quer-infantil" })), []);
 });
 
-test("fase_seguinte: follows, clicked, timeout e (até o motor 1c) field e tag", () => {
+test("fase_seguinte: follows, clicked e timeout; field e tag rodam", () => {
   const base = comCampanha(RECIPES.dm_invite.build());
   const cond = (c: Extract<FlowNode, { type: "condition" }>): FlowDef => ({ ...base, nodes: [...base.nodes, c] });
   assert.equal(foraDaFase(cond({ id: "c", type: "condition", check: "follows" })).length, 1);
   assert.equal(foraDaFase(cond({ id: "c", type: "condition", check: "clicked" })).length, 1);
-  assert.equal(foraDaFase(cond({ id: "c", type: "condition", check: "tag", tag: "x" })).length, 1);
-  assert.equal(foraDaFase(cond({ id: "c", type: "condition", check: "field", field: "x", values: ["a"] })).length, 1);
+  assert.equal(foraDaFase(cond({ id: "c", type: "condition", check: "tag", tag: "x" })).length, 0);
+  assert.equal(foraDaFase(cond({ id: "c", type: "condition", check: "field", field: "x", values: ["a"] })).length, 0);
   const comTimeout: FlowDef = { ...comPergunta({}), edges: [...comPergunta({}).edges, { from: "q", out: "timeout", to: "convite" }] };
-  assert.deepEqual(foraDaFase(comTimeout).map((i) => i.nodeId), ["q", "q"]);
+  assert.deepEqual(foraDaFase(comTimeout).map((i) => i.nodeId), ["q"]);
 });
 
 test("todo código novo tem grupo no checklist", () => {

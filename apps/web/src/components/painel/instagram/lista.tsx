@@ -11,6 +11,7 @@ import { TETO_RUNS_POR_HORA } from "@/lib/ig/limites";
 import { buscar } from "@/lib/painel/carregar";
 import type { Carga } from "@/lib/painel/types";
 import type { FlowSummary } from "@/lib/stores/ig-flows";
+import { AbasInstagram } from "./abas";
 import { ChipEstado } from "./chip-estado";
 import { ContaDoInstagram } from "./conta";
 import { OfertaInstagram } from "./oferta";
@@ -87,6 +88,7 @@ export function InstagramVitrine() {
           Novo fluxo
         </Link>
       </header>
+      <AbasInstagram ativa="fluxos" />
 
       <div className="mt-5 rounded-[10px] border border-line-200 bg-paper-0">
         {carga === "carregando" && <span role="status" aria-label="Carregando fluxos" className="pn-skeleton m-5 block h-5 w-64 rounded-[var(--radius-chip)]" />}

@@ -609,3 +609,9 @@ apps/web/supabase/migrations/20261105120000_ig_contacts.sql
 # 05/11: ajustes da revisão do PR 1a (Pessoas do Instagram): data futura limitada no apply, purga leva os
 # atendimentos de loja cancelada, carimbo de quem já tinha cancelado. Conferir com infra/tests/ig-contacts-check.sql.
 apps/web/supabase/migrations/20261105121000_ig_contacts_ajustes.sql
+# 06/11: Conversas do Instagram (PR 2a-1): ig_conversations (entra no Realtime), ig_conversation_events, ig_canned_replies,
+# ig_contact_tombstones, ig_conversation_touch e ig_conversations_rotina. Baseline muda; conferir com infra/tests/ig-conversations-check.sql.
+apps/web/supabase/migrations/20261106120000_ig_conversations.sql
+# 07/11: dedupe da reentrega do direct (PR 2a-2): ig_conversations.last_in_message_id, ig_conversation_touch(p_message_id) e
+# evento do robô único por (conversa, mensagem). Conferir com infra/tests/ig-conversations-check.sql.
+apps/web/supabase/migrations/20261107120000_ig_conversations_dedupe.sql
