@@ -101,7 +101,8 @@ export async function getWaitingRun(tenantId: string, igAccountId: string, igUse
       .select(COLS)
       .eq("tenant_id", tenantId)
       .eq("ig_account_id", igAccountId)
-      .eq("status", "active")
+      // `queued` com espera: a pergunta deu timeout e pode ter saído; a resposta vale antes do reenvio da Zernio.
+      .in("status", ["queued", "active"])
       .eq("waiting", "reply")
       // Espera vencida não conta: senão um run velho da pessoa esconderia o que vale.
       .gt("wake_at", agoraIso)
@@ -122,10 +123,11 @@ export async function getWaitingRun(tenantId: string, igAccountId: string, igUse
 export async function claimWaitingRun(tenantId: string, id: string, nodeId: string, messageId: string): Promise<boolean> {
   const { data, error } = await getSupabaseAdmin()
     .from("ig_runs")
-    .update({ waiting: null, resumed_by: messageId, updated_at: new Date().toISOString() })
+    // `active`: tira da fila; o reenvio do comentário passa a ver o run como já tratado.
+    .update({ status: "active", waiting: null, resumed_by: messageId, updated_at: new Date().toISOString() })
     .eq("tenant_id", tenantId)
     .eq("id", id)
-    .eq("status", "active")
+    .in("status", ["queued", "active"])
     .eq("waiting", "reply")
     .eq("node_id", nodeId)
     .select("id");

@@ -16,6 +16,21 @@ export type RunState = {
   directsSent: number;
 };
 
+/**
+ * Erro passageiro no direct que espera resposta. Ele pode ter saído mesmo assim
+ * (a Zernio segue enviando depois do nosso timeout de 4 s) e a pessoa pode
+ * responder antes do reenvio do evento: quem chama deixa o run ouvindo a resposta.
+ */
+export class EsperaIncerta extends Error {
+  constructor(
+    readonly causa: ZernioError,
+    readonly nodeId: string,
+    readonly wakeAt: string,
+  ) {
+    super(causa.message);
+  }
+}
+
 export type Resultado = {
   status: "done" | "active" | "failed";
   nodeId: string | null;
@@ -128,7 +143,13 @@ export async function advance(def: FlowDef, run: RunState, deps: Deps, retomar?:
     if (no.type === "condition") return falha(no.id, "unsupported_node", null);
 
     const viaPrivada = run.sourceKind === "comment" && directsSent === 0;
-    const envio = await enviar(run, no.id, await montarDirect(no, run, viaPrivada, deps), viaPrivada, deps.transport);
+    let envio: Envio;
+    try {
+      envio = await enviar(run, no.id, await montarDirect(no, run, viaPrivada, deps), viaPrivada, deps.transport);
+    } catch (e) {
+      if (e instanceof ZernioError && e.transient && no.type === "message" && no.wait) throw new EsperaIncerta(e, no.id, new Date(deps.now().getTime() + no.wait.minutes * 60_000).toISOString());
+      throw e;
+    }
     if (!envio.ok) return falha(no.id, envio.code, envio.message);
     directsSent += 1;
 

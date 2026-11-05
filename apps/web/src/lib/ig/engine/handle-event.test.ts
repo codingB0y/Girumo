@@ -162,6 +162,22 @@ test("o comentário vira a pergunta e o run fica esperando a resposta até a hor
   assert.deepEqual(patches[0][1], { status: "active", node_id: "pergunta", waiting: "reply", wake_at: "2026-10-07T11:00:00.000Z", error_code: null, error_message: null, finished_at: null });
 });
 
+test("timeout no envio da pergunta: o direct pode ter saído, então o run fica ouvindo a resposta enquanto a Zernio reenvia", async () => {
+  const timeout = new ZernioError(0, "network_error", "network_error", null, "The operation was aborted due to timeout");
+  const { amb, patches } = ambiente({ fluxos: soConfirma, falhar: { privateReply: timeout } });
+  assert.deepEqual(await tratarEvento(comentario, amb), { kind: "retry", reason: "network_error" });
+  // Sem status: segue `queued` para o reenvio do comentário refazer o envio (a Idempotency-Key segura o repetido).
+  assert.deepEqual(patches, [["run-1", { node_id: "pergunta", waiting: "reply", wake_at: "2026-10-07T11:00:00.000Z" }]]);
+});
+
+test("o 'sim' que chega antes do reenvio da Zernio retoma o run ainda na fila", async () => {
+  const naFila: RunRow = { ...esperandoRun, status: "queued", updated_at: T0.toISOString() };
+  const { amb, chamadas, patches } = ambiente({ fluxos: soConfirma, esperando: naFila });
+  assert.deepEqual(await tratarEvento(resposta("sim"), amb), { kind: "handled", tenantId: "loja-a", runId: "run-esp", status: "done" });
+  assert.equal(chamadas.length, 1);
+  assert.equal((patches[0][1] as { status: string }).status, "done");
+});
+
 test("o 'sim' no direct retoma o run: convite com botão na conversa, run termina, nenhum run novo", async () => {
   const { amb, chamadas, patches, criados, buscas } = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
   const d = await tratarEvento(resposta("Sim, quero!"), amb);

@@ -5,7 +5,7 @@ import { ZernioError, type Transport } from "@/lib/ig/transport/types";
 import type { ComentarioRecebido, EventoZernio, MensagemRecebida } from "@/lib/ig/webhook/events";
 import type { AccountStatus, IgAccountComLoja } from "@/lib/stores/ig-accounts";
 import type { NovoRun, RunPatch, RunRow, SourceKind } from "@/lib/stores/ig-runs";
-import { advance, payloadDoBotao, type Deps, type Resultado, type Retomada, type RunState } from "./advance";
+import { advance, EsperaIncerta, payloadDoBotao, type Deps, type Resultado, type Retomada, type RunState } from "./advance";
 import { escolherFluxo, type FluxoNoAr, type Origem } from "./select-flow";
 
 /** Tudo que o tratamento toca, injetado: a rota liga nas stores de verdade; o teste, em memória. */
@@ -179,7 +179,12 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
     await gravar(tenantId, run.id, r, amb);
     return { kind: "handled", tenantId, runId: run.id, status: r.status };
   } catch (e) {
-    // O run fica `queued`: o reenvio da Zernio o retoma depois de 2 min.
+    // O run fica `queued`: o reenvio da Zernio o retoma depois de 2 min. Se o direct que
+    // falhou espera resposta, ele pode ter saído: o run já ouve a resposta enquanto isso.
+    if (e instanceof EsperaIncerta) {
+      await amb.runs.atualizar(tenantId, run.id, { node_id: e.nodeId, waiting: "reply", wake_at: e.wakeAt });
+      return { kind: "retry", reason: e.causa.code };
+    }
     if (e instanceof ZernioError && e.transient) return { kind: "retry", reason: e.code };
     throw e;
   }
@@ -282,7 +287,8 @@ async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAcco
   } catch (e) {
     // Volta pra espera: o reenvio reivindica de novo e a Idempotency-Key segura o direct repetido.
     await amb.runs.atualizar(tenantId, run.id, { waiting: "reply" });
-    if (e instanceof ZernioError && e.transient) return { kind: "retry", reason: e.code };
+    const passageiro = e instanceof EsperaIncerta ? e.causa : e;
+    if (passageiro instanceof ZernioError && passageiro.transient) return { kind: "retry", reason: passageiro.code };
     throw e;
   }
 }
