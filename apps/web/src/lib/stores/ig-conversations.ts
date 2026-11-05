@@ -100,6 +100,8 @@ export type ListFilters = {
   busca?: string;
   /** Opaco: vem de `nextCursor` da página anterior. */
   cursor?: string;
+  /** Só estas pessoas (filtro por etiqueta, que mora nas fichas). Lista vazia = ninguém, sem ir ao banco. */
+  igUserIds?: string[];
 };
 
 export type ConversationPage = { items: IgConversationRow[]; nextCursor: string | null };
@@ -121,9 +123,11 @@ function posicao(cursor: string | undefined): number {
  * descarta pelo `id`.
  */
 export async function listConversations(tenantId: string, filters: ListFilters = {}): Promise<ConversationPage> {
+  if (filters.igUserIds && filters.igUserIds.length === 0) return { items: [], nextCursor: null };
   let q = getSupabaseAdmin().from("ig_conversations").select(COLS).eq("tenant_id", tenantId);
   if (filters.status) q = q.eq("status", filters.status);
   if (filters.unread) q = q.gt("unread_count", 0);
+  if (filters.igUserIds) q = q.in("ig_user_id", filters.igUserIds);
   const termo = filters.busca ? termoSeguro(filters.busca) : "";
   if (termo) q = q.or(`username.ilike.%${termo}%,display_name.ilike.%${termo}%`);
   const de = posicao(filters.cursor);
@@ -134,6 +138,23 @@ export async function listConversations(tenantId: string, filters: ListFilters =
   if (error) throw erroDoBanco(error);
   const linhas = (data as unknown as IgConversationRow[] | null) ?? [];
   return { items: linhas.slice(0, PAGE_SIZE), nextCursor: linhas.length > PAGE_SIZE ? String(de + PAGE_SIZE) : null };
+}
+
+/** Quantas conversas há na situação (count `head`, sem trazer linhas): o contador "aguardando você". */
+export async function countConversations(tenantId: string, status: StatusConversa): Promise<number> {
+  const { count, error } = await getSupabaseAdmin().from("ig_conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", status);
+  if (error) throw erroDoBanco(error);
+  return count ?? 0;
+}
+
+/**
+ * Ids do Instagram de quem tem a etiqueta na loja (a etiqueta mora na ficha, não no índice), os mais recentes
+ * primeiro. `limite` existe porque os ids entram na URL do filtro `in`; quem chama pede um a mais para saber se cortou.
+ */
+export async function listIgUserIdsByTag(tenantId: string, tag: string, limite: number): Promise<string[]> {
+  const { data, error } = await getSupabaseAdmin().from("ig_contacts").select("ig_user_id").eq("tenant_id", tenantId).contains("tags", [tag]).order("last_seen_at", { ascending: false }).limit(limite);
+  if (error) throw erroDoBanco(error);
+  return ((data as unknown as Array<{ ig_user_id: string }> | null) ?? []).map((r) => r.ig_user_id);
 }
 
 export type ConversationPatch = Partial<{ status: StatusConversa; bot_paused_until: string | null; unread_count: number }>;

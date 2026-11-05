@@ -1,11 +1,15 @@
 import { z } from "zod";
 import { requirePessoas } from "@/lib/ig/access";
+import { zernioDaLoja } from "@/lib/ig/conversas/http";
 import { isUuid } from "@/lib/ig/flow/body";
 import { FIELD_KEY_RE } from "@/lib/ig/flow/names";
 import { invalido, naoAchou, nomesDosFluxos, normalizarEtiquetas, paraAtendimento, paraPessoa, responderErro } from "@/lib/ig/pessoas-http";
 import type { FichaDaPessoa } from "@/lib/ig/pessoas-tipos";
+import { InboxError } from "@/lib/ig/zernio-inbox";
+import { getAccount } from "@/lib/stores/ig-accounts";
 import { deleteContact, getContactById } from "@/lib/stores/ig-contacts";
 import { editContact } from "@/lib/stores/ig-contacts-lista";
+import { addTombstone, deleteConversationsOf } from "@/lib/stores/ig-conversations";
 import { listRunsOfUser } from "@/lib/stores/ig-runs";
 
 export const runtime = "nodejs";
@@ -61,15 +65,37 @@ export async function PATCH(req: Request, { params }: Ctx) {
   }
 }
 
-// DELETE /api/ig/contacts/[id] — "Apagar da lista": a ficha e os atendimentos. Só dono ou admin.
+// DELETE /api/ig/contacts/[id] — "Apagar da lista": a ficha, os atendimentos, o índice de conversas e a cópia na Zernio. Só dono ou admin.
 export async function DELETE(req: Request, { params }: Ctx) {
   try {
     const { ctx } = await requirePessoas(req, "apagar");
     const { id } = await params;
     if (!isUuid(id)) return naoAchou();
-    if (!(await deleteContact(ctx.tenantId, id))) return naoAchou();
-    return Response.json({ ok: true });
+    const contato = await getContactById(ctx.tenantId, id);
+    if (!contato) return naoAchou();
+    // Marcador antes de tudo (o "Atualizar" não traz a pessoa de volta), depois o índice, depois a ficha e os atendimentos.
+    await addTombstone(ctx.tenantId, contato.ig_user_id);
+    const conversas = await deleteConversationsOf(ctx.tenantId, contato.ig_user_id);
+    await deleteContact(ctx.tenantId, id);
+    // A pessoa já sumiu da Girumo. Falha ao apagar a cópia na Zernio não é erro: a resposta avisa que ela ficou.
+    // ponytail: se `deleteContact` cair aqui, o reenvio acha a ficha mas já não acha os ids da Zernio; apagar à mão no painel dela.
+    return Response.json({ ok: true, copiaNaZernio: await apagarCopiasNaZernio(ctx.tenantId, conversas) });
   } catch (e) {
     return responderErro(e);
+  }
+}
+
+/** `true` = alguma cópia ficou na Zernio (sem conta conectada, sem chave ou erro dela). */
+async function apagarCopiasNaZernio(tenantId: string, conversas: Array<{ zernioConversationId: string }>): Promise<boolean> {
+  if (conversas.length === 0) return false;
+  try {
+    const conta = await getAccount(tenantId);
+    if (!conta?.provider_account_id) return true;
+    const zernio = zernioDaLoja();
+    const resultados = await Promise.allSettled(conversas.map((c) => zernio.deleteConversation({ conversationId: c.zernioConversationId, accountId: conta.provider_account_id as string })));
+    // 404 = a cópia já não existe: conta como apagada.
+    return resultados.some((r) => r.status === "rejected" && !(r.reason instanceof InboxError && r.reason.kind === "not_found"));
+  } catch {
+    return true;
   }
 }

@@ -12,6 +12,7 @@ const POR_CODIGO: Record<string, string> = {
   cycle: "O fluxo deu voltas demais e parou.",
   account_inactive: "A conta do Instagram não está conectada.",
   flow_changed: "O fluxo mudou e o bloco que esperava a resposta saiu.",
+  replied_by_store: "A loja respondeu pelo painel e o fluxo parou de esperar.",
 };
 
 export function traduzErro(code: string | null): string {
