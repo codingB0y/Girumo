@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { X } from "lucide-react";
 import { MAX_KEYWORDS, MAX_KEYWORD_LENGTH } from "@/lib/ig/flow/types";
 import { normalizeForMatch } from "@/lib/ig/match-keyword";

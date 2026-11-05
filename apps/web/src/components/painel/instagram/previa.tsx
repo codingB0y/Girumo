@@ -1,3 +1,4 @@
+import React from "react";
 import { linearize } from "@/lib/ig/flow/linearize";
 import { triggerOf } from "@/lib/ig/flow/graph";
 import type { FlowDef } from "@/lib/ig/flow/types";
@@ -20,8 +21,11 @@ export function Previa({ def, handle }: { def: FlowDef; handle: string | null })
           </>
         )}
         <p className="mt-3 text-12 text-[#737373]">No direct</p>
-        {directs.map((n) => {
+        {directs.map((n, i) => {
           const botao = n.type === "invite" ? (n.button ?? null) : n.button;
+          const escolhas = n.type === "message" ? (n.choices ?? []).filter((c) => c.trim()) : [];
+          // 1º direct depois de comentário: o Instagram recusa interativo, então as escolhas valem só digitando.
+          const respostasRapidas = trigger?.on === "comment" && i === 0 ? [] : escolhas;
           return (
             <div key={n.id}>
               <div className="mt-2 max-w-[85%] overflow-hidden rounded-xl bg-[#efefef]">
@@ -31,8 +35,13 @@ export function Previa({ def, handle }: { def: FlowDef; handle: string | null })
                 </p>
                 {botao && <p className="border-t border-[#dbdbdb] px-3 py-2 text-center font-semibold text-[#0095f6]">{botao}</p>}
               </div>
+              {respostasRapidas.length > 0 && (
+                <ul aria-label="Respostas rápidas" className="mt-2 flex flex-wrap gap-1.5">
+                  {respostasRapidas.map((c, j) => <li key={j} className="rounded-full border border-[#0095f6] px-3 py-1 text-12 font-semibold text-[#0095f6]">{c}</li>)}
+                </ul>
+              )}
               {n.type === "message" && n.wait && (
-                <p className="ml-auto mt-2 w-fit max-w-[85%] rounded-xl bg-[#3797f0] px-3 py-2 text-white">{n.wait.keywords?.[0] ?? "responde"}</p>
+                <p className="ml-auto mt-2 w-fit max-w-[85%] rounded-xl bg-[#3797f0] px-3 py-2 text-white">{escolhas[0] ?? n.wait.keywords?.[0] ?? "responde"}</p>
               )}
             </div>
           );

@@ -67,7 +67,11 @@ export function setChoices(def: FlowDef, nodeId: string, choices: string[]): Flo
   if (!alvo || alvo.type !== "message") return def;
   const tinha = (alvo.choices?.length ?? 0) > 0;
   const tem = choices.length > 0;
-  const nodes = def.nodes.map((n) => (n.id === nodeId && n.type === "message" ? { ...n, choices, ...(tem ? { button: null } : {}) } : n));
+  // Com escolhas, `wait.keywords` não vale: a escolha é o filtro.
+  const nodes = def.nodes.map((n) => {
+    if (n.id !== nodeId || n.type !== "message") return n;
+    return tem ? { ...n, choices, button: null, wait: n.wait ? { minutes: n.wait.minutes } : n.wait } : { ...n, choices };
+  });
   const edges = def.edges.flatMap<FlowEdge>((e) => {
     if (e.from !== nodeId) return [e];
     if (!tinha && tem) return e.out === "replied" ? [{ ...e, out: choiceOut(0) }] : [e];
