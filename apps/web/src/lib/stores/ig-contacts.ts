@@ -114,12 +114,13 @@ export async function fieldValues(tenantId: string, field: string): Promise<Arra
  * pessoa não existe nesta loja. A cópia na Zernio e o índice de conversas são do plano 2.
  */
 export async function deleteContact(tenantId: string, id: string): Promise<boolean> {
-  const { data, error } = await getSupabaseAdmin().from("ig_contacts").delete().eq("tenant_id", tenantId).eq("id", id).select("ig_user_id");
-  if (error) throw new Error(error.message);
-  const apagada = ((data ?? []) as Array<{ ig_user_id: string }>)[0];
-  if (!apagada) return false;
-  const { error: erroRuns } = await getSupabaseAdmin().from("ig_runs").delete().eq("tenant_id", tenantId).eq("ig_user_id", apagada.ig_user_id);
+  const contato = await getContactById(tenantId, id);
+  if (!contato) return false;
+  // Atendimentos antes da ficha: se a segunda parte falhar, o reenvio ainda acha a pessoa e termina de apagar.
+  const { error: erroRuns } = await getSupabaseAdmin().from("ig_runs").delete().eq("tenant_id", tenantId).eq("ig_user_id", contato.ig_user_id);
   if (erroRuns) throw new Error(erroRuns.message);
+  const { error } = await getSupabaseAdmin().from("ig_contacts").delete().eq("tenant_id", tenantId).eq("id", id);
+  if (error) throw new Error(error.message);
   return true;
 }
 

@@ -1,4 +1,19 @@
-import assert from "node:assert/strict";
+test("apagar a pessoa tira os atendimentos antes da ficha, sempre com a loja", async () => {
+  pedidos.length = 0;
+  assert.equal(await deleteContact("loja-a", "p1"), true);
+  assert.deepEqual([pedidos[0].metodo, pedidos[0].url.pathname], ["GET", "/rest/v1/ig_contacts"]);
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.p1" });
+  // Atendimentos primeiro: se a ficha falhar depois, o reenvio ainda acha a pessoa e termina.
+  assert.deepEqual([pedidos[1].metodo, pedidos[1].url.pathname], ["DELETE", "/rest/v1/ig_runs"]);
+  assert.deepEqual(filtros(pedidos[1].url), { tenant_id: "eq.loja-a", ig_user_id: "eq.u1" });
+  assert.deepEqual([pedidos[2].metodo, pedidos[2].url.pathname], ["DELETE", "/rest/v1/ig_contacts"]);
+  assert.deepEqual(filtros(pedidos[2].url), { tenant_id: "eq.loja-a", id: "eq.p1" });
+
+  pedidos.length = 0;
+  proxima = { status: 200, body: [] };
+  assert.equal(await deleteContact("loja-a", "nao-existe"), false);
+  assert.equal(pedidos.length, 1, "sem ficha não mexe nos atendimentos");
+});import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
@@ -86,13 +101,16 @@ test("números de loja sem nada voltam zerados mesmo se a função devolver parc
   assert.deepEqual(await contactStats("loja-a"), { total: 0, hoje: 0, janela24h: 0, comEtiqueta: 0, campos: [], etiquetas: [] });
 });
 
-test("apagar a pessoa tira a ficha e os atendimentos dela, sempre com a loja", async () => {
+test("apagar a pessoa tira os atendimentos antes da ficha, sempre com a loja", async () => {
   pedidos.length = 0;
   assert.equal(await deleteContact("loja-a", "p1"), true);
-  assert.deepEqual([pedidos[0].metodo, pedidos[0].url.pathname], ["DELETE", "/rest/v1/ig_contacts"]);
-  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.p1" });
+  assert.deepEqual([pedidos[0].metodo, pedidos[0].url.pathname], ["GET", "/rest/v1/ig_contacts"]);
+  assert.equal(filtros(pedidos[0].url).tenant_id, "eq.loja-a");
+  // Atendimentos primeiro: se a ficha falhar depois, o reenvio ainda acha a pessoa e termina.
   assert.deepEqual([pedidos[1].metodo, pedidos[1].url.pathname], ["DELETE", "/rest/v1/ig_runs"]);
   assert.deepEqual(filtros(pedidos[1].url), { tenant_id: "eq.loja-a", ig_user_id: "eq.u1" });
+  assert.deepEqual([pedidos[2].metodo, pedidos[2].url.pathname], ["DELETE", "/rest/v1/ig_contacts"]);
+  assert.deepEqual(filtros(pedidos[2].url), { tenant_id: "eq.loja-a", id: "eq.p1" });
 
   pedidos.length = 0;
   proxima = { status: 200, body: [] };

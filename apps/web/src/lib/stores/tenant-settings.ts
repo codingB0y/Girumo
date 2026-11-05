@@ -184,7 +184,9 @@ export async function setInstagramEnabled(tenantId: string, enabled: boolean): P
   // Evento repetido do Stripe não pode adiar o apagamento: mantém o carimbo de quando desligou de verdade.
   let desligadoEm: string | null = null;
   if (!enabled) {
-    const { data } = await getSupabaseAdmin().from("tenant_settings").select("instagram_disabled_at").eq("tenant_id", tenantId).maybeSingle();
+    const { data, error: erroLeitura } = await getSupabaseAdmin().from("tenant_settings").select("instagram_disabled_at").eq("tenant_id", tenantId).maybeSingle();
+    // Falha de leitura não pode reiniciar a contagem dos 30 dias: sem a coluna, segue só com a flag.
+    if (erroLeitura && !isMissingColumn(erroLeitura)) throw new Error(erroLeitura.message);
     desligadoEm = (data as { instagram_disabled_at?: string | null } | null)?.instagram_disabled_at ?? agora;
   }
   let { error } = await write({ ...base, instagram_disabled_at: desligadoEm });
