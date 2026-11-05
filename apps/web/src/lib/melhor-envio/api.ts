@@ -25,7 +25,12 @@ export class ErroMelhorEnvio extends Error {
 
 export type ContaMelhorEnvio = { nome: string; email: string };
 
-const dadosDaConta = z.object({ firstname: z.string().optional(), lastname: z.string().optional(), email: z.string().min(1) });
+const dadosDaConta = z.object({
+  firstname: z.string().max(120).optional(),
+  lastname: z.string().max(120).optional(),
+  email: z.string().min(1).max(254),
+});
+const TRACKING_MAX = 64;
 
 export async function contaDoToken(token: string, opcoes: OpcoesHttp = {}): Promise<ContaMelhorEnvio> {
   const r = await pedir(ME_API, token, opcoes);
@@ -36,12 +41,17 @@ export async function contaDoToken(token: string, opcoes: OpcoesHttp = {}): Prom
 }
 
 const texto = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
+const trackingValido = (v: unknown): string | null => {
+  const t = texto(v);
+  return t && t.length <= TRACKING_MAX ? t : null;
+};
 
 export async function paginaDeEtiquetas(
   token: string,
   pagina: number,
   opcoes: OpcoesHttp = {},
 ): Promise<{ etiquetas: EtiquetaMelhorEnvio[]; ultimaPagina: number }> {
+  if (!Number.isInteger(pagina) || pagina < 1) throw new ErroMelhorEnvio(0);
   const r = await pedir(`${ME_API}/orders?page=${pagina}`, token, opcoes);
   if (r.status === 204) return { etiquetas: [], ultimaPagina: 0 };
   const corpo = r.json;
@@ -55,7 +65,7 @@ export async function paginaDeEtiquetas(
     const status = texto(o.status);
     if (!status) continue;
     etiquetas.push({
-      tracking: texto(o.tracking),
+      tracking: trackingValido(o.tracking),
       status,
       criadaEm: dataDaYampi(o.created_at),
       atualizadaEm: dataDaYampi(o.updated_at),
@@ -85,8 +95,8 @@ async function pedir(url: string, token: string, opcoes: OpcoesHttp): Promise<{ 
   } catch {
     throw new ErroMelhorEnvio(0);
   }
-  if (corpo === null) throw new ErroMelhorEnvio(0);
   if (status < 200 || status >= 300) throw new ErroMelhorEnvio(status);
+  if (corpo === null) throw new ErroMelhorEnvio(0);
   if (status === 204) return { status, json: null };
   try {
     return { status, json: JSON.parse(corpo) as unknown };

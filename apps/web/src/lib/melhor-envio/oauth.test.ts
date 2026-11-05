@@ -41,11 +41,11 @@ function fetchFalso(respostas: Array<Response | Error>) {
 const json = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), { status });
 
 test("credenciaisMelhorEnvio exige as duas e aplica trim", () => {
-  assert.deepEqual(credenciaisMelhorEnvio({ MELHOR_ENVIO_CLIENT_ID: " 1\n", MELHOR_ENVIO_CLIENT_SECRET: "s " } as unknown as NodeJS.ProcessEnv), {
+  assert.deepEqual(credenciaisMelhorEnvio({ MELHORENVIO_CLIENT_ID: " 1\n", MELHORENVIO_CLIENT_SECRET: "s " } as unknown as NodeJS.ProcessEnv), {
     clientId: "1",
     clientSecret: "s",
   });
-  assert.equal(credenciaisMelhorEnvio({ MELHOR_ENVIO_CLIENT_ID: "1" } as unknown as NodeJS.ProcessEnv), null);
+  assert.equal(credenciaisMelhorEnvio({ MELHORENVIO_CLIENT_ID: "1" } as unknown as NodeJS.ProcessEnv), null);
 });
 
 test("URL de autorização", () => {
@@ -115,3 +115,23 @@ for (const [nome, resposta, tipo] of CASOS) {
     });
   });
 }
+
+test("entradas fora do formato seguro são recusadas sem rede e sem eco", async () => {
+  const { fetchImpl, chamadas } = fetchFalso([]);
+  const ruim = "ref bad\r\nX: y";
+  await assert.rejects(renovarToken(ruim, CRED, { fetchImpl }), (e: unknown) => {
+    assert.ok(e instanceof ErroOAuthMelhorEnvio);
+    assert.equal(e.tipo, "concessao_invalida");
+    assert.equal(e.status, null);
+    assert.ok(!e.message.includes("bad"));
+    return true;
+  });
+  await assert.rejects(trocarCodigo("code ruim", CRED, { fetchImpl }), (e: unknown) => {
+    assert.ok(e instanceof ErroOAuthMelhorEnvio);
+    assert.equal(e.tipo, "outro");
+    assert.ok(!e.message.includes("ruim"));
+    return true;
+  });
+  await assert.rejects(renovarToken("a".repeat(4097), CRED, { fetchImpl }), ErroOAuthMelhorEnvio);
+  assert.equal(chamadas.length, 0);
+});

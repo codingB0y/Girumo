@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { TETO_RESPOSTA_BYTES } from "@/lib/bling/cliente";
+
 import { contaDoToken, ErroMelhorEnvio, ME_API, paginaDeEtiquetas } from "./api";
 import { USER_AGENT_ME } from "./oauth";
 
@@ -96,4 +98,44 @@ test("token fora do formato seguro é recusado sem chamar a rede", async () => {
   const { fetchImpl, chamadas } = fetchFalso([]);
   await assert.rejects(contaDoToken("tok\r\nX: y", { fetchImpl }), ErroMelhorEnvio);
   assert.equal(chamadas.length, 0);
+});
+
+const grande = () => "x".repeat(TETO_RESPOSTA_BYTES + 1);
+
+test("401 com corpo acima do teto mantém o status", async () => {
+  const { fetchImpl } = fetchFalso([new Response(grande(), { status: 401 })]);
+  await assert.rejects(paginaDeEtiquetas("tok", 1, { fetchImpl }), (e: unknown) => e instanceof ErroMelhorEnvio && e.status === 401);
+});
+
+test("200 com corpo acima do teto é erro", async () => {
+  const { fetchImpl } = fetchFalso([new Response(grande(), { status: 200 })]);
+  await assert.rejects(paginaDeEtiquetas("tok", 1, { fetchImpl }), ErroMelhorEnvio);
+});
+
+test("página inválida não chama a rede", async () => {
+  const { fetchImpl, chamadas } = fetchFalso([]);
+  for (const p of [0, -1, 1.5, Number.NaN]) await assert.rejects(paginaDeEtiquetas("tok", p, { fetchImpl }), ErroMelhorEnvio);
+  assert.equal(chamadas.length, 0);
+});
+
+test("token acima de 4096 caracteres é recusado sem rede", async () => {
+  const { fetchImpl, chamadas } = fetchFalso([]);
+  await assert.rejects(contaDoToken("a".repeat(4097), { fetchImpl }), ErroMelhorEnvio);
+  assert.equal(chamadas.length, 0);
+});
+
+test("limites da conta: e-mail e nomes longos são malformados", async () => {
+  const { fetchImpl } = fetchFalso([
+    json({ email: `${"a".repeat(250)}@exemplo.test` }),
+    json({ firstname: "a".repeat(121), email: "ana@exemplo.test" }),
+  ]);
+  await assert.rejects(contaDoToken("tok", { fetchImpl }), ErroMelhorEnvio);
+  await assert.rejects(contaDoToken("tok", { fetchImpl }), ErroMelhorEnvio);
+});
+
+test("tracking acima de 64 caracteres vira null e a etiqueta fica", async () => {
+  const { fetchImpl } = fetchFalso([json({ data: [{ tracking: "A".repeat(65), status: "posted" }], last_page: 1 })]);
+  const r = await paginaDeEtiquetas("tok", 1, { fetchImpl });
+  assert.equal(r.etiquetas.length, 1);
+  assert.equal(r.etiquetas[0].tracking, null);
 });

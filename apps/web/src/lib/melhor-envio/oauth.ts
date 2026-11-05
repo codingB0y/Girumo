@@ -31,8 +31,8 @@ export type OpcoesHttp = { fetchImpl?: typeof fetch; agora?: () => number; timeo
 export type CredenciaisMelhorEnvio = { clientId: string; clientSecret: string };
 
 export function credenciaisMelhorEnvio(env: NodeJS.ProcessEnv = process.env): CredenciaisMelhorEnvio | null {
-  const clientId = env.MELHOR_ENVIO_CLIENT_ID?.trim();
-  const clientSecret = env.MELHOR_ENVIO_CLIENT_SECRET?.trim();
+  const clientId = env.MELHORENVIO_CLIENT_ID?.trim();
+  const clientSecret = env.MELHORENVIO_CLIENT_SECRET?.trim();
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
@@ -68,7 +68,7 @@ export class ErroOAuthMelhorEnvio extends Error {
 }
 
 /** Os tokens vão em header (Bearer) e em formulário: só ASCII visível, sem espaço, CR ou LF. */
-export const tokenSeguro = z.string().regex(/^[\x21-\x7E]+$/);
+export const tokenSeguro = z.string().max(4096).regex(/^[\x21-\x7E]+$/);
 
 const respostaDeToken = z.object({
   access_token: tokenSeguro,
@@ -83,11 +83,15 @@ const corpoDeErro = z.object({ error: z.string() });
 /** Só identificador (letras e "_"): descrição fica de fora, pois o servidor pode ecoar segredo. */
 const CODIGO_SEGURO = /^[A-Za-z_]{1,40}$/;
 
-export function trocarCodigo(code: string, cred: CredenciaisMelhorEnvio, opcoes: OpcoesHttp = {}): Promise<TokensMelhorEnvio> {
+export async function trocarCodigo(code: string, cred: CredenciaisMelhorEnvio, opcoes: OpcoesHttp = {}): Promise<TokensMelhorEnvio> {
+  if (!tokenSeguro.safeParse(code).success) throw new ErroOAuthMelhorEnvio("outro", null, "Melhor Envio OAuth: code em formato inválido");
   return pedirToken({ grant_type: "authorization_code", redirect_uri: urlDoRetorno(), code }, cred, opcoes);
 }
 
-export function renovarToken(refreshToken: string, cred: CredenciaisMelhorEnvio, opcoes: OpcoesHttp = {}): Promise<TokensMelhorEnvio> {
+export async function renovarToken(refreshToken: string, cred: CredenciaisMelhorEnvio, opcoes: OpcoesHttp = {}): Promise<TokensMelhorEnvio> {
+  if (!tokenSeguro.safeParse(refreshToken).success) {
+    throw new ErroOAuthMelhorEnvio("concessao_invalida", null, "Melhor Envio OAuth: refresh token em formato inválido");
+  }
   return pedirToken({ grant_type: "refresh_token", refresh_token: refreshToken }, cred, opcoes);
 }
 
