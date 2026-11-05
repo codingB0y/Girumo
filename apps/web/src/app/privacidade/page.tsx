@@ -67,6 +67,16 @@ export default function PrivacidadePage() {
             palavra-chave e o que foi respondido), por até 90 dias.
           </li>
           <li>
+            <strong>Pessoas do Instagram (add-on):</strong> o @ e o identificador do Instagram de
+            quem conversou com a loja, os campos e as etiquetas que a loja configurou e a data da
+            última conversa. Ficam por 12 meses sem conversa e somem 30 dias depois de a loja
+            cancelar o add-on (nesse intervalo ela pode exportar a lista). A loja é a controladora
+            desses dados e a Girumo, operadora: o botão &quot;Apagar da lista&quot; atende o pedido de
+            exclusão de quem escreveu e pede à Zernio para apagar a cópia da conversa, que continua
+            no Instagram da loja. O texto que a pessoa digita só vira campo quando a loja
+            configurou &quot;Guardar em&quot;.
+          </li>
+          <li>
             <strong>Uso da plataforma:</strong> registros de ações, envios, erros, data e hora, e
             endereço IP.
           </li>

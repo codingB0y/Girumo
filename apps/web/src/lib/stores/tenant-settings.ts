@@ -171,11 +171,26 @@ export async function updateTenantSettings(
 /**
  * Liberação do add-on Instagram. Só o webhook do Stripe (servidor) chama: o
  * trigger da migração 20261003120000 impede `authenticated` de mexer na coluna.
+ *
+ * Desligar carimba `instagram_disabled_at` (começa a contar os 30 dias de exportação das Pessoas, que
+ * `ig_purge_contacts` apaga depois); ligar limpa. Banco sem a coluna (anterior à migração 20261105120000)
+ * grava só a flag: a liberação do add-on não pode depender da migração de prazo.
  */
 export async function setInstagramEnabled(tenantId: string, enabled: boolean): Promise<void> {
-  const { error } = await getSupabaseAdmin()
-    .from("tenant_settings")
-    .upsert({ tenant_id: tenantId, instagram_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" });
+  const agora = new Date().toISOString();
+  const write = (row: Record<string, unknown>) =>
+    getSupabaseAdmin().from("tenant_settings").upsert(row, { onConflict: "tenant_id" });
+  const base = { tenant_id: tenantId, instagram_enabled: enabled, updated_at: agora };
+  // Evento repetido do Stripe não pode adiar o apagamento: mantém o carimbo de quando desligou de verdade.
+  let desligadoEm: string | null = null;
+  if (!enabled) {
+    const { data, error: erroLeitura } = await getSupabaseAdmin().from("tenant_settings").select("instagram_disabled_at").eq("tenant_id", tenantId).maybeSingle();
+    // Falha de leitura não pode reiniciar a contagem dos 30 dias: sem a coluna, segue só com a flag.
+    if (erroLeitura && !isMissingColumn(erroLeitura)) throw new Error(erroLeitura.message);
+    desligadoEm = (data as { instagram_disabled_at?: string | null } | null)?.instagram_disabled_at ?? agora;
+  }
+  let { error } = await write({ ...base, instagram_disabled_at: desligadoEm });
+  if (isMissingColumn(error)) ({ error } = await write(base));
   if (error) throw new Error(error.message);
 }
 

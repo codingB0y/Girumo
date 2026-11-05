@@ -78,10 +78,14 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   //
   // /api/cron/bling: varredura, histórico e fila do Bling a cada 5 min. Fora desta
   // lista as vendas só chegariam pelo aviso, e um aviso perdido nunca entraria.
+  //
+  // /api/cron/ig-rotina: prazos das Pessoas do Instagram, de hora em hora. Fora desta lista o cron
+  // leva 401 do gate de sessão e as fichas nunca expiram.
   if (
     pathname === "/api/cron/emails" ||
     pathname === "/api/notifications/alerts" ||
-    pathname === "/api/cron/bling"
+    pathname === "/api/cron/bling" ||
+    pathname === "/api/cron/ig-rotina"
   ) {
     return "cron";
   }
