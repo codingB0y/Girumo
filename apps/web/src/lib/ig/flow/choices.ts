@@ -7,16 +7,19 @@ export function alternativesOf(choice: string): string[] {
 }
 
 /**
- * A escolha que o texto digitado escolheu: `matchKeyword` sobre as alternativas de TODAS as escolhas
- * (a mais longa ganha) e o índice da dona da vencedora. `null` = nenhuma casou.
+ * A escolha que o texto digitado escolheu: as alternativas de TODAS as escolhas que casam com o texto
+ * (`matchKeyword`, uma a uma) e a dona delas. Alternativa que está dentro de outra que também casou
+ * ("5" dentro de "5 a 8") perde para a mais específica. Sobrando alternativas de escolhas DIFERENTES
+ * ("não quero" casa "não" e "quero"), é ambíguo: `null`, como texto que não casa nada.
  */
 export function matchChoice(texto: string, choices: readonly string[]): number | null {
-  const dono = new Map<string, number>();
+  const casadas: Array<{ dona: number; alt: string }> = [];
   choices.forEach((choice, i) => {
-    for (const alt of alternativesOf(choice)) if (!dono.has(alt)) dono.set(alt, i);
+    for (const alt of alternativesOf(choice)) if (matchKeyword(texto, [alt]) !== null) casadas.push({ dona: i, alt: normalizeForMatch(alt) });
   });
-  const vencedora = matchKeyword(texto, [...dono.keys()]);
-  return vencedora === null ? null : (dono.get(vencedora) ?? null);
+  const dentro = (menor: string, maior: string) => maior.length > menor.length && ` ${maior} `.includes(` ${menor} `);
+  const donas = new Set(casadas.filter((c) => !casadas.some((o) => dentro(c.alt, o.alt))).map((c) => c.dona));
+  return donas.size === 1 ? [...donas][0] : null;
 }
 
 /** Lê o payload `<run>:<bloco>:<i>` de uma resposta rápida; `null` se for de outro run/bloco ou malformado. */

@@ -3,11 +3,15 @@
  * a da Zernio (`zernio.ts`) e a falsa dos testes (`fake.ts`). Trocar de
  * fornecedor é escrever outra implementação deste tipo.
  */
-export type PrivateReplyInput = { accountId: string; platformPostId: string; commentId: string; message: string; idempotencyKey: string };
+/** Resposta rápida do Instagram: `title` é o que a pessoa vê (até 20 caracteres), `payload` volta em `metadata.postbackPayload`. */
+export type QuickReply = { title: string; payload: string };
+export type PrivateReplyInput = { accountId: string; platformPostId: string; commentId: string; message: string; quickReplies?: QuickReply[]; idempotencyKey: string };
 export type PublicReplyInput = { accountId: string; platformPostId: string; commentId: string; message: string; idempotencyKey: string };
 /** `url` abre o link; `postback` volta como `metadata.postbackPayload` no direct seguinte. Rótulo até 20 caracteres. */
 export type MessageButton = { type: "url"; title: string; url: string } | { type: "postback"; title: string; payload: string };
-export type ConversationMessageInput = { accountId: string; conversationId: string; message: string; buttons?: MessageButton[]; idempotencyKey: string };
+export type ConversationMessageInput = { accountId: string; conversationId: string; message: string; buttons?: MessageButton[]; quickReplies?: QuickReply[]; idempotencyKey: string };
+/** `messageId` é o id da mensagem na plataforma (`data.messageId` da Zernio); `null` se a resposta não trouxer. */
+export type EnvioFeito = { messageId: string | null };
 export type ZernioAccount = { id: string; username: string; isActive: boolean; needsReconnection: boolean };
 
 export type Transport = {
@@ -17,9 +21,9 @@ export type Transport = {
   connectUrl(profileId: string, redirectUrl: string): Promise<string>;
   listAccounts(profileId: string): Promise<ZernioAccount[]>;
   deleteAccount(accountId: string): Promise<void>;
-  privateReply(input: PrivateReplyInput): Promise<void>;
+  privateReply(input: PrivateReplyInput): Promise<EnvioFeito>;
   publicReply(input: PublicReplyInput): Promise<void>;
-  sendMessage(input: ConversationMessageInput): Promise<void>;
+  sendMessage(input: ConversationMessageInput): Promise<EnvioFeito>;
 };
 
 /** Envelope de erro da Zernio (`{ error, type, code, details }`). `status` 0 = rede ou timeout. */

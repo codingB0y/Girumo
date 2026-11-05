@@ -1,12 +1,18 @@
 import "server-only";
 
-import { ZernioError, type ConversationMessageInput, type PrivateReplyInput, type PublicReplyInput, type Transport, type ZernioAccount } from "./types";
+import { ZernioError, type ConversationMessageInput, type EnvioFeito, type PrivateReplyInput, type PublicReplyInput, type Transport, type ZernioAccount } from "./types";
 
 const BASE_URL = "https://zernio.com/api";
 /** A Zernio espera nosso 2xx em 5 s; o envio dela tem que caber antes disso. */
 const TIMEOUT_MS = 4_000;
 
 type Chamada = { method: "GET" | "POST" | "DELETE"; path: string; query?: Record<string, string>; body?: unknown; idempotencyKey?: string };
+
+/** `data.messageId` do envio; qualquer outro formato de resposta vira `null`, nunca erro (a mensagem já saiu). */
+function idDaMensagem(r: unknown): EnvioFeito {
+  const id = (r as { data?: { messageId?: unknown } } | null)?.data?.messageId;
+  return { messageId: typeof id === "string" && id ? id : null };
+}
 
 export function createZernioTransport(deps: { apiKey: string; fetchImpl?: typeof fetch; baseUrl?: string }): Transport {
   const doFetch = deps.fetchImpl ?? fetch;
@@ -72,13 +78,14 @@ export function createZernioTransport(deps: { apiKey: string; fetchImpl?: typeof
       }
     },
     async privateReply(i: PrivateReplyInput) {
-      await call({ method: "POST", path: `v1/inbox/comments/${seg(i.platformPostId)}/${seg(i.commentId)}/private-reply`, body: { accountId: i.accountId, message: i.message }, idempotencyKey: i.idempotencyKey });
+      return idDaMensagem(await call({ method: "POST", path: `v1/inbox/comments/${seg(i.platformPostId)}/${seg(i.commentId)}/private-reply`, body: { accountId: i.accountId, message: i.message, ...(i.quickReplies?.length ? { quickReplies: i.quickReplies } : {}) }, idempotencyKey: i.idempotencyKey }));
     },
     async publicReply(i: PublicReplyInput) {
       await call({ method: "POST", path: `v1/inbox/comments/${seg(i.platformPostId)}`, body: { accountId: i.accountId, message: i.message, commentId: i.commentId }, idempotencyKey: i.idempotencyKey });
     },
     async sendMessage(i: ConversationMessageInput) {
-      await call({ method: "POST", path: `v1/inbox/conversations/${seg(i.conversationId)}/messages`, body: { accountId: i.accountId, message: i.message, ...(i.buttons?.length ? { buttons: i.buttons } : {}) }, idempotencyKey: i.idempotencyKey });
+      // quickReplies: o formato do item não é documentado pela Zernio; { title, payload } é o mais provável (Meta quick_replies).
+      return idDaMensagem(await call({ method: "POST", path: `v1/inbox/conversations/${seg(i.conversationId)}/messages`, body: { accountId: i.accountId, message: i.message, ...(i.buttons?.length ? { buttons: i.buttons } : {}), ...(i.quickReplies?.length ? { quickReplies: i.quickReplies } : {}) }, idempotencyKey: i.idempotencyKey }));
     },
   };
 }
