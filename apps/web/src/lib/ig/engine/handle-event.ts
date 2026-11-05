@@ -1,4 +1,4 @@
-import { gravarEnvios, lerConversa, registrarEnviada, registrarRecebida, robotPausado, type Conversas, type EnvioDoRobo } from "@/lib/ig/conversas/indice";
+import { gravarEnvios, lerConversa, registrarEnviada, registrarFalha, registrarRecebida, robotPausado, type Conversas, type EnvioDoRobo, type ModoDaSituacao } from "@/lib/ig/conversas/indice";
 import type { FlowOut } from "@/lib/ig/flow/types";
 import { TETO_RUNS_POR_HORA } from "@/lib/ig/limites";
 import { ZernioError, type Transport } from "@/lib/ig/transport/types";
@@ -120,15 +120,21 @@ type Contexto = {
   conversaDoComentario: IgConversationRow | null;
 };
 
-/** O índice só anda uma vez por evento novo: reenvio e retry não somam não lida de novo. */
-const entraNoIndice = (d: Desfecho) => d.kind === "handled" || (d.kind === "ignored" && d.reason !== "duplicado" && d.reason !== "fluxo mudou");
+/**
+ * Todo direct chega ao índice, inclusive o que o robô não conseguiu tratar (retry, exceção: Aguardando você) e a
+ * reentrega (`manter`: não rebaixa uma Aberta). O id da mensagem evita somar a mesma não lida duas vezes.
+ */
+function modoDaSituacao(d: Desfecho): ModoDaSituacao {
+  if (d.kind === "retry") return "waiting";
+  return d.kind === "ignored" && (d.reason === "duplicado" || d.reason === "fluxo mudou") ? "manter" : "auto";
+}
 
 function registrarNoIndice(ev: EventoZernio, d: Desfecho, ctx: Contexto, amb: Ambiente): void {
   const { tenantId } = ctx;
-  if (!tenantId || !entraNoIndice(d)) return;
+  if (!tenantId) return;
   const agora = amb.now();
   if (ev.event === "message.received" && ev.message.platform === "instagram" && ev.message.direction === "incoming") {
-    ctx.pendentes.push(registrarRecebida(amb.conversas, tenantId, ev, { igAccountId: ctx.igAccountId, envios: ctx.envios, pausado: ctx.pausado, runId: d.kind === "handled" ? d.runId : null, agora }));
+    ctx.pendentes.push(registrarRecebida(amb.conversas, tenantId, ev, { igAccountId: ctx.igAccountId, envios: ctx.envios, pausado: ctx.pausado, runId: d.kind === "handled" ? d.runId : null, agora, situacao: modoDaSituacao(d) }));
   } else if (ev.event === "comment.received" && d.kind === "handled") {
     // A resposta privada não devolve a conversa: sem conversa conhecida, não há onde gravar.
     ctx.pendentes.push(gravarEnvios(amb.conversas, tenantId, ctx.conversaDoComentario?.id ?? null, ctx.envios, d.runId, agora));
@@ -145,7 +151,14 @@ function registrarNoIndice(ev: EventoZernio, d: Desfecho, ctx: Contexto, amb: Am
 export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Desfecho> {
   const ctx: Contexto = { pendentes: [], envios: [], tenantId: null, igAccountId: "", pausado: false, conversaDoComentario: null };
   try {
-    const d = await processar(ev, amb, ctx);
+    let d: Desfecho;
+    try {
+      d = await processar(ev, amb, ctx);
+    } catch (e) {
+      // Exceção: a Zernio reenvia, mas o direct já fica na lista como Aguardando você.
+      registrarNoIndice(ev, { kind: "retry", reason: "erro" }, ctx, amb);
+      throw e;
+    }
     registrarNoIndice(ev, d, ctx, amb);
     return d;
   } finally {
@@ -190,9 +203,19 @@ async function processar(ev: EventoZernio, amb: Ambiente, ctx: Contexto): Promis
   if (!entrada) return { kind: "ignored", reason: "evento sem gatilho" };
 
   // Robô pausado (a loja respondeu pelo painel): nada abre nem retoma para essa pessoa. Comentário só confere depois de casar um fluxo.
-  if (ev.event === "message.received" && robotPausado(await lerConversa(amb.conversas, tenantId, entrada.igUserId), agora)) {
-    ctx.pausado = true;
-    return { kind: "ignored", reason: "robô pausado" };
+  if (ev.event === "message.received") {
+    // Sem saber se está pausado, o robô não responde: a Zernio reenvia o direct.
+    let conversa: Awaited<ReturnType<Conversas["ler"]>>;
+    try {
+      conversa = await amb.conversas.ler(tenantId, entrada.igUserId);
+    } catch (e) {
+      registrarFalha("ler", e);
+      return { kind: "retry", reason: "conversa" };
+    }
+    if (robotPausado(conversa, agora)) {
+      ctx.pausado = true;
+      return { kind: "ignored", reason: "robô pausado" };
+    }
   }
 
   const fluxos = await amb.fluxosNoAr(tenantId);

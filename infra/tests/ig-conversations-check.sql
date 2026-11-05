@@ -65,7 +65,7 @@ begin
   if exists (
     select 1
       from (values
-        ('public.ig_conversation_touch(uuid,text,text,uuid,text,text,text,timestamptz,text,text)'),
+        ('public.ig_conversation_touch(uuid,text,text,uuid,text,text,text,timestamptz,text,text,text)'),
         ('public.ig_conversations_rotina(timestamptz)')) as f(sig)
       left join pg_proc p on p.oid = to_regprocedure(f.sig)
      where p.oid is null
@@ -105,6 +105,16 @@ begin
   if c.unread_count <> 2 then raise exception 'FALHOU: saída não pode somar não lida'; end if;
   if c.status <> 'open' then raise exception 'FALHOU: status decidido pelo servidor deveria gravar'; end if;
   if (select count(*) from public.ig_conversations where tenant_id = t) <> 1 then raise exception 'FALHOU: upsert duplicou a conversa'; end if;
+
+  -- reentrega: o mesmo id de mensagem não soma não lida nem mexe na linha; um id novo soma.
+  c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'in', now() - interval '30 minutes', 'terceira', 'waiting', 'm-3');
+  if c.unread_count <> 3 or c.last_in_message_id <> 'm-3' then raise exception 'FALHOU: mensagem nova deveria somar (%)', to_jsonb(c); end if;
+  c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'in', now() - interval '20 minutes', 'repetida', 'open', 'm-3');
+  if c.unread_count <> 3 or c.last_preview <> 'terceira' or c.status <> 'waiting' then
+    raise exception 'FALHOU: reentrega do mesmo id nao pode somar nem mudar a linha (%)', to_jsonb(c);
+  end if;
+  c := public.ig_conversation_touch(t, 'z1', 'u1', null, null, null, 'in', now() - interval '10 minutes', 'quarta', null, 'm-4');
+  if c.unread_count <> 4 then raise exception 'FALHOU: id novo deveria somar (%)', c.unread_count; end if;
 end $$;
 
 -- 3) Respostas prontas: teto de 50 por loja.

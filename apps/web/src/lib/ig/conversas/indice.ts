@@ -17,11 +17,14 @@ const iso = (texto: string, reserva: Date) => {
   return new Date(Number.isFinite(ms) ? ms : reserva.getTime()).toISOString();
 };
 
-/** Só o tipo do erro: a mensagem do PostgREST pode trazer chave, tenant e @ da pessoa. */
-function registrarFalha(e: unknown): void {
+/** Só a operação e o tipo do erro: a mensagem do PostgREST pode trazer chave, tenant e @ da pessoa. */
+export function registrarFalha(op: "ler" | "tocar" | "evento", e: unknown): void {
   const tipo = e instanceof Error ? ((e as { code?: unknown }).code ?? e.name) : typeof e;
-  console.error("[ig/conversas] gravação falhou:", String(tipo));
+  console.error(`[ig/conversas] ${op} falhou:`, String(tipo));
 }
+
+/** Como a situação do direct é decidida: pelo que o robô fez, forçada em Aguardando você (retry, exceção) ou mantida (reentrega). */
+export type ModoDaSituacao = "auto" | "waiting" | "manter";
 
 export const robotPausado = (c: IgConversationRow | null, agora: Date): boolean => !!c?.bot_paused_until && Date.parse(c.bot_paused_until) > agora.getTime();
 
@@ -30,7 +33,7 @@ export async function lerConversa(conversas: Conversas, tenantId: string, igUser
   try {
     return await conversas.ler(tenantId, igUserId);
   } catch (e) {
-    registrarFalha(e);
+    registrarFalha("ler", e);
     return null;
   }
 }
@@ -43,7 +46,7 @@ export async function gravarEnvios(conversas: Conversas, tenantId: string, conve
     try {
       await conversas.evento(tenantId, { conversationId, kind: "bot_message", zernioMessageId: e.messageId, runId, detail: e.tipo, occurredAt: agora.toISOString() });
     } catch (err) {
-      registrarFalha(err);
+      registrarFalha("evento", err);
     }
   }
 }
@@ -52,7 +55,7 @@ export async function gravarEnvios(conversas: Conversas, tenantId: string, conve
  * Direct recebido: atualiza o índice (situação pela §7.3) e grava um evento por mensagem do robô.
  * Nunca rejeita: o direct já foi (ou não) respondido e a Zernio não deve reenviá-lo por causa do índice.
  */
-export async function registrarRecebida(conversas: Conversas, tenantId: string, ev: MensagemRecebida, i: { igAccountId: string; envios: EnvioDoRobo[]; pausado: boolean; runId: string | null; agora: Date }): Promise<void> {
+export async function registrarRecebida(conversas: Conversas, tenantId: string, ev: MensagemRecebida, i: { igAccountId: string; envios: EnvioDoRobo[]; pausado: boolean; runId: string | null; agora: Date; situacao: ModoDaSituacao }): Promise<void> {
   const m = ev.message;
   try {
     const conversa = await conversas.tocar(tenantId, {
@@ -64,11 +67,12 @@ export async function registrarRecebida(conversas: Conversas, tenantId: string, 
       direction: "in",
       at: iso(m.sentAt, i.agora),
       preview: m.text,
-      status: situacaoAoReceber({ robotRespondeu: i.envios.length > 0, robotPausado: i.pausado }),
+      status: i.situacao === "manter" ? null : i.situacao === "waiting" ? "waiting" : situacaoAoReceber({ robotRespondeu: i.envios.length > 0, robotPausado: i.pausado }),
+      messageId: m.platformMessageId,
     });
     await gravarEnvios(conversas, tenantId, conversa.id, i.envios, i.runId, i.agora);
   } catch (e) {
-    registrarFalha(e);
+    registrarFalha("tocar", e);
   }
 }
 
@@ -79,7 +83,7 @@ export async function registrarRecebida(conversas: Conversas, tenantId: string, 
  */
 export async function registrarEnviada(conversas: Conversas, tenantId: string, ev: MensagemEnviada, agora: Date): Promise<void> {
   try {
-    const existente = await conversas.ler(tenantId, ev.conversation.participantId);
+    const existente = await lerConversa(conversas, tenantId, ev.conversation.participantId);
     if (!existente) return;
     await conversas.tocar(tenantId, {
       zernioConversationId: existente.zernio_conversation_id,
@@ -92,6 +96,6 @@ export async function registrarEnviada(conversas: Conversas, tenantId: string, e
       status: null,
     });
   } catch (e) {
-    registrarFalha(e);
+    registrarFalha("tocar", e);
   }
 }

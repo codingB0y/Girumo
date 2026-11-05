@@ -130,16 +130,52 @@ test("falha ao gravar o evento do robô também só é registrada", async () => 
   assert.equal(a.indice.toques.length, 1);
 });
 
-test("erro passageiro antes do desfecho pede reenvio e não soma não lida", async () => {
+test("erro passageiro antes do desfecho pede reenvio e o direct já entra no índice como Aguardando você", async () => {
   const fora = new ZernioError(503, "api_error", "temporarily_unavailable", null, "x");
-  const a = ambiente({ falhar: { sendMessage: fora }, conversas: { inicial: { ig_user_id: "u1" } } });
+  const a = ambiente({ falhar: { sendMessage: fora } });
   assert.equal((await tratarEvento(direct, a.amb)).kind, "retry");
-  assert.deepEqual([a.indice.toques.length, a.indice.linhas.get("u1")?.unread_count], [0, 0]);
+  assert.deepEqual([a.indice.toques.length, a.indice.toques[0].status, a.indice.linhas.get("u1")?.unread_count], [1, "waiting", 1]);
 });
 
-test("reenvio do mesmo evento (run já terminado) não manda de novo nem soma não lida", async () => {
+test("exceção do motor: o direct entra no índice como Aguardando você e o erro sobe para o 500", async () => {
+  const a = ambiente();
+  a.amb.fluxosNoAr = async () => { throw new Error("banco fora"); };
+  await assert.rejects(() => tratarEvento(direct, a.amb), /banco fora/);
+  assert.deepEqual([a.indice.toques[0].status, a.indice.linhas.get("u1")?.unread_count], ["waiting", 1]);
+});
+
+test("reentrega do mesmo direct: não soma não lida de novo e não rebaixa uma Aberta", async () => {
+  const a = ambiente();
+  await tratarEvento(direct, a.amb);
+  const feito = a.patches.length;
+  assert.equal(feito, 1);
+  // Entrega repetida (o sem-fluxo, o 24h e o pausado também voltam a passar por aqui): mesmo id, nada muda.
+  await tratarEvento(direct, a.amb);
+  await tratarEvento(semFluxo, ambiente({ conversas: { inicial: { ig_user_id: "u1" } } }).amb);
+  assert.deepEqual([a.indice.linhas.get("u1")?.unread_count, a.indice.linhas.get("u1")?.status], [1, "open"]);
+  assert.equal(a.indice.toques.every((t) => t.messageId === "m-1"), true);
+});
+
+test("run já terminado (duplicado): toca o índice sem mudar a situação, sem mandar de novo", async () => {
   const feito = { id: "run-velho", tenant_id: "loja-a", ig_account_id: "a1", flow_id: "f-d", flow_version: 1, source_kind: "dm", source_id: "m-1", ig_user_id: "u1", username: null, matched_keyword: "quero", ref: "r", status: "done", node_id: "convite", waiting: null, wake_at: null, window_expires_at: "2026-10-07T11:59:58.000Z", clicked_at: null, error_code: null, error_message: null, started_at: T0.toISOString(), updated_at: T0.toISOString(), finished_at: T0.toISOString() } as RunRow;
-  const a = ambiente({ existente: feito, conversas: { inicial: { ig_user_id: "u1", unread_count: 1 } } });
+  const a = ambiente({ existente: feito, conversas: { inicial: { ig_user_id: "u1", status: "open" } } });
   assert.deepEqual(await tratarEvento(direct, a.amb), { kind: "ignored", reason: "duplicado" });
-  assert.deepEqual([a.chamadas.length, a.indice.toques.length, a.indice.linhas.get("u1")?.unread_count], [0, 0, 1]);
+  assert.deepEqual([a.chamadas.length, a.indice.toques.length, a.indice.toques[0].status, a.indice.linhas.get("u1")?.status], [0, 1, null, "open"]);
+});
+
+test("ler a conversa lançando no direct pede reenvio sem responder; no comentário o robô segue", async () => {
+  const a = ambiente();
+  a.amb.conversas = { ...a.amb.conversas, ler: async () => { throw new Error("rede"); } };
+  const erro = console.error;
+  const logs: unknown[][] = [];
+  console.error = (...x: unknown[]) => { logs.push(x); };
+  try {
+    assert.deepEqual(await tratarEvento(direct, a.amb), { kind: "retry", reason: "conversa" });
+    assert.equal(a.chamadas.length, 0);
+    assert.equal((await tratarEvento(comentario, a.amb)).kind, "handled");
+  } finally {
+    console.error = erro;
+  }
+  assert.equal(logs.some((l) => String(l[0]).includes("ler falhou")), true, "o log diz a operação");
+  assert.equal(JSON.stringify(logs).includes("rede"), false, "e não a mensagem do erro");
 });

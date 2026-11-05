@@ -42,6 +42,8 @@ export type TouchInput = {
   preview: string | null;
   /** Situação já decidida pelo servidor; `null` mantém a atual. */
   status: StatusConversa | null;
+  /** Id da mensagem recebida: a mesma entrega repetida não soma não lida de novo (só em `in`). */
+  messageId?: string | null;
 };
 
 /** Upsert atômico do índice (`ig_conversation_touch`): soma 1 não lida quando a direção é `in`. */
@@ -57,6 +59,7 @@ export async function touchConversation(tenantId: string, input: TouchInput): Pr
     p_at: input.at,
     p_preview: input.preview,
     p_status: input.status,
+    p_message_id: input.messageId ?? null,
   });
   if (error) throw new Error(error.message);
   return data as unknown as IgConversationRow;
@@ -162,17 +165,21 @@ export type ConversationEventInput = {
 
 /** Registro SEM texto do que o robô e a loja fizeram. */
 export async function recordConversationEvent(tenantId: string, e: ConversationEventInput): Promise<void> {
+  // Reentrega do mesmo envio: o par (conversa, id da mensagem) é único; o duplicado é ignorado.
   const { error } = await getSupabaseAdmin()
     .from("ig_conversation_events")
-    .insert({
-      tenant_id: tenantId,
-      conversation_id: e.conversationId,
-      kind: e.kind,
-      zernio_message_id: e.zernioMessageId ?? null,
-      run_id: e.runId ?? null,
-      detail: e.detail ?? null,
-      ...(e.occurredAt ? { occurred_at: e.occurredAt } : {}),
-    });
+    .upsert(
+      {
+        tenant_id: tenantId,
+        conversation_id: e.conversationId,
+        kind: e.kind,
+        zernio_message_id: e.zernioMessageId ?? null,
+        run_id: e.runId ?? null,
+        detail: e.detail ?? null,
+        ...(e.occurredAt ? { occurred_at: e.occurredAt } : {}),
+      },
+      { onConflict: "conversation_id,zernio_message_id", ignoreDuplicates: true },
+    );
   if (error) throw new Error(error.message);
 }
 
