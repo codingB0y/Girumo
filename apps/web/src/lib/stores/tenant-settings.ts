@@ -194,6 +194,15 @@ export async function setInstagramEnabled(tenantId: string, enabled: boolean): P
   if (error) throw new Error(error.message);
 }
 
+/** Quando o add-on Instagram foi cancelado (início dos 30 dias de Pessoas só leitura); `null` se ligado ou nunca ligado. */
+export async function getInstagramDisabledAt(tenantId: string): Promise<string | null> {
+  const { data, error } = await getSupabaseAdmin().from("tenant_settings").select("instagram_disabled_at").eq("tenant_id", tenantId).maybeSingle();
+  // Banco anterior à migração do prazo: sem carimbo, sem janela de leitura.
+  if (isMissingColumn(error)) return null;
+  if (error) throw new Error(error.message);
+  return (data as { instagram_disabled_at?: string | null } | null)?.instagram_disabled_at ?? null;
+}
+
 /**
  * Liberação do Rastreio de pedidos. Só o servidor chama: o trigger da migração B·1a impede
  * `authenticated` de mexer na coluna.
