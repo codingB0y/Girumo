@@ -153,7 +153,9 @@ type InstagramNaBarra = { aguardando: number; aoVivo: AoVivo };
 /**
  * Os módulos do acesso e o Mais; só no desktop (no celular a navegação é a barra
  * inferior). O acesso restrito (vendedora, papel desconhecido) vê só os dele e não tem Mais (spec 2026-10-07 §4).
- * O Recuperar só entra na barra a partir de 1280 px (`xl`); abaixo disso mora no Mais, que ganha um ponto.
+ * O Recuperar e o Instagram só entram na barra a partir de 1280 px (`xl`); abaixo disso moram no Mais, que ganha
+ * um ponto quando alguém espera. Com os seis do dia, o sinal do Relâmpago ao vivo e o Instagram, a 1100 px a barra
+ * passava da tela (e2e "Início ao vivo entre 768 e 1400 px").
  * A vendedora não tem Mais para acolhê-lo, então nela o item fica em toda largura.
  */
 function NavDaBarra({ relampago, instagram, acesso }: { relampago: Relampago; instagram: InstagramNaBarra; acesso: Acesso | null }) {
@@ -168,7 +170,7 @@ function NavDaBarra({ relampago, instagram, acesso }: { relampago: Relampago; in
           href={item.href}
           aria-current={isNavItemActive(pathname, item.href) ? "page" : undefined}
           data-ao-vivo={item.href === INSTAGRAM ? instagram.aoVivo : undefined}
-          className={cn("pn-barra__item", !restrito && (item.href === RECUPERAR || (item.href === INSTAGRAM && liberacoes?.recuperar)) && "max-xl:hidden")}
+          className={cn("pn-barra__item", !restrito && (item.href === RECUPERAR || item.href === INSTAGRAM) && "max-xl:hidden")}
         >
           {item.curto ?? item.label}
           {item.href === RELAMPAGO && <SinalDoRelampago {...relampago} />}
@@ -176,7 +178,7 @@ function NavDaBarra({ relampago, instagram, acesso }: { relampago: Relampago; in
           {item.href === INSTAGRAM && <SinalDoInstagram aguardando={instagram.aguardando} />}
         </Link>
       ))}
-      {!restrito && <MenuMais />}
+      {!restrito && <MenuMais instagramAguardando={instagram.aguardando} />}
     </nav>
   );
 }
