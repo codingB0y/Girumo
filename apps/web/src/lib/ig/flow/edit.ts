@@ -119,7 +119,7 @@ export function setReminder(def: FlowDef, on: boolean): FlowDef {
   return ordenar({ ...def, nodes, edges });
 }
 
-function freshId(def: FlowDef, base: string): string {
+export function freshId(def: FlowDef, base: string): string {
   let id = base;
   for (let i = 2; def.nodes.some((n) => n.id === id); i += 1) id = `${base}_${i}`;
   return id;

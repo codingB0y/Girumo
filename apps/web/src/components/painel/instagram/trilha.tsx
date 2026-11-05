@@ -1,22 +1,27 @@
 "use client";
 
+import { removeBlock, fieldKeysIn } from "@/lib/ig/flow/blocks-edit";
 import { canAddFollowGate, canAddReminder, hasFollowGate, hasReminder, setFollowGate, setReminder, updateNode } from "@/lib/ig/flow/edit";
 import { rotuloDaSaida, tituloDoBloco } from "@/lib/ig/flow/labels";
 import { linearize, type Passo, type Ramo } from "@/lib/ig/flow/linearize";
-import { nodeById, triggerOf } from "@/lib/ig/flow/graph";
+import { nodeById, reachableIds, triggerOf } from "@/lib/ig/flow/graph";
 import type { FlowDef, FlowNode } from "@/lib/ig/flow/types";
 import type { Issue } from "@/lib/ig/flow/validate";
+import { AdicionarBloco } from "./adicionar-bloco";
 import { BlocoForm, type CampanhaOpcao } from "./bloco-form";
 import { ICONE } from "./icones";
 import { Interruptor } from "./interruptor";
+import { Ligacoes, temLigacaoLivre } from "./ligacoes";
 
 type Editar = (fn: (d: FlowDef) => FlowDef) => void;
-type Contexto = { def: FlowDef; campanhas: CampanhaOpcao[]; issues: Issue[]; editar: Editar; primeiroDirectAposComentario: string | null };
+type Contexto = { def: FlowDef; campanhas: CampanhaOpcao[]; issues: Issue[]; editar: Editar; primeiroDirectAposComentario: string | null; chaves: string[] };
 
 /** Fora de `Trilha` de propósito: declarado dentro, o React remontaria o formulário a cada tecla. */
 function Bloco({ ctx, node, indice, ramos, fim }: { ctx: Contexto; node: FlowNode; indice: number | null; ramos: Ramo[]; fim?: Passo["proximo"] }) {
   const { def, editar } = ctx;
   const Icone = ICONE[node.type];
+  const removivel = node.type === "tag" || (node.type === "condition" && (node.check === "field" || node.check === "tag"));
+  const podeAdicionar = fim && (fim.out === "next" || fim.out === "replied");
   return (
     <li className="grid grid-cols-[36px_minmax(0,1fr)] gap-x-4 border-t border-line-200 py-5 first:border-0">
       <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full border border-line-200 font-data text-13 text-slate-600">{indice ?? "↳"}</span>
@@ -31,8 +36,22 @@ function Bloco({ ctx, node, indice, ramos, fim }: { ctx: Contexto; node: FlowNod
             primeiroDepoisDoComentario={node.id === ctx.primeiroDirectAposComentario}
             campanhas={ctx.campanhas}
             issues={ctx.issues}
+            chaves={ctx.chaves}
             aoMudar={(patch) => editar((d) => updateNode(d, node.id, patch))}
+            editarDef={editar}
           />
+          {temLigacaoLivre(node) && <Ligacoes def={def} node={node} editar={editar} />}
+          {podeAdicionar && <AdicionarBloco depoisDe={node.id} editar={editar} />}
+          {removivel && (
+            <button
+              type="button"
+              aria-label={`Remover bloco: ${tituloDoBloco(node)} (${node.id})`}
+              onClick={() => editar((d) => removeBlock(d, node.id))}
+              className="mt-4 text-13 font-medium text-volt-950 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+            >
+              Remover bloco
+            </button>
+          )}
         </div>
         {(ramos.length > 0 || fim) && (
           <ul className="mt-4 grid gap-2">
@@ -63,7 +82,9 @@ function Bloco({ ctx, node, indice, ramos, fim }: { ctx: Contexto; node: FlowNod
 export function Trilha({ def, campanhas, issues, editar }: { def: FlowDef; campanhas: CampanhaOpcao[]; issues: Issue[]; editar: Editar }) {
   const passos = linearize(def);
   // O segundo passo da trilha é o primeiro direct depois do gatilho de comentário (sem botão).
-  const ctx: Contexto = { def, campanhas, issues, editar, primeiroDirectAposComentario: triggerOf(def)?.on === "comment" ? (passos[1]?.node.id ?? null) : null };
+  const ctx: Contexto = { def, campanhas, issues, editar, primeiroDirectAposComentario: triggerOf(def)?.on === "comment" ? (passos[1]?.node.id ?? null) : null, chaves: fieldKeysIn(def) };
+  const alcancados = reachableIds(def);
+  const soltos = def.nodes.filter((n) => !alcancados.has(n.id));
   const podeLembrar = hasReminder(def) || canAddReminder(def);
 
   return (
@@ -75,6 +96,21 @@ export function Trilha({ def, campanhas, issues, editar }: { def: FlowDef; campa
       <ol>
         {passos.map((p, i) => <Bloco key={p.node.id} ctx={ctx} node={p.node} indice={i + 1} ramos={p.ramos} fim={p.proximo} />)}
       </ol>
+      {soltos.length > 0 && (
+        <section aria-labelledby="soltos" className="border-t border-line-200 py-4">
+          <h3 id="soltos" className="text-13 font-semibold text-volt-950">Blocos soltos <span className="font-normal text-slate-600">nenhum caminho chega neles: ligue a um passo ou remova</span></h3>
+          <ul className="mt-2 grid gap-2">
+            {soltos.map((n) => (
+              <li key={n.id} className="flex items-center justify-between gap-4 text-13 text-volt-950">
+                {tituloDoBloco(n)}
+                <button type="button" aria-label={`Remover bloco solto: ${tituloDoBloco(n)} (${n.id})`} onClick={() => editar((d) => removeBlock(d, n.id))} className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500">
+                  Remover
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <footer className="border-t border-line-200 py-4">
         <h3 className="text-13 font-semibold text-volt-950">Dá pra acrescentar <span className="font-normal text-slate-600">cada um vira um passo ou um desvio</span></h3>
         <ul className="mt-2 grid gap-3">
