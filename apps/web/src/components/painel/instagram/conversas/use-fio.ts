@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MarcaDoFio } from "@/lib/ig/conversas/fio";
-import { mesclarMensagens } from "@/lib/ig/conversas/tela";
+import { criarSequencia, mesclarMensagens } from "@/lib/ig/conversas/tela";
 import type { ConversaDto, FioDaConversa, MensagemDto } from "@/lib/ig/conversas/tipos";
 
 export type CargaDoFio = "carregando" | "ok" | "erro" | "nao-achou";
@@ -37,6 +37,10 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
   const [carga, setCarga] = useState<CargaDoFio>("carregando");
   const [erroDaCarga, setErroDaCarga] = useState<string | null>(null);
   const [buscandoAntigas, setBuscandoAntigas] = useState(false);
+  const [viuOk, setViuOk] = useState(false);
+  const sequencia = useRef(criarSequencia());
+  const emVoo = useRef(false);
+  const sujo = useRef(false);
   const idAtual = useRef(id);
   const ultimoEnvio = useRef<{ texto: string; chave: string } | null>(null);
   const aoMudar = useRef(aoMudarConversa);
@@ -49,13 +53,15 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
 
   /** `inicial` troca tudo; sem ele, só junta o que chegou (a posição de leitura não pula). */
   const carregar = useCallback(async (conversa: string, inicial: boolean) => {
+    // Cada pedido leva um carimbo; só o mais novo grava (resposta atrasada não desfaz janela, marcas nem pausa).
+    const meu = sequencia.current.novo();
     if (inicial) {
       setCarga("carregando");
       setErroDaCarga(null);
     }
     try {
       const r = await fetch(`/api/ig/conversations/${conversa}/messages`, { cache: "no-store" });
-      if (conversa !== idAtual.current) return;
+      if (conversa !== idAtual.current || !sequencia.current.atual(meu)) return;
       if (!r.ok) {
         if (!inicial) return;
         setErroDaCarga((await lerCorpo(r))?.error ?? null);
@@ -63,7 +69,8 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
         return;
       }
       const fio = (await r.json()) as FioDaConversa;
-      if (conversa !== idAtual.current) return;
+      if (conversa !== idAtual.current || !sequencia.current.atual(meu)) return;
+      setViuOk(true);
       setMensagens((atuais) => (inicial ? mesclarMensagens([], fio.mensagens) : mesclarMensagens(atuais, fio.mensagens)));
       if (inicial) setProximo(fio.proximo);
       setMarcas(fio.marcas);
@@ -71,12 +78,15 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
       setPausadoAte(fio.roboPausadoAte);
       setCarga("ok");
     } catch {
-      if (inicial && conversa === idAtual.current) setCarga("erro");
+      if (inicial && conversa === idAtual.current && sequencia.current.atual(meu)) setCarga("erro");
     }
   }, []);
 
   useEffect(() => {
     setMensagens([]);
+    setViuOk(false);
+    emVoo.current = false;
+    sujo.current = false;
     setProximo(null);
     setMarcas([]);
     setJanela(SEM_JANELA);
@@ -85,8 +95,22 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     if (id) void carregar(id, true);
   }, [id, carregar]);
 
+  /** Uma busca por vez (cada uma vai à Zernio): pedido durante a busca marca "sujo" e roda UMA a mais ao terminar. */
   const recarregarNovas = useCallback(() => {
-    if (idAtual.current) void carregar(idAtual.current, false);
+    const conversa = idAtual.current;
+    if (!conversa) return;
+    if (emVoo.current) {
+      sujo.current = true;
+      return;
+    }
+    emVoo.current = true;
+    void carregar(conversa, false).finally(() => {
+      emVoo.current = false;
+      if (sujo.current && conversa === idAtual.current) {
+        sujo.current = false;
+        recarregarNovas();
+      }
+    });
   }, [carregar]);
 
   const maisAntigas = useCallback(async () => {
@@ -148,5 +172,5 @@ export function useFio(id: string | null, { aoMudarConversa }: Opcoes) {
     [recarregarNovas],
   );
 
-  return { mensagens, proximo, marcas, janela, pausadoAte, carga, erroDaCarga, buscandoAntigas, recarregar: () => id && void carregar(id, true), recarregarNovas, maisAntigas, enviar, agir };
+  return { viuOk, mensagens, proximo, marcas, janela, pausadoAte, carga, erroDaCarga, buscandoAntigas, recarregar: () => id && void carregar(id, true), recarregarNovas, maisAntigas, enviar, agir };
 }

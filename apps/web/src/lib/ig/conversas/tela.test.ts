@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MarcaDoFio } from "./fio";
-import { casaComFiltro, conversaDoRealtime, estadoDoCampo, itensDoFio, mesclarConversas, mesclarMensagens, proximoAoVivo, queryDaLista, rotuloDaBolha, textoDaMarca, tituloComContador, trocarPrimeiraPagina } from "./tela";
+import { atrasoComTeto, casaComFiltro, criarSequencia, linhaEhDaLoja, proximoAposRecarga, conversaDoRealtime, estadoDoCampo, itensDoFio, mesclarConversas, mesclarMensagens, proximoAoVivo, queryDaLista, rotuloDaBolha, textoDaMarca, tituloComContador, trocarPrimeiraPagina } from "./tela";
 import type { ConversaDto, MensagemDto } from "./tipos";
 
 const UTC = "UTC";
@@ -121,4 +121,32 @@ test("recarga em silêncio troca a primeira página e guarda só as mais antigas
   const primeira = [conversa("e", "2026-10-20T13:00:00Z"), conversa("a", "2026-10-20T12:00:00Z", { naoLidas: 1 })];
   assert.deepEqual(trocarPrimeiraPagina(velha, primeira, true).map((c) => c.id), ["e", "a", "c", "d"]);
   assert.deepEqual(trocarPrimeiraPagina(velha, primeira, false).map((c) => c.id), ["e", "a"], "sem próxima página a primeira é tudo");
+});
+
+test("debounce com teto: espera a rajada acalmar, mas nunca passa do teto desde o primeiro evento", () => {
+  assert.equal(atrasoComTeto(null, 1000, 1500, 5000), 1500, "rajada nova espera o normal");
+  assert.equal(atrasoComTeto(1000, 2000, 1500, 5000), 1500, "ainda longe do teto");
+  assert.equal(atrasoComTeto(1000, 5500, 1500, 5000), 500, "perto do teto encurta a espera");
+  assert.equal(atrasoComTeto(1000, 9000, 1500, 5000), 0, "passou do teto: dispara já");
+});
+
+test("sequência: só o pedido mais novo grava; os atrasados são descartados", () => {
+  const s = criarSequencia();
+  const a = s.novo();
+  const b = s.novo();
+  assert.equal(s.atual(a), false);
+  assert.equal(s.atual(b), true);
+});
+
+test("a recarga em silêncio só troca o cursor quando não há páginas extras carregadas", () => {
+  assert.equal(proximoAposRecarga("100", "50", true), "100");
+  assert.equal(proximoAposRecarga("100", "50", false), "50");
+  assert.equal(proximoAposRecarga("100", null, false), null);
+});
+
+test("linha do Realtime de outra loja (ou sem loja conhecida) é ignorada", () => {
+  assert.equal(linhaEhDaLoja({ tenant_id: "a" }, "a"), true);
+  assert.equal(linhaEhDaLoja({ tenant_id: "b" }, "a"), false);
+  assert.equal(linhaEhDaLoja({ tenant_id: "a" }, null), false);
+  assert.equal(linhaEhDaLoja(null, "a"), false);
 });

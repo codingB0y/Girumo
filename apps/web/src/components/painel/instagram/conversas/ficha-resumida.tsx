@@ -39,7 +39,7 @@ export function FichaResumida({ quem, carga, ficha, aoEditarEtiquetas, aoTentarD
       {carga === "carregando" && <span role="status" aria-label="Carregando ficha" className="pn-skeleton block h-5 w-40 rounded-[var(--radius-chip)]" />}
       {carga === "erro" && (
         <p role="alert" className="text-13 text-slate-600">
-          Não deu pra carregar a ficha. <button type="button" onClick={aoTentarDeNovo} className="text-cobalt-500">Tentar de novo</button>
+          Não deu pra carregar a ficha. <button type="button" onClick={aoTentarDeNovo} className="min-h-11 text-cobalt-500 lg:min-h-0">Tentar de novo</button>
         </p>
       )}
       {carga === "sem-acesso" && <p className="text-13 text-slate-600">Você não tem acesso às fichas.</p>}

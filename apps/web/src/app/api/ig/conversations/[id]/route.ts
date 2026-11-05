@@ -2,6 +2,7 @@ import { z } from "zod";
 import { pausaAte } from "@/lib/ig/conversas/fio";
 import { corpoInvalido, naoAchouConversa, paraConversa, requireConversas, responderErroConversa } from "@/lib/ig/conversas/http";
 import { isUuid } from "@/lib/ig/flow/body";
+import { getContactByIgUserId } from "@/lib/stores/ig-contacts";
 import { getConversationById, recordConversationEvent, updateConversation, type ConversationEventKind, type ConversationPatch } from "@/lib/stores/ig-conversations";
 
 export const runtime = "nodejs";
@@ -16,6 +17,21 @@ function efeito(acao: "resolver" | "pausar" | "retomar", agora: Date): { patch: 
   if (acao === "resolver") return { patch: { status: "resolved", bot_paused_until: null }, evento: { kind: "resolved", detail: "loja" } };
   if (acao === "pausar") return { patch: { bot_paused_until: pausaAte(agora) }, evento: { kind: "paused", detail: "pausado_pela_loja" } };
   return { patch: { bot_paused_until: null }, evento: { kind: "paused", detail: "retomado_pela_loja" } };
+}
+
+// GET /api/ig/conversations/[id] — { contatoId }: a ficha (id de Pessoas) desta conversa, ou null se ainda não há. A tela não conhece o id do Instagram.
+export async function GET(req: Request, { params }: Ctx) {
+  try {
+    const ctx = await requireConversas(req);
+    const { id } = await params;
+    if (!isUuid(id)) return naoAchouConversa();
+    const conversa = await getConversationById(ctx.tenantId, id);
+    if (!conversa) return naoAchouConversa();
+    const ficha = await getContactByIgUserId(ctx.tenantId, conversa.ig_user_id);
+    return Response.json({ contatoId: ficha?.id ?? null });
+  } catch (e) {
+    return responderErroConversa(e);
+  }
 }
 
 // PATCH /api/ig/conversations/[id] — { acao: "resolver" | "pausar" | "retomar" }. Não fala com a Zernio.

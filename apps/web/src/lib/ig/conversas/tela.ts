@@ -154,6 +154,7 @@ export const NOTA_DA_PAUSA = "Enquanto pausado, nenhuma palavra dela dispara flu
 /** Linha de `ig_conversations` como o Realtime entrega (colunas do banco). Só o que a tela usa. */
 export type LinhaDoRealtime = {
   id?: unknown;
+  tenant_id?: unknown;
   username?: unknown;
   display_name?: unknown;
   status?: unknown;
@@ -187,6 +188,31 @@ export function conversaDoRealtime(linha: LinhaDoRealtime | null | undefined, ag
     roboPausadoAte: pausa && Date.parse(pausa) > agora.getTime() ? pausa : null,
   };
 }
+
+/** A linha do Realtime é da loja desta sessão? (o filtro do canal já pede, mas a tela não confia só nele). Sem loja conhecida, nada passa. */
+export const linhaEhDaLoja = (linha: LinhaDoRealtime | null | undefined, tenantId: string | null): boolean => !!tenantId && linha?.tenant_id === tenantId;
+
+/**
+ * Debounce com teto: quanto esperar para o próximo disparo. A cada evento a espera recomeça (`esperaMs`), mas nunca
+ * passa de `tetoMs` desde o primeiro evento da rajada (`primeiroEm`, null = rajada nova). Sem teto, um fluxo constante
+ * de eventos nunca deixa a consulta sair.
+ */
+export function atrasoComTeto(primeiroEm: number | null, agora: number, esperaMs: number, tetoMs: number): number {
+  if (primeiroEm === null) return Math.min(esperaMs, tetoMs);
+  return Math.max(0, Math.min(esperaMs, primeiroEm + tetoMs - agora));
+}
+
+/** Carimbo de sequência: só a resposta do último pedido feito pode gravar estado. */
+export function criarSequencia() {
+  let ultimo = 0;
+  return { novo: (): number => ++ultimo, atual: (n: number): boolean => n === ultimo };
+}
+
+/**
+ * O cursor "mais antigas" depois de uma recarga em silêncio da primeira página: com páginas extras já carregadas ele
+ * fica onde está (senão a lista voltaria a oferecer a página 2); sem elas, vale o da primeira página.
+ */
+export const proximoAposRecarga = (atual: string | null, daPrimeira: string | null, carregouMais: boolean): string | null => (carregouMais ? atual : daPrimeira);
 
 /** A linha cabe no filtro atual? (a etiqueta mora na ficha, então quem filtra por ela não decide aqui). */
 export function casaComFiltro(c: ConversaDto, f: FiltroDaLista): boolean {

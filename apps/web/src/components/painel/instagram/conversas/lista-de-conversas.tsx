@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { normalizeTag } from "@/lib/ig/flow/names";
 import { horaDaLista, iniciais, type FiltroDaLista } from "@/lib/ig/conversas/tela";
@@ -50,10 +50,9 @@ type Props = {
 
 function Linha({ c, atual, agora, aoAbrir }: { c: ConversaDto; atual: boolean; agora: Date; aoAbrir: (id: string) => void }) {
   const quem = c.username ? `@${c.username}` : (c.nome ?? "Sem @");
-  const resumo = `${quem}${c.naoLidas ? `, ${c.naoLidas} não lida${c.naoLidas === 1 ? "" : "s"}` : ""}${c.situacao === "waiting" ? ", aguardando você" : ""}`;
   return (
     <li>
-      <button type="button" onClick={() => aoAbrir(c.id)} aria-current={atual ? "true" : undefined} aria-label={resumo} className={cn("flex min-h-16 w-full gap-3 border-b border-line-200 px-3.5 py-3 text-left hover:bg-canvas-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cobalt-500", atual && "bg-canvas-100")}>
+      <button type="button" onClick={() => aoAbrir(c.id)} aria-current={atual ? "true" : undefined} data-conversa-id={c.id} className={cn("flex min-h-16 w-full gap-3 border-b border-line-200 px-3.5 py-3 text-left hover:bg-canvas-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-cobalt-500", atual && "bg-canvas-100")}>
         <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-line-200 text-13 font-bold text-volt-950">{iniciais(c.username, c.nome)}</span>
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex items-baseline justify-between gap-2">
@@ -62,7 +61,12 @@ function Linha({ c, atual, agora, aoAbrir }: { c: ConversaDto; atual: boolean; a
           </span>
           <span className="flex items-center justify-between gap-2">
             <span className="truncate text-13 text-slate-600">{c.previa ?? "Sem mensagens"}</span>
-            {c.naoLidas > 0 && <span aria-hidden="true" className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-cobalt-500 px-1.5 text-12 font-semibold text-paper-0">{c.naoLidas}</span>}
+            {c.naoLidas > 0 && (
+              <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-cobalt-500 px-1.5 text-12 font-semibold text-paper-0">
+                {c.naoLidas}
+                <span className="sr-only"> {c.naoLidas === 1 ? "não lida" : "não lidas"}</span>
+              </span>
+            )}
           </span>
           {(c.situacao === "waiting" || c.pedido || c.roboPausadoAte) && (
             <span className="flex flex-wrap gap-1.5">
@@ -81,6 +85,19 @@ function Linha({ c, atual, agora, aoAbrir }: { c: ConversaDto; atual: boolean; a
 export function ListaDeConversas(p: Props) {
   const [etiqueta, setEtiqueta] = useState(p.filtro.etiqueta);
   const [etiquetaRecusada, setEtiquetaRecusada] = useState(false);
+  // A busca só vai à rota 300 ms depois da última tecla; o campo responde na hora.
+  const [busca, setBusca] = useState(p.filtro.busca);
+  const filtroAtual = useRef(p.filtro);
+  const aoMudar = useRef(p.aoMudarFiltro);
+  useEffect(() => {
+    filtroAtual.current = p.filtro;
+    aoMudar.current = p.aoMudarFiltro;
+  });
+  useEffect(() => {
+    if (busca === filtroAtual.current.busca) return;
+    const t = setTimeout(() => aoMudar.current({ ...filtroAtual.current, busca }), 300);
+    return () => clearTimeout(t);
+  }, [busca]);
   const agora = new Date();
   const aviso = AVISO_DA_VARREDURA[p.varredura.estado];
 
@@ -100,7 +117,7 @@ export function ListaDeConversas(p: Props) {
         <label className="relative block">
           <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
           <span className="sr-only">Buscar por @</span>
-          <input type="search" value={p.filtro.busca} onChange={(e) => p.aoMudarFiltro({ ...p.filtro, busca: e.target.value })} placeholder="Buscar por @" maxLength={60} className="h-11 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 pl-8 pr-2 text-14 text-volt-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 lg:h-9 lg:text-13" />
+          <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por @" maxLength={60} className="h-11 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 pl-8 pr-2 text-14 text-volt-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 lg:h-9 lg:text-13" />
         </label>
         <div role="group" aria-label="Filtrar conversas" className="flex flex-wrap gap-1.5">
           {FILTROS.map((f) => (
@@ -133,7 +150,7 @@ export function ListaDeConversas(p: Props) {
         {p.carga === "carregando" && p.itens.length === 0 && <span role="status" aria-label="Carregando conversas" className="pn-skeleton m-4 block h-5 w-48 rounded-[var(--radius-chip)]" />}
         {p.carga === "erro" && (
           <p role="alert" className="px-4 py-6 text-center text-13 text-slate-600">
-            Não deu pra carregar as conversas. <button type="button" onClick={p.aoTentarDeNovo} className="text-cobalt-500">Tentar de novo</button>
+            Não deu pra carregar as conversas. <button type="button" onClick={p.aoTentarDeNovo} className="min-h-11 text-cobalt-500 lg:min-h-0">Tentar de novo</button>
           </p>
         )}
         {p.carga === "sem-acesso" && <p role="alert" className="px-4 py-6 text-center text-13 text-slate-600">Você não tem acesso às conversas.</p>}

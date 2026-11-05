@@ -1,16 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FichaDaPessoa, ListaDePessoas } from "@/lib/ig/pessoas-tipos";
+import type { FichaDaPessoa } from "@/lib/ig/pessoas-tipos";
 import { lerJson } from "../pessoas/use-pessoas";
 
 export type CargaDaFicha = "carregando" | "ok" | "sem-ficha" | "sem-acesso" | "erro";
 
 /**
- * A ficha da pessoa da conversa. A conversa não carrega o id da ficha (nem o do Instagram): acha pelo @, nas rotas de
- * Pessoas, e só aceita o @ idêntico (a busca é por trecho).
+ * A ficha da pessoa da conversa. A conversa não carrega o id da ficha (nem o do Instagram): a rota da conversa devolve
+ * o `contatoId` (busca exata no servidor, pelo id do Instagram) e a ficha vem das rotas de Pessoas.
  */
-export function useFicha(username: string | null) {
+export function useFicha(conversaId: string) {
   const [ficha, setFicha] = useState<FichaDaPessoa | null>(null);
   const [carga, setCarga] = useState<CargaDaFicha>("carregando");
   const pedido = useRef(0);
@@ -18,19 +18,17 @@ export function useFicha(username: string | null) {
   const carregar = useCallback(async () => {
     const eu = ++pedido.current;
     setFicha(null);
-    if (!username) return setCarga("sem-ficha");
     setCarga("carregando");
-    const lista = await lerJson<ListaDePessoas>(`/api/ig/contacts?q=${encodeURIComponent(username)}`);
+    const achada = await lerJson<{ contatoId: string | null }>(`/api/ig/conversations/${conversaId}`);
     if (eu !== pedido.current) return;
-    if (!lista.ok) return setCarga(lista.status === 403 ? "sem-acesso" : "erro");
-    const achada = lista.dados.pessoas.find((p) => p.username?.toLowerCase() === username.toLowerCase());
-    if (!achada) return setCarga("sem-ficha");
-    const detalhe = await lerJson<FichaDaPessoa>(`/api/ig/contacts/${achada.id}`);
+    if (!achada.ok) return setCarga(achada.status === 403 ? "sem-acesso" : "erro");
+    if (!achada.dados.contatoId) return setCarga("sem-ficha");
+    const detalhe = await lerJson<FichaDaPessoa>(`/api/ig/contacts/${achada.dados.contatoId}`);
     if (eu !== pedido.current) return;
     if (!detalhe.ok) return setCarga(detalhe.status === 403 ? "sem-acesso" : "erro");
     setFicha(detalhe.dados);
     setCarga("ok");
-  }, [username]);
+  }, [conversaId]);
 
   useEffect(() => {
     void carregar();

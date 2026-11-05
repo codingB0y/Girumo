@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useRole } from "@/components/painel/role-provider";
 import { useRecarga } from "@/components/painel/home/ao-vivo/use-recarga";
 import { ESPERA_DO_REALTIME_MS, proximoAoVivo, type AoVivo, type LinhaDoRealtime } from "@/lib/ig/conversas/tela";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -23,6 +24,7 @@ type Opcoes = {
 export function useAoVivoConversas({ tenantId, ativo, aoMudar, aoConsultar, consultaMs }: Opcoes): AoVivo {
   const [estado, setEstado] = useState<AoVivo>("conectando");
   const instancia = useId();
+  const { carregado } = useRole();
   // Os callbacks mudam a cada render; a assinatura não pode refazer por causa deles.
   const mudar = useRef(aoMudar);
   const consultar = useRef(aoConsultar);
@@ -31,11 +33,20 @@ export function useAoVivoConversas({ tenantId, ativo, aoMudar, aoConsultar, cons
     consultar.current = aoConsultar;
   });
 
+  // Papel carregado e nenhuma loja: não há canal a assinar, então só a consulta mantém a tela viva.
+  useEffect(() => {
+    if (ativo && carregado && !tenantId) setEstado("consulta");
+  }, [ativo, carregado, tenantId]);
+
   useEffect(() => {
     if (!ativo || !tenantId) return;
+    let corrente = true;
     setEstado("conectando");
     const supabase = getSupabaseBrowserClient();
-    const sinal = (s: "inscrito" | "caiu" | "vencido") => setEstado((atual) => proximoAoVivo(atual, s));
+    // O CLOSED do removeChannel de uma assinatura antiga pode chegar depois do "conectando" da nova: só vale o canal corrente.
+    const sinal = (s: "inscrito" | "caiu" | "vencido") => {
+      if (corrente) setEstado((atual) => proximoAoVivo(atual, s));
+    };
     const prazo = setTimeout(() => sinal("vencido"), ESPERA_DO_REALTIME_MS);
     // O nome leva a instância: dois `.on()` no mesmo canal já assinado derrubam a tela (ver o sino de avisos).
     const canal = supabase
@@ -46,6 +57,7 @@ export function useAoVivoConversas({ tenantId, ativo, aoMudar, aoConsultar, cons
         else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") sinal("caiu");
       });
     return () => {
+      corrente = false;
       clearTimeout(prazo);
       void supabase.removeChannel(canal);
     };
@@ -60,6 +72,8 @@ export function useAoVivoConversas({ tenantId, ativo, aoMudar, aoConsultar, cons
     if (estado === "consulta" || (estado === "realtime" && antes === "consulta")) consultar.current();
   }, [estado, ativo]);
 
-  useRecarga(() => consultar.current(), consultaMs, ativo && estado === "consulta");
+    // Estável: com função inline o intervalo recomeçaria a cada render e o de 60 s da barra nunca dispararia.
+  const consultarAgora = useCallback(() => consultar.current(), []);
+  useRecarga(consultarAgora, consultaMs, ativo && estado === "consulta");
   return estado;
 }

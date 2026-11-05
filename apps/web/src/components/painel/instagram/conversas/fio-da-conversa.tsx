@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { ChevronLeft, Check, UserRound } from "lucide-react";
 import { estadoDoCampo, iniciais, itensDoFio } from "@/lib/ig/conversas/tela";
 import type { ConversaDto } from "@/lib/ig/conversas/tipos";
@@ -18,12 +18,21 @@ type Props = {
   /** Só no celular: volta para a lista / abre a ficha. */
   aoVoltar?: () => void;
   aoAbrirFicha?: () => void;
+  /** Ficha em tela cheia por cima: o fio fica fora da ordem de tabulação e dos leitores de tela. */
+  inerte?: boolean;
+  refBotaoFicha?: RefObject<HTMLButtonElement | null>;
 };
 
 /** Perto do fim = quem lê as mensagens novas sem precisar rolar. */
 const PERTO_DO_FIM_PX = 120;
 
-export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha }: Props) {
+export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha, inerte, refBotaoFicha }: Props) {
+  const titulo = useRef<HTMLHeadingElement>(null);
+  // No celular a conversa abre em tela cheia: o foco vai para o título dela (o botão da lista saiu da tela).
+  const noCelular = useRef(aoVoltar !== undefined);
+  useEffect(() => {
+    if (noCelular.current) titulo.current?.focus();
+  }, []);
   const [erro, setErro] = useState<string | null>(null);
   const [agindo, setAgindo] = useState(false);
   const rolagem = useRef<HTMLDivElement>(null);
@@ -52,7 +61,7 @@ export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha }: Props) 
   };
 
   return (
-    <section aria-label={`Conversa com ${quem}`} className="flex min-h-0 flex-col bg-canvas-100">
+    <section aria-label={`Conversa com ${quem}`} inert={inerte} className="flex min-h-0 flex-col bg-canvas-100">
       <header className="flex flex-wrap items-center gap-2 border-b border-line-200 bg-paper-0 px-3 py-2">
         {aoVoltar && (
           <button type="button" onClick={aoVoltar} aria-label="Voltar pras conversas" className={ICONE}>
@@ -61,7 +70,7 @@ export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha }: Props) 
         )}
         <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-line-200 text-13 font-bold text-volt-950">{iniciais(conversa.username, conversa.nome)}</span>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-15 font-semibold text-volt-950">{quem}</h2>
+          <h2 ref={titulo} tabIndex={-1} className="truncate text-15 font-semibold text-volt-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500">{quem}</h2>
           <p className="truncate text-12 text-slate-600">
             {conversa.situacao === "waiting" ? "Aguardando você" : conversa.situacao === "open" ? "Aberta" : "Resolvida"}
             {conversa.pedido && " · pedido de mensagem"}
@@ -70,7 +79,7 @@ export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha }: Props) 
         <div className="flex items-center gap-2">
           <span className="hidden items-center gap-2 text-13 text-slate-600 sm:inline-flex">
             {fio.pausadoAte ? "Robô pausado nesta conversa" : "Robô ligado nesta conversa"}
-            {!fio.pausadoAte && <button type="button" disabled={agindo} onClick={() => void agir("pausar")} className="min-h-9 text-cobalt-500 disabled:opacity-50">Pausar</button>}
+            {!fio.pausadoAte && <button type="button" disabled={agindo} onClick={() => void agir("pausar")} className="min-h-11 text-cobalt-500 disabled:opacity-50 lg:min-h-9">Pausar</button>}
           </span>
           {conversa.situacao !== "resolved" && (
             <button type="button" disabled={agindo} onClick={() => void agir("resolver")} className={BOTAO}>
@@ -79,7 +88,7 @@ export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha }: Props) 
             </button>
           )}
           {aoAbrirFicha && (
-            <button type="button" onClick={aoAbrirFicha} aria-label={`Ficha de ${quem}`} className={ICONE}>
+            <button ref={refBotaoFicha} type="button" onClick={aoAbrirFicha} aria-label={`Ficha de ${quem}`} className={ICONE}>
               <UserRound aria-hidden="true" className="h-5 w-5" />
             </button>
           )}
@@ -96,7 +105,7 @@ export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha }: Props) 
         {fio.carga === "carregando" && <span role="status" aria-label="Carregando mensagens" className="pn-skeleton block h-5 w-56 rounded-[var(--radius-chip)]" />}
         {fio.carga === "erro" && (
           <p role="alert" className="text-center text-13 text-slate-600">
-            {fio.erroDaCarga ?? "Não deu pra carregar as mensagens."} <button type="button" onClick={fio.recarregar} className="text-cobalt-500">Tentar de novo</button>
+            {fio.erroDaCarga ?? "Não deu pra carregar as mensagens."} <button type="button" onClick={fio.recarregar} className="min-h-11 text-cobalt-500 lg:min-h-0">Tentar de novo</button>
           </p>
         )}
         {fio.carga === "nao-achou" && <p role="alert" className="text-center text-13 text-slate-600">Esta conversa não existe mais.</p>}
@@ -117,7 +126,7 @@ export function FioDaConversa({ conversa, fio, aoVoltar, aoAbrirFicha }: Props) 
         )}
       </div>
 
-      {fio.carga === "ok" && <CampoDeResposta key={conversa.id} estado={campo} quem={quem} aoEnviar={fio.enviar} aoRetomar={() => agir("retomar")} />}
+      {fio.viuOk && <CampoDeResposta key={conversa.id} estado={campo} quem={quem} aoEnviar={fio.enviar} aoRetomar={() => agir("retomar")} />}
     </section>
   );
 }

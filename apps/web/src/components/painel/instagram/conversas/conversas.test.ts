@@ -28,7 +28,10 @@ test("a lista é uma nav com ul, marca a conversa atual e mostra Aguardando voc�
   assert.match(h, /<nav aria-label="Conversas"/);
   assert.match(h, /<ul>/);
   assert.equal((h.match(/aria-current="true"/g) ?? []).length, 1, "só a conversa aberta é a atual");
-  assert.match(h, /aria-label="@loja\.a, 2 não lidas, aguardando você"/);
+  assert.match(h, /@loja\.a<\/span>/);
+  assert.match(h, /2<span class="sr-only"> não lidas<\/span>/, "o nome acessível leva prévia, hora e não lidas");
+  assert.match(h, /data-conversa-id="a"/);
+  assert.doesNotMatch(h, /<button[^>]*aria-label="@loja/, "aria-label esconderia a prévia e a hora");
   assert.match(h, />Aguardando você</);
 });
 

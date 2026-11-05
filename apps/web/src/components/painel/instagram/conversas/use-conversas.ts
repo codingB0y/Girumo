@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { casaComFiltro, mesclarConversas, queryDaLista, SEM_FILTRO, trocarPrimeiraPagina, type FiltroDaLista } from "@/lib/ig/conversas/tela";
+import { casaComFiltro, mesclarConversas, proximoAposRecarga, queryDaLista, SEM_FILTRO, trocarPrimeiraPagina, type FiltroDaLista } from "@/lib/ig/conversas/tela";
 import type { ConversaDto, ListaDeConversas } from "@/lib/ig/conversas/tipos";
+import { useRecargaAdiada } from "./use-recarga-adiada";
 
 export type CargaDaLista = "carregando" | "ok" | "erro" | "sem-acesso";
 /** A varredura da primeira abertura e do "Atualizar" (`POST /sync`). */
@@ -11,6 +12,27 @@ const PARADA: Varredura = { estado: "parada", parcial: false, novas: 0 };
 
 /** Junta várias mudanças seguidas numa só consulta (cada uma custa saída do Supabase). */
 const ESPERA_DA_RECARGA_MS = 1500;
+/** Sob um fluxo constante de eventos, a lista ainda recarrega a cada 5 s. */
+const TETO_DA_RECARGA_MS = 5000;
+
+/** A varredura da primeira abertura já rodou nesta aba para esta loja? (sessionStorage pode não existir: sem ele, roda.) */
+const chaveDaVarredura = (tenantId: string) => `ig-conversas-varrida:${tenantId}`;
+function jaVarreuNestaAba(tenantId: string | null): boolean {
+  if (!tenantId) return false;
+  try {
+    return sessionStorage.getItem(chaveDaVarredura(tenantId)) === "1";
+  } catch {
+    return false;
+  }
+}
+function lembrarVarredura(tenantId: string | null) {
+  if (!tenantId) return;
+  try {
+    sessionStorage.setItem(chaveDaVarredura(tenantId), "1");
+  } catch {
+    // Sem armazenamento: a varredura repete na próxima abertura, sem dano.
+  }
+}
 
 type Pagina = { ok: true; dados: ListaDeConversas } | { ok: false; status: number };
 
@@ -24,7 +46,7 @@ async function lerPagina(filtro: FiltroDaLista, cursor?: string | null): Promise
 }
 
 /** A lista de conversas: filtros, páginas, o contador "aguardando você" e a varredura da Zernio. */
-export function useConversas() {
+export function useConversas(tenantId: string | null) {
   const [filtro, setFiltro] = useState<FiltroDaLista>(SEM_FILTRO);
   const [itens, setItens] = useState<ConversaDto[]>([]);
   const [proximo, setProximo] = useState<string | null>(null);
@@ -37,11 +59,13 @@ export function useConversas() {
   const filtroAtual = useRef(filtro);
   const temMais = useRef(false);
   const jaVarreu = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const carregouMais = useRef(false);
+  const lojaAtual = useRef(tenantId);
 
   useEffect(() => {
     filtroAtual.current = filtro;
     temMais.current = proximo !== null;
+    lojaAtual.current = tenantId;
   });
 
   const carregar = useCallback(async (f: FiltroDaLista, silencioso = false) => {
@@ -55,7 +79,8 @@ export function useConversas() {
       return null;
     }
     setItens((atuais) => (silencioso ? trocarPrimeiraPagina(atuais, r.dados.conversas, r.dados.proximo !== null) : r.dados.conversas));
-    setProximo(r.dados.proximo);
+    if (!silencioso) carregouMais.current = false;
+    setProximo((atual) => proximoAposRecarga(atual, r.dados.proximo, silencioso && carregouMais.current));
     setAguardando(r.dados.aguardando);
     setEtiquetaParcial(r.dados.etiquetaParcial === true);
     setMaisFalhou(false);
@@ -71,6 +96,7 @@ export function useConversas() {
       if (r.status === 429) return setVarredura({ ...PARADA, estado: "cedo" });
       if (r.status === 409 && corpo?.code === "sem_conta") return setVarredura({ ...PARADA, estado: "sem-conta" });
       if (!r.ok) return setVarredura({ ...PARADA, estado: "erro" });
+      lembrarVarredura(lojaAtual.current);
       setVarredura({ estado: "feita", parcial: corpo?.parcial === true, novas: corpo?.criadas ?? 0 });
       await carregar(filtroAtual.current, true);
     } catch {
@@ -82,7 +108,7 @@ export function useConversas() {
   const abrir = useCallback(
     async (f: FiltroDaLista) => {
       const dados = await carregar(f);
-      if (dados && dados.conversas.length === 0 && f === SEM_FILTRO && !jaVarreu.current) {
+      if (dados && dados.conversas.length === 0 && f === SEM_FILTRO && !jaVarreu.current && !jaVarreuNestaAba(lojaAtual.current)) {
         jaVarreu.current = true;
         void varrer();
       }
@@ -94,18 +120,22 @@ export function useConversas() {
     void abrir(filtro);
   }, [filtro, abrir]);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
-
   const recarregar = useCallback(() => void carregar(filtroAtual.current, true), [carregar]);
 
   const maisAntigas = useCallback(async () => {
     if (!proximo) return;
-    const r = await lerPagina(filtroAtual.current, proximo);
+    const f = filtroAtual.current;
+    const r = await lerPagina(f, proximo);
+    // O filtro mudou enquanto a página vinha: ela é de outra lista.
+    if (f !== filtroAtual.current) return;
     if (!r.ok) return setMaisFalhou(true);
+    carregouMais.current = true;
     setItens((atuais) => mesclarConversas(atuais, r.dados.conversas));
     setProximo(r.dados.proximo);
     setMaisFalhou(false);
   }, [proximo]);
+
+  const agendarRecarga = useRecargaAdiada(recarregar, ESPERA_DA_RECARGA_MS, TETO_DA_RECARGA_MS);
 
   /** Mudança vinda do Realtime: acerta a linha na hora e confere a lista logo depois (ordem e contador). */
   const aplicarLinha = useCallback(
@@ -115,14 +145,16 @@ export function useConversas() {
         // Quem filtra por etiqueta não sabe pela linha se ela ainda casa: só a consulta decide.
         if (!f.etiqueta) setItens((atuais) => (casaComFiltro(c, f) ? mesclarConversas(atuais, [c]) : atuais.filter((x) => x.id !== c.id)));
       }
-      clearTimeout(timer.current);
-      timer.current = setTimeout(recarregar, ESPERA_DA_RECARGA_MS);
+      agendarRecarga();
     },
-    [recarregar],
+    [agendarRecarga],
   );
 
   /** Troca a linha por uma versão que a própria tela acabou de causar (ler, resolver, pausar). */
   const atualizarLinha = useCallback((c: ConversaDto) => setItens((atuais) => atuais.map((x) => (x.id === c.id ? c : x))), []);
 
-  return { filtro, mudarFiltro: setFiltro, itens, proximo, aguardando, etiquetaParcial, carga, maisFalhou, varredura, maisAntigas, recarregar, aplicarLinha, atualizarLinha, atualizar: varrer };
+  /** Zera as não lidas da linha ATUAL (não de um retrato do evento, que pode já estar velho). */
+  const marcarLida = useCallback((id: string) => setItens((atuais) => atuais.map((x) => (x.id === id ? { ...x, naoLidas: 0 } : x))), []);
+
+  return { filtro, mudarFiltro: setFiltro, itens, proximo, aguardando, etiquetaParcial, carga, maisFalhou, varredura, maisAntigas, recarregar, aplicarLinha, atualizarLinha, marcarLida, atualizar: varrer };
 }
