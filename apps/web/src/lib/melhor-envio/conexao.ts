@@ -96,6 +96,8 @@ export async function concluirRetorno(url: URL, cookie: string | null, deps: Dep
   if (!timingSafeEqual(Buffer.from(hashDoEstado(cookie), "hex"), Buffer.from(hash, "hex"))) return "sessao";
   const pedido = await deps.consumirEstado(hash, deps.agora());
   if (!pedido) return "sessao";
+  // O flag pode ter sido desligado entre o clique e o retorno.
+  if (!(await deps.ligado(pedido.tenantId))) return "indisponivel";
   const papel = await deps.papel(pedido.tenantId, pedido.userId);
   if (!papel || !hasPermission(papel, "settings:connection")) return "sessao";
 

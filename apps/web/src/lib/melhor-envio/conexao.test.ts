@@ -124,6 +124,17 @@ test("sem env no retorno: indisponível", async () => {
   assert.equal(await concluirRetorno(retorno("code=c&state=s"), "s", deps), "indisponivel");
 });
 
+test("Rastreio desligado entre o clique e o retorno: indisponível, sem trocar nem salvar", async () => {
+  let ligado = true;
+  let trocas = 0;
+  const { deps, e } = montar({ ligado: async () => ligado, trocar: async () => (trocas++, TOKENS) });
+  const { state } = await comecar(deps);
+  ligado = false;
+  assert.equal(await concluirRetorno(retorno(`code=c&state=${state}`), state, deps), "indisponivel");
+  assert.equal(trocas, 0);
+  assert.equal(e.salvos.length, 0);
+});
+
 test("troca recusada e conta sem users-read", async () => {
   let m = montar({
     trocar: async () => {

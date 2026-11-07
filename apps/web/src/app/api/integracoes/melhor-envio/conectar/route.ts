@@ -25,7 +25,7 @@ export async function POST(req: Request): Promise<Response> {
     return resposta(r.corpo, r.status, r.cookie);
   } catch (e) {
     if (e instanceof Response) return e;
-    console.error(`[melhor-envio/conectar] ${(e as Error).message}`);
+    console.error(`[melhor-envio/conectar] ${e instanceof Error ? e.name : "erro"}`);
     return resposta({ error: "Não foi possível começar a conexão com o Melhor Envio." }, 500);
   }
 }

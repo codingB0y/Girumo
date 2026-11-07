@@ -13,19 +13,24 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const noApp = destinoNoApp(url, getAppUrl());
-  // Voltou em www: o cookie é do app., então refaz a navegação lá, sem consumir nada.
-  if (noApp) return new Response(null, { status: 302, headers: { location: noApp, "cache-control": "no-store" } });
-
   let motivo: MotivoDoRetorno;
   try {
+    const noApp = destinoNoApp(url, getAppUrl());
+    // Voltou em www: o cookie é do app., então refaz a navegação lá, sem consumir nada.
+    if (noApp) return new Response(null, { status: 302, headers: { location: noApp, "cache-control": "no-store" } });
     motivo = await concluirRetorno(url, readCookie(req.headers.get("cookie"), COOKIE_DO_ESTADO_ME));
   } catch (e) {
-    // Mensagens de store e do Melhor Envio não levam token, code nem cookie.
-    console.error(`[melhor-envio/retorno] ${(e as Error).message}`);
+    // Só o tipo do erro: a mensagem de store ou de fornecedor não é auditada contra vazamento.
+    console.error(`[melhor-envio/retorno] ${e instanceof Error ? e.name : "erro"}`);
     motivo = "erro";
   }
-  const destino = new URL(`/painel/configuracoes?secao=integracoes&melhorenvio=${motivo}`, req.url);
+  const caminho = `/painel/configuracoes?secao=integracoes&melhorenvio=${motivo}`;
+  let destino: URL;
+  try {
+    destino = new URL(caminho, getAppUrl());
+  } catch {
+    destino = new URL(caminho, req.url);
+  }
   return new Response(null, {
     status: 302,
     headers: { location: destino.toString(), "set-cookie": cookieDoEstadoMe("", 0), "cache-control": "no-store" },
