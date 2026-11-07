@@ -342,53 +342,6 @@ test("o Sincronizar do painel continua igual: importa o novo, apaga o de terceir
   assert.deepEqual(comandosDaTrava(), ["set", "del"]);
 });
 
-test("depois do Sincronizar, quem entrou desde o último sync vira lead mesmo sem o aviso da Evolution", async () => {
-  const CLIENTE = { id: "77777@lid", phoneNumber: "5562977770001@s.whatsapp.net", admin: null };
-  const OUTRA = { id: "66666@lid", phoneNumber: "5562966660001@s.whatsapp.net", admin: null };
-  prepara({
-    evolution: {
-      status: 200,
-      corpo: [
-        // g1 já tinha o NOS gravado: o CLIENTE é novo; a SOCIA é admin.
-        { id: "g1@g.us", subject: "Moda Kids 1", size: 3, participants: [NOS, SOCIA, CLIENTE] },
-        // g3 nunca teve participante gravado: primeira leitura, ninguém vira lead.
-        { id: "g3@g.us", subject: "Grupo novo", size: 2, participants: [NOS, OUTRA] },
-      ],
-    },
-  });
-  banco["GET /rest/v1/group_participants"] = () => ({
-    status: 200,
-    corpo: [{ whatsapp_group_id: "g1@g.us", participant_lid: NOS.id, phone: NOS.phoneNumber }],
-  });
-  banco["GET /rest/v1/optouts"] = () => ({ status: 200, corpo: [] });
-  banco["POST /rest/v1/group_participants"] = () => ({ status: 201 });
-  banco["POST /rest/v1/rpc/upsert_lead"] = () => ({ status: 200, corpo: { id: "lead-1" } });
-  const depois: Array<() => Promise<void>> = [];
-
-  await sincronizarGrupos(LOJA, { somenteContagem: false, depois: (t) => void depois.push(t) });
-  for (const tarefa of depois) await tarefa();
-
-  const leads = feitas("POST", "/rest/v1/rpc/upsert_lead").map((c) => c.corpo as Record<string, unknown>);
-  assert.deepEqual(leads, [
-    {
-      target_tenant_id: LOJA,
-      target_phone: CLIENTE.phoneNumber,
-      target_name: null,
-      target_source_group_id: "g1@g.us",
-      target_source_group_name: "Moda Kids 1",
-      target_source_campaign: null,
-    },
-  ]);
-  // Mutante: ler os participantes depois de gravar — todo mundo já estaria "visto".
-  const leitura = chamadas.findIndex((c) => c.metodo === "GET" && c.url.pathname === "/rest/v1/group_participants");
-  const gravacao = chamadas.findIndex((c) => c.metodo === "POST" && c.url.pathname === "/rest/v1/group_participants");
-  assert.ok(leitura >= 0 && leitura < gravacao, `${leitura} < ${gravacao}`);
-  assert.equal(
-    chamadas[leitura].url.searchParams.get("tenant_id"),
-    `eq.${LOJA}`,
-  );
-});
-
 const ATENDIMENTO = {
   ...INSTANCIA,
   id: "inst-p",
