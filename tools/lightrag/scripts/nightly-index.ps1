@@ -37,14 +37,17 @@ if (-not (Test-Path $Worktree)) {
 
 if ($Instalar) {
     $script = Join-Path $Worktree 'tools\lightrag\scripts\nightly-index.ps1'
+    # Janela oculta: com o PC desligado as 05h47 a tarefa roda quando o Igor entra, e a
+    # janela que abria era fechada. Em 05/11 e 07/11/2026 o run morreu com 0xC000013A
+    # (console fechado) depois de 6 e 9 arquivos, o ultimo no meio da gravacao do grafo.
     $acao = New-ScheduledTaskAction -Execute 'powershell.exe' `
-        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$script`""
+        -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`""
     # 05h47, nao madrugada: a cota diaria do Gemini zera a meia-noite do Pacifico (04h00 de
     # Brasilia no horario de verao dos EUA, 05h00 fora dele). As 03h17 o run pegava a sobra
     # do dia anterior: em 01/11/2026 o 1o lote deu 429 com "retry in 36m".
     $quando = New-ScheduledTaskTrigger -Daily -At 5:47am
-    # StartWhenAvailable: PC desligado as 05h47 roda quando ligar.
-    $opcoes = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 3)
+    # StartWhenAvailable: PC desligado as 05h47 roda quando ligar. WakeToRun: em suspensao, acorda.
+    $opcoes = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Hours 3)
     Register-ScheduledTask -TaskName 'Girumo RAG noturno' -Action $acao -Trigger $quando `
         -Settings $opcoes -Force | Out-Null
     Write-Output "Agendado: 'Girumo RAG noturno' todo dia as 05h47. Logs em $logDir"
