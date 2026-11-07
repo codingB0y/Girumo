@@ -72,3 +72,18 @@ def test_backoff_do_embedding_cabe_no_timeout_da_funcao():
     fonte = inspect.getsource(rag.get_rag)
     assert "default_embedding_timeout=240" in fonte, "o timeout precisa ser explicito"
     assert 60 < 240, "o teto do backoff tem que caber no timeout da funcao"
+
+
+def test_hash_ignora_fim_de_linha(tmp_path):
+    """Checkout do Windows (CRLF) e da nuvem (LF) não podem divergir no manifest."""
+    from lightrag_kg.index import file_hash, known_hashes
+
+    lf, crlf = tmp_path / "lf.md", tmp_path / "crlf.md"
+    lf.write_bytes(b"a\nb\n")
+    crlf.write_bytes(b"a\r\nb\r\n")
+    assert file_hash(lf) == file_hash(crlf)
+    # hash cru gravado antes da normalização (em qualquer das duas máquinas) segue valendo
+    legado_windows = __import__("hashlib").sha1(b"a\r\nb\r\n").hexdigest()[:16]
+    assert legado_windows in known_hashes(lf)
+    lf.write_bytes(b"a\nc\n")
+    assert legado_windows not in known_hashes(lf)
