@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { MarcoDoMelhorEnvio } from "@/lib/rastreio/marcos";
 import type { Etapa, EventoDaLinha, OrigemDoPedido, PedidoGravado, PedidoInterno, PedidoParaGravar, PedidoPublico } from "@/lib/rastreio/tipos";
 import { abrir, chaveDeIntegracoes, selar } from "@/lib/security/secret-box";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -80,6 +81,19 @@ function paraInterno(l: LinhaInterna): PedidoInterno {
   };
 }
 
+function paraGravado(r: RetornoDaRpc): PedidoGravado {
+  return {
+    id: r.id,
+    etapa: r.etapa,
+    etapaAnterior: r.etapa_anterior,
+    mudou: r.mudou,
+    linkToken: r.link_token,
+    paradoEm: r.notices_stopped_at,
+    temTelefone: r.tem_telefone,
+    temEmail: r.tem_email,
+  };
+}
+
 /** O contexto (AAD) do e-mail: a cifra de um pedido não abre como a de outro. */
 const contextoDoEmail = (tenantId: string, externalId: string) => `rastreio:${tenantId}:yampi:${externalId}:email`;
 
@@ -119,16 +133,62 @@ export async function gravarPedido(tenantId: string, pedido: PedidoParaGravar, o
   if (error) throw new Error(error.message);
   const r = data as RetornoDaRpc | null;
   if (!r) throw new Error("rastreio: a gravação do pedido não devolveu nada");
-  return {
-    id: r.id,
-    etapa: r.etapa,
-    etapaAnterior: r.etapa_anterior,
-    mudou: r.mudou,
-    linkToken: r.link_token,
-    paradoEm: r.notices_stopped_at,
-    temTelefone: r.tem_telefone,
-    temEmail: r.tem_email,
-  };
+  return paraGravado(r);
+}
+
+/**
+ * Grava o marco do Melhor Envio (entregue, problema) num pedido já existente, pela RPC (mesma trava de linha
+ * e mesma regra "a etapa não volta" do `gravarPedido`). `null` = o pedido sumiu (purge) ou não é da loja.
+ */
+export async function gravarMarco(tenantId: string, orderId: string, m: MarcoDoMelhorEnvio): Promise<PedidoGravado | null> {
+  const { data, error } = await getSupabaseAdmin().rpc("rastreio_gravar_marco", {
+    p_tenant: tenantId,
+    p_order: orderId,
+    p_etapa: m.etapa,
+    p_em: m.em,
+    p_status_raw: m.statusRaw,
+  });
+  if (error) throw new Error(error.message);
+  return data ? paraGravado(data as RetornoDaRpc) : null;
+}
+
+export type PedidoACaminho = { id: string; numero: string; trackingCode: string; orderCreatedAt: string };
+
+/**
+ * Os pedidos que a passada do Melhor Envio confere: a caminho (`enviado`) ou com problema, com código, e
+ * com a etapa mudada desde `desde`. Mais novo primeiro.
+ * ponytail: 500 por loja; subir quando uma loja passar disso em 30 dias.
+ */
+export async function pedidosACaminho(tenantId: string, desde: Date, limite = 500): Promise<PedidoACaminho[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(PEDIDOS)
+    .select("id,numero,tracking_code,order_created_at")
+    .eq("tenant_id", tenantId)
+    .in("etapa", ["enviado", "problema"])
+    .not("tracking_code", "is", null)
+    .gte("etapa_at", desde.toISOString())
+    .order("order_created_at", { ascending: false })
+    .limit(Math.min(limite, 1000));
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as Array<{ id: string; numero: string; tracking_code: string; order_created_at: string }>).map((l) => ({
+    id: l.id,
+    numero: l.numero,
+    trackingCode: l.tracking_code,
+    orderCreatedAt: l.order_created_at,
+  }));
+}
+
+/** Quantos a passada entregou desde `desde` (contagem pelo cabeçalho: o PostgREST corta lista em 1000 sem erro). */
+export async function entreguesPeloMelhorEnvio(tenantId: string, desde: Date): Promise<number> {
+  const { count, error } = await getSupabaseAdmin()
+    .from(PEDIDOS)
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("etapa", "entregue")
+    .eq("status_raw", "melhorenvio:delivered")
+    .gte("etapa_at", desde.toISOString());
+  if (error) throw new Error(error.message);
+  return count ?? 0;
 }
 
 export async function lerPedido(tenantId: string, orderId: string): Promise<PedidoInterno | null> {

@@ -8,17 +8,20 @@ import { abrir, selar } from "@/lib/security/secret-box";
 import {
   abrirEmailDoPedido,
   buscarPedidos,
+  entreguesPeloMelhorEnvio,
+  gravarMarco,
   gravarPedido,
   lerPedido,
   pararAvisos,
   pedidoPorToken,
+  pedidosACaminho,
   purgarVencidos,
 } from "./rastreio-pedidos";
 
 /** O cliente real do Supabase contra um PostgREST de mentira (molde de `bling-pedidos.test.ts`). */
 
 type Chamada = { metodo: string; url: URL; prefer: string; corpo: unknown };
-type Resposta = { status: number; corpo?: unknown };
+type Resposta = { status: number; corpo?: unknown; contentRange?: string };
 
 const chamadas: Chamada[] = [];
 let responder: (chamada: Chamada) => Resposta = () => ({ status: 500, corpo: { message: "sem resposta" } });
@@ -34,8 +37,9 @@ const postgrest = createServer((req, res) => {
       corpo: bruto ? JSON.parse(bruto) : undefined,
     };
     chamadas.push(chamada);
-    const { status, corpo } = responder(chamada);
+    const { status, corpo, contentRange } = responder(chamada);
     if (corpo !== undefined) res.setHeader("Content-Type", "application/json");
+    if (contentRange) res.setHeader("Content-Range", contentRange);
     res.statusCode = status;
     res.end(corpo === undefined ? undefined : JSON.stringify(corpo));
   });
@@ -310,4 +314,96 @@ test("purgarVencidos chama o purge e devolve quantos saíram", async () => {
   responder = () => ({ status: 200, corpo: 3 });
   assert.equal(await purgarVencidos(), 3);
   assert.deepEqual([chamadas[0].metodo, chamadas[0].url.pathname], ["POST", "/rest/v1/rpc/rastreio_purgar"]);
+});
+
+test("gravarMarco chama a RPC do marco e devolve o PedidoGravado", async () => {
+  responder = () => ({ status: 200, corpo: { ...RETORNO_DA_RPC, etapa: "entregue", etapa_anterior: "enviado" } });
+
+  const gravado = await gravarMarco("loja-a", "ped-1", {
+    etapa: "entregue",
+    em: "2026-11-01T17:32:00.000Z",
+    statusRaw: "melhorenvio:delivered",
+  });
+
+  const [{ metodo, url, corpo }] = chamadas;
+  assert.deepEqual([metodo, url.pathname], ["POST", "/rest/v1/rpc/rastreio_gravar_marco"]);
+  assert.deepEqual(corpo, {
+    p_tenant: "loja-a",
+    p_order: "ped-1",
+    p_etapa: "entregue",
+    p_em: "2026-11-01T17:32:00.000Z",
+    p_status_raw: "melhorenvio:delivered",
+  });
+  assert.deepEqual(gravado, {
+    id: "o-1",
+    etapa: "entregue",
+    etapaAnterior: "enviado",
+    mudou: true,
+    linkToken: "f".repeat(32),
+    paradoEm: null,
+    temTelefone: true,
+    temEmail: true,
+  });
+});
+
+test("gravarMarco: pedido que sumiu (purge) devolve null", async () => {
+  responder = () => ({ status: 200, corpo: null });
+  assert.equal(await gravarMarco("loja-a", "ped-1", { etapa: "problema", em: "2026-11-01T17:32:00.000Z", statusRaw: "melhorenvio:paused" }), null);
+});
+
+test("pedidosACaminho lista enviado e problema com código, da loja, desde a data, mais novo primeiro", async () => {
+  const desde = new Date("2026-10-03T12:00:00.000Z");
+  responder = () => ({
+    status: 200,
+    corpo: [{ id: "o-1", numero: "1001", tracking_code: "BR123456789", order_created_at: "2026-10-28T12:00:00+00:00" }],
+  });
+
+  const lista = await pedidosACaminho("loja-a", desde);
+
+  const [{ url }] = chamadas;
+  assert.equal(url.pathname, "/rest/v1/tracking_orders");
+  assert.deepEqual(filtros(url), {
+    tenant_id: "eq.loja-a",
+    etapa: "in.(enviado,problema)",
+    tracking_code: "not.is.null",
+    etapa_at: `gte.${desde.toISOString()}`,
+    order: "order_created_at.desc",
+    limit: "500",
+  });
+  assert.deepEqual(lista, [{ id: "o-1", numero: "1001", trackingCode: "BR123456789", orderCreatedAt: "2026-10-28T12:00:00+00:00" }]);
+});
+
+test("entreguesPeloMelhorEnvio conta pelo cabeçalho, sem trazer linha", async () => {
+  const desde = new Date("2026-10-03T12:00:00.000Z");
+  responder = () => ({ status: 200, contentRange: "0-0/7" });
+
+  assert.equal(await entreguesPeloMelhorEnvio("loja-a", desde), 7);
+
+  const [{ metodo, url, prefer }] = chamadas;
+  assert.equal(metodo, "HEAD");
+  assert.match(prefer, /count=exact/);
+  assert.deepEqual(filtros(url), {
+    tenant_id: "eq.loja-a",
+    etapa: "eq.entregue",
+    status_raw: "eq.melhorenvio:delivered",
+    etapa_at: `gte.${desde.toISOString()}`,
+  });
+
+  responder = () => ({ status: 200, contentRange: "*/0" });
+  assert.equal(await entreguesPeloMelhorEnvio("loja-a", desde), 0);
+});
+
+test("pedidosACaminho limita a 1000 mesmo pedindo mais", async () => {
+  responder = () => ({ status: 200, corpo: [] });
+  await pedidosACaminho("loja-a", new Date("2026-10-03T12:00:00.000Z"), 5000);
+  assert.equal(chamadas[0].url.searchParams.get("limit"), "1000");
+});
+
+test("erro do Supabase vira exceção em gravarMarco e pedidosACaminho", async () => {
+  responder = () => ({ status: 500, corpo: { message: "quebrou" } });
+  await assert.rejects(
+    () => gravarMarco("loja-a", "ped-1", { etapa: "entregue", em: "2026-11-01T17:32:00.000Z", statusRaw: "melhorenvio:delivered" }),
+    /quebrou/,
+  );
+  await assert.rejects(() => pedidosACaminho("loja-a", new Date("2026-10-03T12:00:00.000Z")), /quebrou/);
 });
