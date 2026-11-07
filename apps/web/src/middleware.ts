@@ -12,6 +12,7 @@ import { isPublicPage, publicPageCaseAlias } from "@/lib/public-pages";
 import {
   BIO_DOMINIO,
   LINK_NAO_ENCONTRADO,
+  RASTREIO_DOMINIO,
   customHostRoute,
   hostnameFromHostHeader,
   isFirstPartyHost,
@@ -129,6 +130,17 @@ function bioRootResponse(req: NextRequest): NextResponse {
   return nonceResponse(req, buildCsp("bio", nonce, process.env.NODE_ENV === "development"), nonce, destino);
 }
 
+/**
+ * `/rastreio…` no domínio do lojista: a página de rastreio da loja dona do host, sem mudar a URL
+ * (spec rastreio-pedidos §3.5). Irmã de bioRootResponse; quem acha a loja pelo host é o handler.
+ */
+function rastreioResponse(req: NextRequest): NextResponse {
+  const nonce = generateNonce();
+  const destino = req.nextUrl.clone();
+  destino.pathname = `/rastreio/${RASTREIO_DOMINIO}${req.nextUrl.pathname.slice("/rastreio".length)}`;
+  return nonceResponse(req, buildCsp("rastreio", nonce, process.env.NODE_ENV === "development"), nonce, destino);
+}
+
 /** 404 seco no domínio do lojista: lá não existe painel, login nem API logada. */
 function customHostNotFound(): NextResponse {
   return new NextResponse(LINK_NAO_ENCONTRADO, {
@@ -147,7 +159,7 @@ export async function middleware(req: NextRequest) {
   // direto, mesmo que a plataforma rode o middleware neles (ver host.ts).
   if (firstParty && skipsFirstPartyMiddleware(pathname)) return NextResponse.next();
 
-  // Domínio próprio do lojista: só links, páginas e, na raiz, o link da bio.
+  // Domínio próprio do lojista: só links, páginas, o rastreio e, na raiz, o link da bio.
   // A checagem de que o link é do DONO do domínio fica no handler, que tem
   // acesso ao banco — aqui só se decide o que pode existir nesse endereço.
   if (!firstParty) {
@@ -157,6 +169,7 @@ export async function middleware(req: NextRequest) {
     if (route === "public-api") return NextResponse.next();
     if (route === "root-link") return rootLinkResponse(req);
     if (route === "bio-root") return bioRootResponse(req);
+    if (route === "rastreio") return rastreioResponse(req);
     // "surface" (/r, /c, /p) segue o fluxo de sempre: CSP com nonce logo abaixo.
   }
 

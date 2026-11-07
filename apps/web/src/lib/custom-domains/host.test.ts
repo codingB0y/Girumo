@@ -12,6 +12,7 @@ import {
   hostnameFromHostHeader,
   isFirstPartyHost,
   LINK_NAO_ENCONTRADO,
+  RASTREIO_DOMINIO,
   skipsFirstPartyMiddleware,
 } from "./host";
 
@@ -69,6 +70,14 @@ test("no domínio do lojista, a raiz é o link da bio da loja", () => {
   assert.equal(customHostRoute(`/bio/${BIO_DOMINIO}`), "not-found");
   // A raiz sem página responde o mesmo texto do 404 do middleware (spec §6).
   assert.equal(LINK_NAO_ENCONTRADO, "Link não encontrado.");
+});
+
+test("no domínio do lojista, /rastreio é a página de rastreio da loja dona do host", () => {
+  const t = "0123456789abcdef0123456789abcdef";
+  for (const p of ["/rastreio", `/rastreio/${t}`, `/rastreio/${t}/parar`]) assert.equal(customHostRoute(p), "rastreio", p);
+  for (const p of [`/rastreio/${t}/outra`, "/rastreio/a/b/parar"]) assert.equal(customHostRoute(p), "not-found", p);
+  assert.equal(customHostRoute("/rastreios"), "root-link"); // slug de campanha, como antes
+  assert.equal(RASTREIO_DOMINIO, "_dominio");
 });
 
 test("no domínio do lojista, /<slug> é o link da campanha (vira /r/<slug>)", () => {
