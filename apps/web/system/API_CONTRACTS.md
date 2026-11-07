@@ -444,6 +444,14 @@ sobre os pedidos postados nos últimos 7 dias.
 `GET /api/rastreio/status` (PR 6) → `200 { enabled: boolean }`. A única rota do painel que não exige o módulo ligado
 (`settings:connection` continua valendo): é por ela que a tela decide entre o painel e o aviso de "não liberado".
 
+### Melhor Envio (PR 8)
+
+- `POST /api/integracoes/melhor-envio/conectar` → `200 { url }` + cookie do state · `403` · `429 { error: "Muitas tentativas. Tente de novo em alguns minutos." }` (10 por 10 min por loja) · `503`.
+- `GET /api/integracoes/melhor-envio/retorno` (público, 20/min por IP) → `302` para `/painel/configuracoes?secao=integracoes&melhorenvio=<motivo>`, motivo em `conectado | conta_vazia | recusado | sessao | erro | indisponivel`.
+- `GET /api/integracoes/melhor-envio` → `200 CartaoMelhorEnvio` = `{ liberado, disponivel, conexao: null | { status: "ativa" | "reautorizar", contaNome, contaEmail, temEtiqueta, primeiraPassadaFeita, ultimaConsultaEm, ultimoErro }, entreguesEm7Dias }`. Nunca traz token.
+- `DELETE /api/integracoes/melhor-envio` → `200 { ok: true }`.
+- `GET`/`DELETE`: `settings:connection` (`403 { error: "Sem permissão para esta ação." }`), `allowEngine: false`, `cache-control: no-store`, erro → `500` com mensagem fixa.
+
 ### Página pública (PR 3)
 
 `GET/POST /rastreio/[slug]` (busca), `GET /rastreio/[slug]/[token]` (um pedido) e
