@@ -119,6 +119,9 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   // par state + cookie (uso único, 10 min, preso à loja e ao usuário) e confere
   // a membership de novo. Path EXATO, pelo mesmo motivo do beacon.
   if (key === "GET /api/integracoes/bling/retorno") return "public-rate-limited";
+  // Retorno do OAuth do Melhor Envio: navegação vinda de melhorenvio.com.br, sem Bearer; o handler
+  // autentica pelo par state + cookie e confere a membership de novo.
+  if (key === "GET /api/integracoes/melhor-envio/retorno") return "public-rate-limited";
 
   return pathname.startsWith("/api/") ? "user" : "public";
 }

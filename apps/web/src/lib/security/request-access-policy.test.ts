@@ -161,6 +161,15 @@ test("cadastro do site próprio é público com teto, só no POST e só no path 
   assert.equal(classifyRequest("/api/integracoes/site/chave", "POST"), "user");
 });
 
+test("retorno do OAuth do Melhor Envio entra sem sessão e com teto por IP, só no GET e só no path exato", () => {
+  assert.equal(classifyRequest("/api/integracoes/melhor-envio/retorno", "GET"), "public-rate-limited");
+  assert.equal(classifyRequest("/api/integracoes/melhor-envio/retorno", "POST"), "user");
+  assert.equal(classifyRequest("/api/integracoes/melhor-envio/retorno/outra", "GET"), "user");
+  assert.equal(classifyRequest("/api/integracoes/melhor-envio/conectar", "POST"), "user");
+  assert.equal(classifyRequest("/api/integracoes/melhor-envio", "GET"), "user");
+  assert.equal(classifyRequest("/api/integracoes/melhor-envio", "DELETE"), "user");
+});
+
 test("retorno do OAuth do Bling entra sem sessão e com teto por IP, só no GET e só no path exato", () => {
   assert.equal(classifyRequest("/api/integracoes/bling/retorno", "GET"), "public-rate-limited");
   assert.equal(classifyRequest("/api/integracoes/bling/retorno", "POST"), "user");

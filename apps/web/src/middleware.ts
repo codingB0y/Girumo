@@ -51,6 +51,9 @@ const RATE_LIMITS: Record<string, number> = {
   // conecta de verdade faz UMA navegação, então 20 sobra. O teto de /oauth/token
   // (o Bling bloqueia o IP do servidor com 20 trocas em 60 s) é global, no handler.
   "/api/integracoes/bling/retorno": 20,
+  // Retorno do OAuth do Melhor Envio: público e cada request consulta o banco. Quem conecta de
+  // verdade faz UMA navegação, então 20 sobra. Sem esta linha o limite é fail-open.
+  "/api/integracoes/melhor-envio/retorno": 20,
   // Beacon de clique de saída (wa.me) na landing. Teto folgado porque é UM
   // request por clique e uma pessoa lendo a página clica poucas vezes; o
   // handler ainda aplica o seu próprio teto por IP.
