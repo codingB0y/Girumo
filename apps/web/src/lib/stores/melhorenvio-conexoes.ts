@@ -9,6 +9,10 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
  */
 
 const TABLE = "melhorenvio_connections";
+const CODIGO_DE_ERRO = /^[a-z0-9_]{1,40}$/;
+
+/** `last_error` vai para a tela: só código curto; corpo do Melhor Envio ou `String(err)` viram "erro". */
+const codigoSeguro = (erro: string | null): string | null => (erro === null || CODIGO_DE_ERRO.test(erro) ? erro : "erro");
 
 export type ConexaoMelhorEnvio = {
   tenantId: string;
@@ -73,6 +77,7 @@ export async function salvarConexao(
   tenantId: string,
   c: NovosTokens & { contaNome: string; contaEmail: string; temEtiqueta: boolean | null; conectadaPor: string },
 ): Promise<void> {
+  // ponytail: sem key_fp (o Bling grava a impressão da chave): trocar a INTEGRATIONS_ENCRYPTION_KEY faz a passada lançar em `abrir` até a loja reconectar; acrescentar quando a chave for trocada.
   const { error } = await getSupabaseAdmin()
     .from(TABLE)
     .upsert(
@@ -136,26 +141,38 @@ export async function trocarTokens(tenantId: string, refreshLido: string, novo: 
   return (data?.length ?? 0) > 0;
 }
 
-/** `true` só na transição ativa → reautorizar (é ela que dispara o sininho, uma vez). */
-export async function marcarReautorizar(tenantId: string, erro: string): Promise<boolean> {
+/**
+ * `true` só na transição ativa → reautorizar (é ela que dispara o sininho, uma vez). Condicional ao refresh
+ * lido, como `trocarTokens`: passada velha não derruba conexão recém-reconectada.
+ */
+export async function marcarReautorizar(tenantId: string, refreshLido: string, erro: string): Promise<boolean> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
-    .update({ status: "reautorizar", last_error: erro })
+    .update({ status: "reautorizar", last_error: codigoSeguro(erro) })
     .eq("tenant_id", tenantId)
     .eq("status", "ativa")
+    .eq("refresh_token_enc", refreshLido)
     .select("tenant_id");
   if (error) throw new Error(error.message);
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * `r.agora` tem de ser o mesmo `agora` que `reivindicarPassada` gravou em `last_check_at`: o filtro por ele faz
+ * a passada velha (que terminou depois de uma reconexão) não escrever na conexão nova.
+ */
 export async function concluirPassada(
   tenantId: string,
   r: { agora: Date; primeiraPassada: boolean; temEtiqueta: boolean | null; erro: string | null },
 ): Promise<void> {
-  const campos: Record<string, unknown> = { last_error: r.erro };
+  const campos: Record<string, unknown> = { last_error: codigoSeguro(r.erro) };
   if (r.primeiraPassada && r.erro === null) campos.first_pass_at = r.agora.toISOString();
   if (r.temEtiqueta !== null) campos.has_labels = r.temEtiqueta;
-  const { error } = await getSupabaseAdmin().from(TABLE).update(campos).eq("tenant_id", tenantId);
+  const { error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .update(campos)
+    .eq("tenant_id", tenantId)
+    .eq("last_check_at", r.agora.toISOString());
   if (error) throw new Error(error.message);
 }
 

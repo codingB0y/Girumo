@@ -392,3 +392,18 @@ test("entreguesPeloMelhorEnvio conta pelo cabeçalho, sem trazer linha", async (
   responder = () => ({ status: 200, contentRange: "*/0" });
   assert.equal(await entreguesPeloMelhorEnvio("loja-a", desde), 0);
 });
+
+test("pedidosACaminho limita a 1000 mesmo pedindo mais", async () => {
+  responder = () => ({ status: 200, corpo: [] });
+  await pedidosACaminho("loja-a", new Date("2026-10-03T12:00:00.000Z"), 5000);
+  assert.equal(chamadas[0].url.searchParams.get("limit"), "1000");
+});
+
+test("erro do Supabase vira exceção em gravarMarco e pedidosACaminho", async () => {
+  responder = () => ({ status: 500, corpo: { message: "quebrou" } });
+  await assert.rejects(
+    () => gravarMarco("loja-a", "ped-1", { etapa: "entregue", em: "2026-11-01T17:32:00.000Z", statusRaw: "melhorenvio:delivered" }),
+    /quebrou/,
+  );
+  await assert.rejects(() => pedidosACaminho("loja-a", new Date("2026-10-03T12:00:00.000Z")), /quebrou/);
+});

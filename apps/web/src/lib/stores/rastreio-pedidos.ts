@@ -168,7 +168,7 @@ export async function pedidosACaminho(tenantId: string, desde: Date, limite = 50
     .not("tracking_code", "is", null)
     .gte("etapa_at", desde.toISOString())
     .order("order_created_at", { ascending: false })
-    .limit(limite);
+    .limit(Math.min(limite, 1000));
   if (error) throw new Error(error.message);
   return ((data ?? []) as unknown as Array<{ id: string; numero: string; tracking_code: string; order_created_at: string }>).map((l) => ({
     id: l.id,

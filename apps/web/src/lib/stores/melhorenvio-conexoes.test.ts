@@ -162,18 +162,18 @@ test("trocarTokens é condicional ao refresh lido (Review Focus 5)", async () =>
 
 test("marcarReautorizar só na transição e só muda a conexão ativa", async () => {
   preparar([200, []]);
-  assert.equal(await marcarReautorizar("loja-a", "concessao_invalida"), false);
-  assert.deepEqual(filtros(0), { tenant_id: "eq.loja-a", status: "eq.ativa" });
+  assert.equal(await marcarReautorizar("loja-a", "ref-lido", "concessao_invalida"), false);
+  assert.deepEqual(filtros(0), { tenant_id: "eq.loja-a", status: "eq.ativa", refresh_token_enc: "eq.ref-lido" });
   assert.deepEqual(corpo(0), { status: "reautorizar", last_error: "concessao_invalida" });
   preparar([200, [{ tenant_id: "loja-a" }]]);
-  assert.equal(await marcarReautorizar("loja-a", "concessao_invalida"), true);
+  assert.equal(await marcarReautorizar("loja-a", "ref-lido", "concessao_invalida"), true);
 });
 
 test("concluirPassada: primeira passada sem erro grava first_pass_at", async () => {
   preparar([200, []]);
   const agora = new Date("2026-11-02T15:00:00.000Z");
   await concluirPassada("loja-a", { agora, primeiraPassada: true, temEtiqueta: false, erro: null });
-  assert.equal(filtros(0).tenant_id, "eq.loja-a");
+  assert.deepEqual(filtros(0), { tenant_id: "eq.loja-a", last_check_at: "eq.2026-11-02T15:00:00.000Z" });
   assert.deepEqual(corpo(0), { last_error: null, first_pass_at: agora.toISOString(), has_labels: false });
 });
 
@@ -222,5 +222,45 @@ test("cookie do state", () => {
   assert.equal(
     cookieDoEstadoMe("abc", 600),
     "melhorenvio_oauth_state=abc; Path=/api/integracoes/melhor-envio; HttpOnly; Secure; SameSite=Lax; Max-Age=600",
+  );
+});
+
+test("concluirPassada: passada velha (last_check_at já é de outra) não grava nada na conexão nova", async () => {
+  preparar([200, []]);
+  await concluirPassada("loja-a", { agora: new Date("2026-11-02T15:00:00.000Z"), primeiraPassada: true, temEtiqueta: true, erro: null });
+  assert.equal(filtros(0).last_check_at, "eq.2026-11-02T15:00:00.000Z");
+});
+
+test("concluirPassada: primeiraPassada false sem erro não grava first_pass_at", async () => {
+  preparar([200, []]);
+  await concluirPassada("loja-a", { agora: new Date("2026-11-02T15:00:00.000Z"), primeiraPassada: false, temEtiqueta: null, erro: null });
+  assert.deepEqual(corpo(0), { last_error: null });
+});
+
+test("last_error só aceita código curto; o resto vira 'erro'", async () => {
+  const agora = new Date("2026-11-02T15:00:00.000Z");
+  for (const ruim of ['{"message":"corpo do Melhor Envio"}', "Error: boom", "", "x".repeat(41)]) {
+    chamadas.length = 0;
+    preparar([200, []]);
+    await concluirPassada("loja-a", { agora, primeiraPassada: false, temEtiqueta: null, erro: ruim });
+    assert.equal(corpo(0).last_error, "erro");
+    chamadas.length = 0;
+    preparar([200, []]);
+    await marcarReautorizar("loja-a", "ref-lido", ruim);
+    assert.equal(corpo(0).last_error, "erro");
+  }
+  chamadas.length = 0;
+  preparar([200, []]);
+  await concluirPassada("loja-a", { agora, primeiraPassada: false, temEtiqueta: null, erro: "http_500" });
+  assert.equal(corpo(0).last_error, "http_500");
+});
+
+test("erro do Supabase vira exceção em trocarTokens e criarEstadoOAuthMe", async () => {
+  preparar([500, { message: "quebrou" }]);
+  await assert.rejects(() => trocarTokens("loja-a", "ref-lido", NOVO), /quebrou/);
+  preparar([500, { message: "quebrou" }]);
+  await assert.rejects(
+    () => criarEstadoOAuthMe({ stateHash: "h1", tenantId: "loja-a", userId: "user-1", expiraEm: new Date("2026-11-02T15:10:00.000Z") }),
+    /quebrou/,
   );
 });
