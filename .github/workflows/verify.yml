@@ -410,6 +410,9 @@ jobs:
           # em runtime de producao, e sem eles o servidor nao chega a subir.
           ENGINE_TOKEN: ci-sem-engine-nao-usado
           CRON_SECRET: ci-sem-cron-nao-usado
+          # Placeholder declarado, nao segredo: o e2e do rastreio semeia o pedido
+          # inventado com este pepper e o servidor busca com ele; o real mora na Vercel.
+          RASTREIO_DOC_PEPPER: ci-pepper-do-rastreio-so-para-o-e2e-000000
 
       # Precisa vir ANTES do upload: o Playwright serializa o valor dos campos
       # no error-context, no relatorio e dentro do trace.zip — inclusive de
