@@ -119,10 +119,12 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
 
       <div className={cn("mt-5 grid gap-5 sm:grid-cols-2", !health.connected && "hidden")}>
         <div>
-          <span className="pn-chip">
+          <span className={cn("pn-chip", health.perfil === "convalescente" && "pn-chip--line")}>
             {health.perfil === "veterano"
               ? "Número veterano"
-              : `Número novo · dia ${health.warmupDay} de 7`}
+              : health.perfil === "convalescente"
+                ? "Número em convalescença"
+                : `Número novo · dia ${health.warmupDay} de 7`}
           </span>
           <p className="font-data mt-2 text-28 tabular-nums text-volt-950">
             {health.usedToday}
@@ -134,8 +136,10 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
           <BarraUso uso={uso} usadas={health.usedToday} teto={health.dailyCap} />
           <p className="mt-2 text-13 text-slate-600">
             {health.perfil === "veterano"
-              ? `Até ${health.dailyCap} mensagens por dia e ${health.hourlyCap} por hora, calculado pelos seus ${health.adminGroups} grupos com gente. Enviamos 1 a cada 5 s para parecer uso humano.`
-              : `Número novo que dispara muito é o que o WhatsApp bloqueia. Hoje o teto é ${health.dailyCap}; ele sobe sozinho a cada dia até o 7º.`}
+              ? `Até ${health.dailyCap} mensagens por dia e ${health.hourlyCap} por hora, calculado pelos seus ${health.adminGroups} grupos com gente. Entre grupos esperamos 3 a 7 s; num post para 10 grupos ou mais, 20 s a 1 min, como alguém postando à mão.`
+              : health.perfil === "convalescente"
+                ? `O WhatsApp derrubou este número há pouco. Por 14 dias ele posta devagar: 1 post por hora e até ${health.dailyCap} mensagens por dia nos seus ${health.adminGroups} grupos com gente. Logo depois da queda os posts ficam 48 h pausados — as datas estão na notificação.`
+                : `Número novo que dispara muito é o que o WhatsApp bloqueia. Hoje o teto é ${health.dailyCap}; ele sobe sozinho a cada dia até o 7º.`}
           </p>
         </div>
 

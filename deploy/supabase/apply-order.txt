@@ -623,3 +623,14 @@ apps/web/supabase/migrations/20261108120000_rastreio_melhor_envio.sql
 # app.enqueue_broadcast, com travas de md5. Tudo em app.*: não muda a baseline. Conferir com
 # infra/tests/teto-posts-por-grupo-check.sql (reescrito) nos dois bancos.
 apps/web/supabase/migrations/20261105120000_teto_2_e_espacamento.sql
+# 05/11: convalescença — número derrubado pelo WhatsApp (401) que volta fica 48 h sem postar e 14 dias em
+# ritmo reduzido: app.convalescenca, public.iniciar_convalescenca (nova em public: baseline regerada),
+# perfil 'convalescente' em app.instance_caps e gate/motivo em app.claim_send_commands, com travas de md5.
+# Conferir com infra/tests/convalescenca-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261105130000_convalescenca.sql
+# 05/11: fan-out lento e irregular — em lote (10+ mensagens: enviadas nos últimos 15 min + na fila do número) o gap
+# passa a 20–60 s uniforme; fora de lote fica 3–7 s triangular. Agendamento promovido com atraso determinístico de
+# 0–7 min (app.lote_minimo, app.atraso_do_agendamento e os corpos de app.record_send e app.promote_due_schedules,
+# com travas de md5). Tudo em app.*: não muda a baseline. Conferir com infra/tests/fanout-lento-e-jitter-check.sql
+# nos dois bancos.
+apps/web/supabase/migrations/20261105140000_fanout_lento_e_jitter.sql

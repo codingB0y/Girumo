@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-11-05T04:31:11.543Z",
+  "gerado_em": "2026-11-05T21:40:47.560Z",
   "projeto": "wfjuwogxaupyadwhvoxy",
   "objetos": {
     "f|advance_automation_run(target_run_id uuid, next_step integer, next_at timestamp with time zone)": "9915acbf605c133627ee5aa950df3dc4",
@@ -49,6 +49,7 @@
     "f|increment_lp_counter(p_lp_id uuid, p_field text)": "88c7d4485a52fccae1e448cd2eca880e",
     "f|increment_template_uses(template_id uuid)": "88c7d4485a52fccae1e448cd2eca880e",
     "f|increment_tracked_link_clicks(p_id uuid)": "88c7d4485a52fccae1e448cd2eca880e",
+    "f|iniciar_convalescenca(p_tenant uuid, p_instance uuid, p_logout_at timestamp with time zone)": "c09104ffe04d868454bd38411fcd6bd6",
     "f|instance_health(target_tenant_id uuid)": "0207f8db739b0f8bb52105315c7c626c",
     "f|limpar_dados_vencidos_comuns()": "230eb6b5304a2bb1f0668777e23a16b0",
     "f|limpar_dados_vencidos_recuperar()": "230eb6b5304a2bb1f0668777e23a16b0",

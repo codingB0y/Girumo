@@ -1,4 +1,4 @@
-import { SEGUNDOS_POR_MENSAGEM } from "@/lib/campaigns/dispatch-eta";
+import { segundosPorMensagem } from "@/lib/campaigns/dispatch-eta";
 import { dayBR, dayBRAgo, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
 import { aindaSaindo, type EstadoDaEntrega, type ResumoDaEntrega } from "@/lib/painel/entrega";
 import { numero } from "@/lib/painel/grupos";
@@ -11,11 +11,14 @@ import { numero } from "@/lib/painel/grupos";
 
 export type Proximo = { id: string; quando: string; nome: string };
 
-/** "HH:MM" em que a rodada acaba, na mesma conta de `etaDisparo`: 6 s por mensagem, nunca otimista. Null sem restantes. */
+/**
+ * "HH:MM" em que a rodada acaba, na mesma conta de `etaDisparo`: 45 s por mensagem num post em lote
+ * (10 grupos ou mais), 6 s num post pequeno, nunca otimista. Null sem restantes.
+ */
 export function terminaPorVolta(resumo: ResumoDaEntrega, agora: Date): string | null {
   const restantes = resumo.postando + resumo.naFila;
   if (restantes <= 0) return null;
-  return horaBR(new Date(agora.getTime() + restantes * SEGUNDOS_POR_MENSAGEM * 1000).toISOString());
+  return horaBR(new Date(agora.getTime() + restantes * segundosPorMensagem(resumo.total) * 1000).toISOString());
 }
 
 function quandoDoAgendamento(iso: string, agora: Date): string {

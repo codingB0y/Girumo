@@ -23,12 +23,19 @@ export type InstanceHealthRow = {
   failures_24h: number;
   last_active_at: string | null;
   last_event_at: string | null;
-  /** "novo" | "veterano" — decidido por app.instance_caps, não recalculado aqui. */
-  perfil: "novo" | "veterano";
+  /** Decidido por app.instance_caps, não recalculado aqui. */
+  perfil: PerfilDoNumero;
   per_hour: number;
   per_min: number;
   admin_groups: number;
 };
+
+/**
+ * "novo" está no aquecimento de 7 dias; "veterano" tem os tetos cheios;
+ * "convalescente" é o número que o WhatsApp derrubou (401) e voltou: 14 dias em
+ * ritmo reduzido, e 48 h sem postar logo depois da queda (migração 20261105130000).
+ */
+export type PerfilDoNumero = "novo" | "veterano" | "convalescente";
 
 /**
  * O WhatsApp desliga TODOS os dispositivos vinculados quando o celular
@@ -111,7 +118,7 @@ export type NumberHealth = {
   pausedSeconds: number;
   silence: SilenceRisk | null;
   tone: HealthTone;
-  perfil: "novo" | "veterano";
+  perfil: PerfilDoNumero;
   hourlyCap: number;
   minuteCap: number;
   adminGroups: number;
@@ -142,8 +149,10 @@ export function deriveHealth(row: InstanceHealthRow, now: Date = new Date()): Nu
     silence,
     // Pausa do breaker e risco de queda são os dois estados que pedem ação do
     // lojista; aquecimento e espaçamento são o sistema funcionando como deve.
+    // Convalescença é atenção, não risco: o sistema está recuando de propósito,
+    // mas o lojista precisa saber por que os posts saem devagar.
     tone: !connected || pausedSeconds > 0 || silence?.shouldWarn ? "risco"
-      : row.consecutive_failures > 0 ? "atencao"
+      : row.consecutive_failures > 0 || row.perfil === "convalescente" ? "atencao"
       : "ok",
     perfil: row.perfil,
     hourlyCap: Math.max(0, row.per_hour),
