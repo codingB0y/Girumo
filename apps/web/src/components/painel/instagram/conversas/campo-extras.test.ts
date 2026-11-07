@@ -24,7 +24,8 @@ const campo = (janela: Parameters<typeof estadoDoCampo>[0]) =>
 
 test("campo: os três botões do mockup, a dica do / e o seletor só de PNG, JPEG e MP4", () => {
   const h = campo({ estado: "aberta", ultimaDelaEm: ha(2) });
-  for (const rotulo of ["Respostas prontas", "Convite do grupo", "Foto ou vídeo"]) assert.match(h, new RegExp(`<button[^>]*>(?:<svg[^]*?</svg>)?${rotulo}</button>`), rotulo);
+  for (const rotulo of ["Respostas prontas", "Convite do grupo"]) assert.match(h, new RegExp(`<button[^>]*>(?:<svg[^]*?</svg>)?${rotulo}</button>`), rotulo);
+  assert.match(h, /<button[^>]*aria-label="Foto ou vídeo"[^>]*title="Foto ou vídeo"/, "só ícone: o nome acessível fica no aria-label");
   assert.match(h, /placeholder="Escreva a resposta ou digite \/ para as respostas prontas"/);
   assert.match(h, /<input[^>]*type="file"[^>]*accept="image\/png,image\/jpeg,video\/mp4"/);
   assert.match(h, /<input[^>]*aria-label="Escolher foto ou vídeo"/);
@@ -40,7 +41,8 @@ test("campo: Gerenciar respostas não aparece sem o papel de dono ou admin conhe
 
 test("campo: com a janela fechada os três botões ficam desabilitados", () => {
   const h = campo({ estado: "fechada", ultimaDelaEm: ha(24 * 9) });
-  for (const rotulo of ["Respostas prontas", "Convite do grupo", "Foto ou vídeo"]) assert.match(h, new RegExp(`<button[^>]* disabled=""[^>]*>(?:<svg[^]*?</svg>)?${rotulo}</button>`), rotulo);
+  for (const rotulo of ["Respostas prontas", "Convite do grupo"]) assert.match(h, new RegExp(`<button[^>]* disabled=""[^>]*>(?:<svg[^]*?</svg>)?${rotulo}</button>`), rotulo);
+  assert.match(h, /<button[^>]*aria-label="Foto ou vídeo"[^>]* disabled=""/);
 });
 
 const lista = (extra: Partial<Parameters<typeof ListaDeRespostas>[0]> = {}) =>

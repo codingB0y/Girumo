@@ -162,7 +162,7 @@ const SEM_ARQUIVO = new Map([
 /** O texto que entra no lugar do link, ou `null` quando o anexo tem arquivo para abrir. */
 export const anexoSemArquivo = (tipo: string): string | null => SEM_ARQUIVO.get(tipo.toLowerCase()) ?? null;
 
-export const NOTA_DA_PAUSA = "Enquanto pausado, nenhuma palavra dela dispara fluxo e nenhum fluxo esperando a resposta dela anda. Volta sozinho depois de 12 h sem você responder, ou quando você clica em Resolver.";
+export const NOTA_DA_PAUSA = "Volta sozinho depois de 12 h sem você responder, ou ao clicar em Resolver.";
 
 /** Linha de `ig_conversations` como o Realtime entrega (colunas do banco). Só o que a tela usa. */
 export type LinhaDoRealtime = {
