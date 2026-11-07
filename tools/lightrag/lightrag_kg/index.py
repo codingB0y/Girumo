@@ -88,8 +88,22 @@ def save_manifest(manifest: dict):
         json.dump(manifest, f, indent=2)
 
 
+def _sha16(data: bytes) -> str:
+    return hashlib.sha1(data).hexdigest()[:16]
+
+
 def file_hash(path: Path) -> str:
-    return hashlib.sha1(path.read_bytes()).hexdigest()[:16]
+    # Hash com fim de linha normalizado: `* text=auto` faz o checkout do Windows
+    # sair em CRLF e o da nuvem em LF, e o hash dos bytes crus marcava o mesmo
+    # arquivo como "mudado" ao trocar de máquina (reindexando à toa).
+    return _sha16(path.read_bytes().replace(b"\r\n", b"\n"))
+
+
+def known_hashes(path: Path) -> set[str]:
+    """Hashes que contam como "não mudou": o normalizado e os de bytes crus
+    (LF e CRLF) que manifests antigos gravaram antes da normalização."""
+    lf = path.read_bytes().replace(b"\r\n", b"\n")
+    return {_sha16(lf), _sha16(lf.replace(b"\n", b"\r\n"))}
 
 
 def plan(full: bool, candidates: "list[Path] | None" = None) -> list[Path]:
@@ -101,8 +115,7 @@ def plan(full: bool, candidates: "list[Path] | None" = None) -> list[Path]:
     changed = []
     for path in files:
         rel_str = str(path.relative_to(config.REPO_ROOT)).replace("\\", "/")
-        current_hash = file_hash(path)
-        if manifest.get(rel_str) != current_hash:
+        if manifest.get(rel_str) not in known_hashes(path):
             changed.append(path)
     return changed
 
