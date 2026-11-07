@@ -16,6 +16,7 @@ import type { Etapa, PedidoPublico } from "./tipos";
 export const NAO_ENCONTRADO = "Não encontramos pedido com esses dados. Confira o CPF/CNPJ e o celular.";
 export const MUITAS_TENTATIVAS = "Muitas tentativas, tente daqui a pouco";
 export const PEDIDO_NAO_ENCONTRADO = "Pedido não encontrado. Busque com o CPF/CNPJ e o celular da compra.";
+export const AVISOS_PARADOS = "Você não recebe mais avisos deste pedido.";
 
 export type ContextoDaPagina = { loja: Pick<LojaDoRastreio, "nome" | "corPrimaria" | "storeWhatsapp">; base: string; nonce: string | null };
 export type Tela =
@@ -164,6 +165,10 @@ function telaPedido(ctx: ContextoDaPagina, p: PedidoPublico, convite: string | n
     linkConvite && !problema && p.etapa !== "cancelado"
       ? `<section class="cartao vip"><h2>As novidades saem primeiro no grupo VIP</h2><p>Lançamentos e reposições aparecem lá antes do site.</p><a class="botao" href="${escapeHtml(linkConvite)}" rel="noopener noreferrer">Entrar no grupo VIP</a></section>`
       : "";
+  // "Parar" é POST (spec §1.2): GET nunca grava, e a prévia do WhatsApp abre o link sozinha.
+  const avisos = p.noticesStoppedAt
+    ? `<p class="parado">${escapeHtml(AVISOS_PARADOS)}</p>`
+    : `<form method="post" action="${escapeHtml(ctx.base)}/${escapeHtml(p.linkToken)}/parar"><button class="parar" type="submit">Não quero mais avisos deste pedido</button></form>`;
   return `<main class="coluna">
 <a class="voltar" href="${escapeHtml(ctx.base)}">Buscar outro pedido</a>
 <section class="pedido-cab">
@@ -178,6 +183,7 @@ ${passos}
 ${cartaoDoEnvio(p)}
 ${problema ? "" : whats}
 ${vip}
+${avisos}
 </main>`;
 }
 
@@ -226,6 +232,8 @@ input:focus{outline:2px solid var(--cor);outline-offset:1px}
 .codigo{font:500 17px "IBM Plex Mono",ui-monospace,monospace;word-break:break-all}
 .copiar{min-height:44px;min-width:44px;border:1px solid #B9C2CA;border-radius:10px;background:#FFFFFF;font:600 14px system-ui,sans-serif;cursor:pointer}
 .externo{display:inline-flex;align-items:center;min-height:44px;color:#14181C}
+.parar{min-height:44px;padding:0;border:0;background:none;color:#4F5A64;font:13px system-ui,sans-serif;text-decoration:underline;cursor:pointer}
+.parado{color:#4F5A64;font-size:13px}
 `;
 
 // Só na tela da lista: a classe não aparece no HTML das outras.

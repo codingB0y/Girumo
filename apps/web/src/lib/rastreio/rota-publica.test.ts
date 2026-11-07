@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { docHmac } from "@/lib/rastreio/documento";
+import { linkDoPedido } from "@/lib/rastreio/link";
 import type { LojaDoRastreio } from "@/lib/rastreio/loja";
 import { MUITAS_TENTATIVAS, NAO_ENCONTRADO, PEDIDO_NAO_ENCONTRADO } from "@/lib/rastreio/pagina";
-import { responderBusca, responderPedido, type DepsRastreio } from "@/lib/rastreio/rota-publica";
-import { MATRIZ_PADRAO, type PedidoPublico, type RastreioConfig } from "@/lib/rastreio/tipos";
+import { responderBusca, responderParar, responderPedido, type DepsRastreio } from "@/lib/rastreio/rota-publica";
+import { MATRIZ_PADRAO, type PedidoInterno, type PedidoPublico, type RastreioConfig } from "@/lib/rastreio/tipos";
 
 const LOJA: LojaDoRastreio = {
   tenantId: "loja-a",
@@ -74,6 +75,11 @@ type Opcoes = {
   porToken?: PedidoPublico | null;
   limitar?: DepsRastreio["limitar"];
   pepper?: string | Error;
+  dono?: string | null;
+  ligado?: boolean;
+  parado?: { orderId: string } | null;
+  interno?: PedidoInterno | null | Error;
+  convite?: { url: string } | null;
 };
 
 function valor<T>(v: T | Error): T {
@@ -84,6 +90,8 @@ function valor<T>(v: T | Error): T {
 function cenario(o: Opcoes = {}) {
   const chamadas: string[] = [];
   const buscas: [string, string, string, Date][] = [];
+  const parados: [string, string][] = [];
+  const convites: [string, string | null][] = [];
   const deps: DepsRastreio = {
     lojaPorSlug: async (slug) => {
       chamadas.push(`slug:${slug}`);
@@ -104,14 +112,37 @@ function cenario(o: Opcoes = {}) {
     pepper: () => valor(o.pepper ?? PEPPER),
     limitar: o.limitar ?? (async () => false),
     agora: () => AGORA,
+    donoDoHost: async (host) => {
+      chamadas.push(`host:${host}`);
+      return o.dono === undefined ? "loja-a" : o.dono;
+    },
+    ligado: async (tenantId) => {
+      chamadas.push(`ligado:${tenantId}`);
+      return o.ligado ?? true;
+    },
+    parar: async (tenantId, token) => {
+      parados.push([tenantId, token]);
+      return o.parado === undefined ? { orderId: "o-1" } : o.parado;
+    },
+    lerPedido: async (tenantId, id) => {
+      chamadas.push(`interno:${tenantId}:${id}`);
+      return valor(o.interno === undefined ? null : o.interno);
+    },
+    convite: async (loja, telefone) => {
+      convites.push([loja.tenantId, telefone]);
+      return o.convite === undefined ? null : o.convite;
+    },
   };
-  return { deps, chamadas, buscas };
+  return { deps, chamadas, buscas, parados, convites };
 }
 
-function pedido(caminho: string, op: { metodo?: string; host?: string; ip?: string; extra?: RequestInit } = {}): Request {
+function pedido(
+  caminho: string,
+  op: { metodo?: string; host?: string; ip?: string; headers?: Record<string, string>; extra?: RequestInit } = {},
+): Request {
   return new Request(`https://www.girumo.com.br${caminho}`, {
     method: op.metodo ?? "GET",
-    headers: { host: op.host ?? "www.girumo.com.br", "x-nonce": NONCE, "x-forwarded-for": op.ip ?? "203.0.113.10" },
+    headers: { host: op.host ?? "www.girumo.com.br", "x-nonce": NONCE, "x-forwarded-for": op.ip ?? "203.0.113.10", ...op.headers },
     ...op.extra,
   });
 }
@@ -331,4 +362,194 @@ test("banco fora: 503 de texto", async () => {
   assert.equal(res.headers.get("cache-control"), "no-store");
   const res2 = await responderPedido(pedido(`/rastreio/loja-exemplo/${TOKEN}`), "loja-exemplo", TOKEN, deps);
   assert.equal(res2.status, 503);
+});
+
+const HOST_DA_LOJA = "Pedidos.Loja-Exemplo.test:443";
+
+test("domínio do lojista: a loja dona do host ativo com o rastreio ligado, base sem slug", async () => {
+  const { deps, chamadas } = cenario();
+  const res = await responderBusca(pedido("/rastreio/_dominio", { host: HOST_DA_LOJA }), "_dominio", deps);
+  assert.equal(res.status, 200);
+  cabecalhosHtml(res);
+  assert.deepEqual(chamadas, ["host:pedidos.loja-exemplo.test", "ligado:loja-a", "loja:loja-a"]);
+  assert.ok((await res.text()).includes('action="/rastreio"'));
+
+  const p = cenario();
+  const res2 = await responderPedido(pedido(`/rastreio/_dominio/${TOKEN}`, { host: HOST_DA_LOJA }), "_dominio", TOKEN, p.deps);
+  assert.equal(res2.status, 200);
+  assert.ok((await res2.text()).includes(`action="/rastreio/${TOKEN}/parar"`));
+  assert.ok(p.chamadas.includes(`token:loja-a:${TOKEN}`));
+});
+
+test("_dominio em host do Girumo é 404 HTML sem consulta", async () => {
+  for (const host of ["www.girumo.com.br", "app.girumo.com.br", "localhost:3000"]) {
+    const { deps, chamadas } = cenario();
+    const res = await responderBusca(pedido("/rastreio/_dominio", { host }), "_dominio", deps);
+    assert.equal(res.status, 404, host);
+    cabecalhosHtml(res);
+    assert.deepEqual(chamadas, [], host);
+  }
+});
+
+test("domínio sem dono ou com o rastreio desligado: o 404 de texto", async () => {
+  for (const o of [{ dono: null }, { dono: "loja-a", ligado: false }]) {
+    const { deps, chamadas } = cenario(o);
+    const res = await responderBusca(pedido("/rastreio/_dominio", { host: HOST_DA_LOJA }), "_dominio", deps);
+    assert.equal(res.status, 404);
+    assert.equal(res.headers.get("content-type"), "text/plain; charset=utf-8");
+    assert.equal(res.headers.get("x-robots-tag"), "noindex");
+    assert.equal(await res.text(), "Link não encontrado.");
+    assert.ok(!chamadas.some((c) => c.startsWith("loja:")));
+  }
+});
+
+type OpcoesDoParar = { host?: string; headers?: Record<string, string>; metodo?: string; token?: string; slug?: string };
+
+function parar(op: OpcoesDoParar = {}): [Request, string, string] {
+  const slug = op.slug ?? "loja-exemplo";
+  const token = op.token ?? TOKEN;
+  return [pedido(`/rastreio/${slug}/${token}/parar`, { metodo: op.metodo ?? "POST", host: op.host, headers: op.headers }), slug, token];
+}
+
+test("parar: POST da própria página grava e volta ao pedido", async () => {
+  for (const headers of [
+    { "sec-fetch-site": "same-origin" },
+    {},
+    { "sec-fetch-site": "same-origin", origin: "https://www.girumo.com.br" },
+    { origin: "https://www.girumo.com.br" },
+    { referer: `https://www.girumo.com.br/rastreio/loja-exemplo/${TOKEN}` },
+  ] as Record<string, string>[]) {
+    const { deps, parados } = cenario();
+    const res = await responderParar(...parar({ headers }), deps);
+    assert.equal(res.status, 303, JSON.stringify(headers));
+    assert.equal(res.headers.get("location"), `/rastreio/loja-exemplo/${TOKEN}`);
+    assert.equal(res.headers.get("cache-control"), "no-store");
+    assert.deepEqual(parados, [["loja-a", TOKEN]]);
+  }
+  // No domínio do lojista, a origem é o domínio.
+  const { deps, parados } = cenario();
+  const res = await responderParar(
+    ...parar({ slug: "_dominio", host: "pedidos.loja-exemplo.test", headers: { origin: "https://pedidos.loja-exemplo.test" } }),
+    deps,
+  );
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), `/rastreio/${TOKEN}`);
+  assert.deepEqual(parados, [["loja-a", TOKEN]]);
+});
+
+test("parar: GET e HEAD são 405 e não consultam nada", async () => {
+  for (const metodo of ["GET", "HEAD", "PUT"]) {
+    const { deps, chamadas, parados } = cenario();
+    const res = await responderParar(...parar({ metodo }), deps);
+    assert.equal(res.status, 405, metodo);
+    assert.equal(res.headers.get("allow"), "POST");
+    assert.equal(res.headers.get("cache-control"), "no-store");
+    assert.deepEqual(parados, []);
+    assert.deepEqual(chamadas, []);
+  }
+});
+
+test("parar vindo de outro site é 403 e não grava", async () => {
+  for (const headers of [
+    { "sec-fetch-site": "cross-site" },
+    { "sec-fetch-site": "same-site" },
+    { origin: "https://outro-site.test" },
+    { origin: "null" },
+    { "sec-fetch-site": "same-origin", origin: "https://outro-site.test" },
+    { referer: "https://outro-site.test/isca" },
+    // A página do domínio da loja não serve de origem para o www (nem o contrário).
+    { origin: "https://pedidos.loja-exemplo.test" },
+  ] as Record<string, string>[]) {
+    const { deps, parados, chamadas } = cenario();
+    const res = await responderParar(...parar({ headers }), deps);
+    assert.equal(res.status, 403, JSON.stringify(headers));
+    assert.equal(res.headers.get("content-type"), "text/plain; charset=utf-8");
+    assert.equal(await res.text(), "Abra o link do pedido para parar os avisos.");
+    assert.deepEqual(parados, []);
+    assert.deepEqual(chamadas, []);
+  }
+});
+
+test("parar com token fora do formato ou de outra loja: 404 com a busca", async () => {
+  const errado = cenario();
+  const res = await responderParar(...parar({ token: "abc" }), errado.deps);
+  assert.equal(res.status, 404);
+  assert.deepEqual(errado.parados, []);
+  const html = await res.text();
+  assert.ok(html.includes(PEDIDO_NAO_ENCONTRADO));
+  assert.ok(html.includes('name="documento"'));
+
+  const outra = cenario({ parado: null });
+  const res2 = await responderParar(...parar(), outra.deps);
+  assert.equal(res2.status, 404);
+  assert.ok((await res2.text()).includes(PEDIDO_NAO_ENCONTRADO));
+  assert.deepEqual(outra.parados, [["loja-a", TOKEN]]);
+});
+
+function interno(buyerPhone: string | null): PedidoInterno {
+  return {
+    ...achado("1001", TOKEN),
+    tenantId: "loja-a",
+    externalId: "ext-1001",
+    statusRaw: "on_carriage",
+    buyerFirstName: "Ana",
+    buyerPhone,
+    buyerEmailEnc: null,
+  };
+}
+
+test("convite do VIP: o do conviteDoGrupo com o telefone do pedido; falha não derruba a página", async () => {
+  const comVip = { ...LOJA, vipLinkId: "vip-1" };
+  const url = "https://www.girumo.com.br/r/vip-loja";
+  const { deps, convites, chamadas } = cenario({ loja: comVip, interno: interno("5511987654321"), convite: { url } });
+  const res = await responderPedido(pedido(`/rastreio/loja-exemplo/${TOKEN}`), "loja-exemplo", TOKEN, deps);
+  assert.equal(res.status, 200);
+  assert.ok((await res.text()).includes(`href="${url}"`));
+  assert.deepEqual(convites, [["loja-a", "5511987654321"]]);
+  assert.ok(chamadas.includes("interno:loja-a:id-1001"));
+
+  const semVip = cenario({ convite: { url } });
+  const res2 = await responderPedido(pedido(`/rastreio/loja-exemplo/${TOKEN}`), "loja-exemplo", TOKEN, semVip.deps);
+  assert.ok(!(await res2.text()).includes("grupo VIP"));
+  assert.deepEqual(semVip.convites, []);
+  assert.ok(!semVip.chamadas.some((c) => c.startsWith("interno:")));
+
+  const quebrado = cenario({ loja: comVip, interno: new Error("banco fora"), convite: { url } });
+  const res3 = await responderPedido(pedido(`/rastreio/loja-exemplo/${TOKEN}`), "loja-exemplo", TOKEN, quebrado.deps);
+  assert.equal(res3.status, 200);
+  assert.ok(!(await res3.text()).includes("grupo VIP"));
+  assert.deepEqual(quebrado.convites, []);
+});
+
+test("o link do aviso (PR 2) cai nestas rotas", () => {
+  assert.equal(new URL(linkDoPedido(LOJA, TOKEN)).pathname, `/rastreio/loja-exemplo/${TOKEN}`);
+  assert.equal(new URL(linkDoPedido({ ...LOJA, dominio: "pedidos.loja-exemplo.test" }, TOKEN)).pathname, `/rastreio/${TOKEN}`);
+});
+
+test("página do pedido e parar: limite por IP (com hash) e loja, que falha fechado", async () => {
+  const gravados: [string, number, number, unknown][] = [];
+  const { deps } = cenario({
+    limitar: async (id, max, janela, o) => {
+      gravados.push([id, max, janela, o]);
+      return false;
+    },
+  });
+  await responderPedido(pedido(`/rastreio/loja-exemplo/${TOKEN}`), "loja-exemplo", TOKEN, deps);
+  await responderParar(...parar({ headers: { "sec-fetch-site": "same-origin" } }), deps);
+  assert.equal(gravados.length, 2);
+  for (const [id, max, janela, o] of gravados) {
+    assert.match(id, /^rastreio-pedido-min:[0-9a-f]{32}:loja-a$/);
+    assert.deepEqual([max, janela, o], [30, 60_000, { maxSeFalhar: 30 }]);
+    assert.ok(!id.includes("203.0.113.10"));
+  }
+
+  const bloqueado = cenario({ limitar: async () => true });
+  const res = await responderPedido(pedido(`/rastreio/loja-exemplo/${TOKEN}`), "loja-exemplo", TOKEN, bloqueado.deps);
+  assert.equal(res.status, 429);
+  cabecalhosHtml(res);
+  assert.ok((await res.text()).includes(MUITAS_TENTATIVAS));
+  assert.ok(!bloqueado.chamadas.some((c) => c.startsWith("token:")));
+  const res2 = await responderParar(...parar({ headers: { "sec-fetch-site": "same-origin" } }), bloqueado.deps);
+  assert.equal(res2.status, 429);
+  assert.deepEqual(bloqueado.parados, []);
 });

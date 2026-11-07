@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { linhaDoTempo, NAO_ENCONTRADO, renderPagina, type ContextoDaPagina } from "./pagina";
+import { AVISOS_PARADOS, linhaDoTempo, NAO_ENCONTRADO, renderPagina, type ContextoDaPagina } from "./pagina";
 import type { PedidoPublico } from "./tipos";
 
 const NONCE = "bm9uY2UtZG8tdGVzdGUtMTIz";
@@ -181,4 +181,18 @@ test("lista: um link por pedido, na ordem recebida", () => {
   assert.ok(html.includes("Enviado"));
   assert.ok(!html.includes("data-copiar"));
   assert.doesNotMatch(html, SEM_STYLE);
+});
+
+test("pedido com avisos ligados tem o formulário de parar; parado mostra o aviso", () => {
+  const token = "0123456789abcdef0123456789abcdef";
+  const ligado = renderPagina(CTX, { tipo: "pedido", pedido: pedido(), convite: null });
+  assert.ok(ligado.includes(`<form method="post" action="/rastreio/loja-exemplo/${token}/parar">`));
+  assert.ok(ligado.includes("Não quero mais avisos deste pedido"));
+  assert.ok(!ligado.includes(AVISOS_PARADOS));
+  assert.doesNotMatch(ligado, SEM_STYLE);
+
+  const parado = renderPagina(CTX, { tipo: "pedido", pedido: pedido({ noticesStoppedAt: "2026-10-22T10:00:00Z" }), convite: null });
+  assert.ok(parado.includes(AVISOS_PARADOS));
+  assert.ok(!parado.includes('/parar"'));
+  assert.equal(AVISOS_PARADOS, "Você não recebe mais avisos deste pedido.");
 });

@@ -41,13 +41,19 @@ export function hostnameFromHostHeader(host: string | null): string {
   return (host ?? "").split(":", 1)[0].trim().toLowerCase();
 }
 
-export type CustomHostRoute = "surface" | "public-api" | "root-link" | "bio-root" | "not-found";
+export type CustomHostRoute = "surface" | "public-api" | "root-link" | "bio-root" | "rastreio" | "not-found";
 
 /**
  * Slug interno que a raiz do domínio do lojista vira (`/bio/_dominio`, spec
  * link-da-bio §6). Fora do formato de slug: nenhuma loja tem esse.
  */
 export const BIO_DOMINIO = "_dominio";
+
+/**
+ * Slug interno que `/rastreio…` do domínio do lojista vira (`/rastreio/_dominio…`,
+ * spec rastreio-pedidos §3.5). Fora do formato de slug: nenhuma loja tem esse.
+ */
+export const RASTREIO_DOMINIO = "_dominio";
 
 /** O 404 seco do domínio do lojista: middleware e raiz sem página. */
 export const LINK_NAO_ENCONTRADO = "Link não encontrado.";
@@ -56,11 +62,12 @@ export const LINK_NAO_ENCONTRADO = "Link não encontrado.";
 // Ponto nunca casa: /favicon.ico e /robots.txt seguem 404.
 const ROOT_LINK_RE = /^\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // Prefixos das superfícies e da API: `/r` sozinho não vira `/r/r`.
-const ROOT_RESERVED = new Set(["/r", "/c", "/p", "/api"]);
+const ROOT_RESERVED = new Set(["/r", "/c", "/p", "/api", "/rastreio"]);
 
 /**
  * O que um domínio de lojista serve: os links (/r, /c), as páginas (/p) e as
- * APIs públicas que essas páginas chamam (/api/p — lead, track e mídia).
+ * APIs públicas que essas páginas chamam (/api/p — lead, track e mídia), e o
+ * rastreio do pedido em /rastreio.
  * Painel, login e API logada não existem nesse endereço; a raiz é o link da
  * bio da loja.
  *
@@ -71,6 +78,7 @@ export function customHostRoute(pathname: string): CustomHostRoute {
   if (pathname === "/") return "bio-root";
   if (/^\/[rcp]\//.test(pathname)) return "surface";
   if (pathname.startsWith("/api/p/")) return "public-api";
+  if (/^\/rastreio(?:\/[^/]+(?:\/parar)?)?$/.test(pathname)) return "rastreio";
   if (ROOT_LINK_RE.test(pathname) && !ROOT_RESERVED.has(pathname)) return "root-link";
   return "not-found";
 }
