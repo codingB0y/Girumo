@@ -16,7 +16,7 @@ import { escolherContagem } from "@/lib/groups/member-count";
 import { liberarSync, travarSync } from "@/lib/groups/sync-lock";
 import { partitionByAdmin } from "@/lib/groups/sync-partition";
 import { enqueueBulkJobs, listPendingCheckInviteGroupIds } from "@/lib/stores/group-bulk-jobs";
-import { leadsNovosDoSync, type GrupoDoSync, type LeadDoSync } from "@/lib/groups/leads-do-sync";
+import { leadsNovosDoSync, TETO_DE_LEADS_POR_SYNC, type GrupoDoSync, type LeadDoSync } from "@/lib/groups/leads-do-sync";
 import { listarParticipantesDosGrupos, upsertParticipantesDoGrupo } from "@/lib/stores/group-participants";
 import {
   listGroups,
@@ -383,7 +383,18 @@ async function leadsQueOAvisoPerdeu(tenantId: string, grupos: GrupoDoSync[]): Pr
       lids.add(v.participantLid);
       porGrupo.set(v.whatsappGroupId, lids);
     }
-    return leadsNovosDoSync(grupos, porGrupo, optouts);
+    const leads = leadsNovosDoSync(grupos, porGrupo, optouts);
+    if (leads.length > TETO_DE_LEADS_POR_SYNC) {
+      await getSupabaseAdmin().from("logs").insert({
+        tenant_id: tenantId,
+        level: "warn",
+        event: "groups.sync_leads_skipped",
+        message: `${leads.length} participantes "novos" num sync so (teto ${TETO_DE_LEADS_POR_SYNC}): nenhum lead criado.`,
+        metadata: { novos: leads.length, teto: TETO_DE_LEADS_POR_SYNC },
+      });
+      return [];
+    }
+    return leads;
   } catch (e) {
     console.error("[groups/sincronizar] nao consegui ler quem ja estava nos grupos; sem lead pelo sync:", e);
     return [];

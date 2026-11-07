@@ -38,6 +38,13 @@ export type LeadDoSync = {
   nomeDoGrupo: string;
 };
 
+/**
+ * Mais que isso num sync só é defeito, não entrada: o pior dia real medido foi
+ * 85 num grupo depois de 24h sem aviso. Um bug de leitura que faça a base antiga
+ * parecer nova (07/11: 639 de uma vez) tem que parar aqui, não virar lead.
+ */
+export const TETO_DE_LEADS_POR_SYNC = 300;
+
 export function leadsNovosDoSync(
   grupos: GrupoDoSync[],
   /** `participant_lid` já gravados, por grupo, ANTES deste sync gravar os dele. */

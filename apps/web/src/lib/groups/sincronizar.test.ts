@@ -389,6 +389,89 @@ test("depois do Sincronizar, quem entrou desde o último sync vira lead mesmo se
   );
 });
 
+/**
+ * O PostgREST falso dos participantes como o Postgres de verdade se comporta:
+ * sem `order`, cada página sai numa ordem diferente, e o `offset` pula e repete
+ * linhas. Com `order`, as páginas são estáveis.
+ */
+function participantesPaginados(linhas: Array<Record<string, string>>): (c: Chamada) => Resposta {
+  let chamada = 0;
+  return (c) => {
+    chamada += 1;
+    const offset = Number(c.url.searchParams.get("offset") ?? 0);
+    const limit = Number(c.url.searchParams.get("limit") ?? linhas.length);
+    const ordenado = c.url.searchParams.has("order");
+    const vez = [...linhas].sort((a, b) =>
+      ordenado
+        ? `${a.whatsapp_group_id}${a.participant_lid}`.localeCompare(`${b.whatsapp_group_id}${b.participant_lid}`)
+        : // ordem de "heap" diferente a cada página
+          ((a.participant_lid.length + chamada * Number(a.participant_lid.slice(1, 5))) % 7) -
+          ((b.participant_lid.length + chamada * Number(b.participant_lid.slice(1, 5))) % 7),
+    );
+    return { status: 200, corpo: vez.slice(offset, offset + limit) };
+  };
+}
+
+test("com mais de mil participantes já gravados, o sync só cria lead para quem é novo", async () => {
+  const antigos = Array.from({ length: 1500 }, (_, i) => ({
+    id: `1${String(i).padStart(4, "0")}@lid`,
+    phoneNumber: `55629${String(10000000 + i)}@s.whatsapp.net`,
+    admin: null,
+  }));
+  const NOVA = { id: "99999@lid", phoneNumber: "5562988887777@s.whatsapp.net", admin: null };
+  prepara({
+    evolution: {
+      status: 200,
+      corpo: [{ id: "g1@g.us", subject: "Moda Kids 1", size: 1502, participants: [NOS, ...antigos, NOVA] }],
+    },
+  });
+  banco["GET /rest/v1/group_participants"] = participantesPaginados(
+    [NOS, ...antigos].map((p) => ({ whatsapp_group_id: "g1@g.us", participant_lid: p.id, phone: p.phoneNumber })),
+  );
+  banco["GET /rest/v1/optouts"] = () => ({ status: 200, corpo: [] });
+  banco["POST /rest/v1/group_participants"] = () => ({ status: 201 });
+  banco["POST /rest/v1/rpc/upsert_lead"] = () => ({ status: 200, corpo: { id: "lead-1" } });
+  const depois: Array<() => Promise<void>> = [];
+
+  await sincronizarGrupos(LOJA, { somenteContagem: false, depois: (t) => void depois.push(t) });
+  for (const tarefa of depois) await tarefa();
+
+  // Mutante: tirar o `.order()` de listarParticipantesDosGrupos — antigos pulados viram lead.
+  const leads = feitas("POST", "/rest/v1/rpc/upsert_lead").map((c) => (c.corpo as Record<string, unknown>).target_phone);
+  assert.deepEqual(leads, [NOVA.phoneNumber]);
+});
+
+test("sync que acha novos demais não cria lead nenhum e deixa aviso", async () => {
+  const novos = Array.from({ length: 301 }, (_, i) => ({
+    id: `2${String(i).padStart(4, "0")}@lid`,
+    phoneNumber: `55629${String(20000000 + i)}@s.whatsapp.net`,
+    admin: null,
+  }));
+  prepara({
+    evolution: { status: 200, corpo: [{ id: "g1@g.us", subject: "Moda Kids 1", size: 302, participants: [NOS, ...novos] }] },
+  });
+  banco["GET /rest/v1/group_participants"] = () => ({
+    status: 200,
+    corpo: [{ whatsapp_group_id: "g1@g.us", participant_lid: NOS.id, phone: NOS.phoneNumber }],
+  });
+  banco["GET /rest/v1/optouts"] = () => ({ status: 200, corpo: [] });
+  banco["POST /rest/v1/group_participants"] = () => ({ status: 201 });
+  banco["POST /rest/v1/rpc/upsert_lead"] = () => ({ status: 200, corpo: { id: "lead-1" } });
+  const depois: Array<() => Promise<void>> = [];
+
+  await sincronizarGrupos(LOJA, { somenteContagem: false, depois: (t) => void depois.push(t) });
+  for (const tarefa of depois) await tarefa();
+
+  assert.equal(feitas("POST", "/rest/v1/rpc/upsert_lead").length, 0);
+  const avisos = feitas("POST", "/rest/v1/logs").filter(
+    (c) => (c.corpo as Record<string, unknown>).event === "groups.sync_leads_skipped",
+  );
+  assert.equal(avisos.length, 1);
+  assert.equal((avisos[0].corpo as Record<string, unknown>).tenant_id, LOJA);
+  // Os participantes seguem gravados: a trava barra o lead, não o sync.
+  assert.equal(feitas("POST", "/rest/v1/group_participants").length, 1);
+});
+
 const ATENDIMENTO = {
   ...INSTANCIA,
   id: "inst-p",
