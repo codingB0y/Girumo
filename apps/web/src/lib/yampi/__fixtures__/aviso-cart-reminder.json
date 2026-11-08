@@ -1,0 +1,415 @@
+{
+  "event": "cart.reminder",
+  "time": "2026-08-21 23:38:54",
+  "merchant": {
+    "id": 5893219,
+    "alias": "loja-exemplo"
+  },
+  "resource": {
+    "id": 172746878,
+    "merchant_id": 5893219,
+    "customer_id": 446973491,
+    "token": "o008x60v-n5bn-86d0-5c67-49pampkh30l0-4xeis9by0z80u",
+    "payment_alias": "pix",
+    "has_recommendation": false,
+    "is_upsell": false,
+    "totalizers": {
+      "total_items": 3,
+      "subtotal": 1174,
+      "discount": 0,
+      "shipment": 0,
+      "shipment_original_value": 0,
+      "shipment_discount_value": 0,
+      "shipment_discount_percent": 0,
+      "progressive_discount_value": 0,
+      "combos_discount_value": 0,
+      "total": 1174,
+      "shipment_formated": "O$ 9,74",
+      "subtotal_formated": "W$ 2.927,72",
+      "discount_formated": "O$ 9,74",
+      "total_formated": "W$ 2.927,72"
+    },
+    "shipping_service": "XBIDCAJE BG QOII",
+    "tracking_data": {
+      "name": "Ngww Xmcnqt ny hctko",
+      "email": "cliente.teste@example.com"
+    },
+    "total_transactions": 0,
+    "simulate_url": "https://loja-exemplo.example/cart?cart_token=o008x60v-n5bn-86d0-5c67-49pampkh30l0-4xeis9by0z80u&utm_source=&utm_campaign=&forceCheckout=2&skipToCheckout=2&store_token=Icng7ZSSgNb8ldcKYYLGlbKbMiBoEUIHXruLUrhO&customerToken=84w53u21-moq0-74n6-y4c2-m1hy908ub652",
+    "unauth_simulate_url": "https://loja-exemplo.example/cart?cart_token=o008x60v-n5bn-86d0-5c67-49pampkh30l0-4xeis9by0z80u&utm_source=&utm_campaign=&forceCheckout=2&skipToCheckout=2&store_token=Icng7ZSSgNb8ldcKYYLGlbKbMiBoEUIHXruLUrhO&forceLogout=2",
+    "utm_source": null,
+    "utm_campaign": null,
+    "utm_content": null,
+    "utm_term": null,
+    "utm_medium": null,
+    "last_transaction_status": null,
+    "created_at": {
+      "date": "2026-08-21 23:07:26.000000",
+      "timezone_type": 3,
+      "timezone": "America/Sao_Paulo"
+    },
+    "updated_at": {
+      "date": "2026-08-21 23:08:06.000000",
+      "timezone_type": 3,
+      "timezone": "America/Sao_Paulo"
+    },
+    "customer": {
+      "data": {
+        "id": 446973491,
+        "merchant_id": 5893219,
+        "marketplace_id": null,
+        "cluster_id": null,
+        "active": true,
+        "type": "f",
+        "name": "Ngww Xmcnqt ny hctko",
+        "razao_social": null,
+        "first_name": "Jyqr",
+        "last_name": "inndf",
+        "generic_name": "Ngww Xmcnqt ny hctko",
+        "email": "cliente.teste@example.com",
+        "cnpj": null,
+        "state_registration": null,
+        "cpf": "33861437403",
+        "birthday": null,
+        "phone": {
+          "full_number": "11999990002",
+          "area_code": "11",
+          "number": "999990002",
+          "formated_number": "(80) 24397-3613",
+          "whatsapp_link": "https://api.whatsapp.com/frtf?phone=5511999990002"
+        },
+        "social_driver": null,
+        "social_id": null,
+        "newsletter": false,
+        "whatsapp": false,
+        "utm_source": null,
+        "utm_campaign": null,
+        "ip": "93.175.090.683",
+        "notes": null,
+        "token": "84w53u21-moq0-74n6-y4c2-m1hy908ub652",
+        "login_url": "https://loja-exemplo.example/rbyw/waixl/ploto?token=84w53u21-moq0-74n6-y4c2-m1hy908ub652",
+        "anonymized": false,
+        "created_at": {
+          "date": "2026-08-05 16:16:23.000000",
+          "timezone_type": 3,
+          "timezone": "America/Sao_Paulo"
+        },
+        "updated_at": {
+          "date": "2026-08-06 09:37:21.000000",
+          "timezone_type": 3,
+          "timezone": "America/Sao_Paulo"
+        }
+      }
+    },
+    "items": {
+      "data": [
+        {
+          "id": 3862774451,
+          "product_id": 115593,
+          "sku_id": 381391973,
+          "kit_id": null,
+          "bundle_id": null,
+          "upsell_id": null,
+          "bundle_name": null,
+          "quantity": 1,
+          "price": 537,
+          "gift": false,
+          "has_recomm": false,
+          "customizations": [],
+          "created_at": {
+            "date": "2026-08-21 23:07:26.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "updated_at": {
+            "date": "2026-08-21 23:07:26.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "sku": {
+            "data": {
+              "id": 381391973,
+              "product_id": 115593,
+              "seller_id": null,
+              "sku": "3370198726821",
+              "token": "4OOT659VGD",
+              "erp_id": "09045460074",
+              "blocked_sale": false,
+              "barcode": null,
+              "title": "Tzn Pxdrxfhloq 8 i 28 cekd Npicdbswf - 20 Faaoqgetb",
+              "availability": 0,
+              "availability_soldout": 0,
+              "days_availability_formated": "Uyxpzdlu",
+              "price_cost": 390,
+              "price_sale": 537,
+              "price_discount": 0,
+              "width": 0,
+              "height": 0,
+              "length": 0,
+              "weight": 4,
+              "quantity_managed": true,
+              "variations": [],
+              "combinations": "381391973",
+              "order": 0,
+              "total_in_stock": 0,
+              "stock_status": "out_of_stock",
+              "total_orders": null,
+              "allow_sell_without_customization": false,
+              "image_reference_sku_id": null,
+              "purchase_url": "https://loja-exemplo.example/r/4OOT659VGD",
+              "created_at": {
+                "date": "2026-08-15 19:28:04.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "updated_at": {
+                "date": "2026-08-19 14:21:32.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "customizations": {
+                "data": []
+              }
+            }
+          }
+        },
+        {
+          "id": 4492669787,
+          "product_id": 45415799,
+          "sku_id": 839455520,
+          "kit_id": null,
+          "bundle_id": null,
+          "upsell_id": null,
+          "bundle_name": null,
+          "quantity": 1,
+          "price": 100,
+          "gift": false,
+          "has_recomm": false,
+          "customizations": [],
+          "created_at": {
+            "date": "2026-08-21 23:07:26.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "updated_at": {
+            "date": "2026-08-21 23:07:26.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "sku": {
+            "data": {
+              "id": 839455520,
+              "product_id": 45415799,
+              "seller_id": null,
+              "sku": "8211041351870",
+              "token": "QZ9XQ6QWKH",
+              "erp_id": "87822891119",
+              "blocked_sale": false,
+              "barcode": null,
+              "title": "IPONOX Gmweemkqnf zbbz mxmzst zw 160 zf",
+              "availability": 0,
+              "availability_soldout": -1,
+              "days_availability_formated": "Uyxpzdlu",
+              "price_cost": 0,
+              "price_sale": 100,
+              "price_discount": 0,
+              "width": 0.01,
+              "height": 0.01,
+              "length": 0.01,
+              "weight": 0.01,
+              "quantity_managed": false,
+              "variations": [],
+              "combinations": "839455520",
+              "order": 0,
+              "total_in_stock": 0,
+              "stock_status": "out_of_stock",
+              "total_orders": null,
+              "allow_sell_without_customization": false,
+              "image_reference_sku_id": null,
+              "purchase_url": "https://loja-exemplo.example/r/QZ9XQ6QWKH",
+              "created_at": {
+                "date": "2026-08-09 11:18:26.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "updated_at": {
+                "date": "2026-08-09 13:34:50.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "customizations": {
+                "data": []
+              }
+            }
+          }
+        },
+        {
+          "id": 7889931769,
+          "product_id": 23999347,
+          "sku_id": 734138260,
+          "kit_id": null,
+          "bundle_id": null,
+          "upsell_id": null,
+          "bundle_name": null,
+          "quantity": 1,
+          "price": 537,
+          "gift": false,
+          "has_recomm": false,
+          "customizations": [],
+          "created_at": {
+            "date": "2026-08-21 23:08:06.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "updated_at": {
+            "date": "2026-08-21 23:08:06.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "sku": {
+            "data": {
+              "id": 734138260,
+              "product_id": 23999347,
+              "seller_id": null,
+              "sku": "3086378808701",
+              "token": "Y69X0ED6S8",
+              "erp_id": "50006541547",
+              "blocked_sale": false,
+              "barcode": null,
+              "title": "MUU KN VJRXXQJ FRLTZ CMIOP POGPPOCV 3I 2 DKJR 60 OOTCHBGSX",
+              "availability": 0,
+              "availability_soldout": 0,
+              "days_availability_formated": "Uyxpzdlu",
+              "price_cost": 354,
+              "price_sale": 537,
+              "price_discount": 0,
+              "width": 26,
+              "height": 26,
+              "length": 32,
+              "weight": 5,
+              "quantity_managed": true,
+              "variations": [],
+              "combinations": "734138260",
+              "order": 0,
+              "total_in_stock": 0,
+              "stock_status": "out_of_stock",
+              "total_orders": null,
+              "allow_sell_without_customization": false,
+              "image_reference_sku_id": null,
+              "purchase_url": "https://loja-exemplo.example/r/Y69X0ED6S8",
+              "created_at": {
+                "date": "2026-08-15 19:28:15.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "updated_at": {
+                "date": "2026-08-17 22:51:46.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "customizations": {
+                "data": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    "transactions": {
+      "data": []
+    },
+    "spreadsheet": {
+      "data": {
+        "customer_phone": "11999990002",
+        "last_order_date": "2026-08-06",
+        "products": "Dvc Bclavnypuv 4 y 80 dzui Jppmqklea - 89 Mecotfskm,UPIWXM Tjrpktcvzy tmxv evabyy ml 014 lb,JWY PT BJMZTRL KLGRF OTFGO JGDVZQJR 2G 1 USQK 45 RZCMLLNSL",
+        "products_skus": "4619264312913,8691813865728,6612624282182",
+        "categories": "",
+        "brands": "Lsazjdow,lbtxvo",
+        "purchase_url": "https://loja-exemplo.example/cart?cart_token=o008x60v-n5bn-86d0-5c67-49pampkh30l0-4xeis9by0z80u&utm_source=Mtihykpo&utm_campaign=Hwxmbrpx Agotbregoc&forceCheckout=2&skipToCheckout=2&store_token=Icng7ZSSgNb8ldcKYYLGlbKbMiBoEUIHXruLUrhO&forceLogout=2",
+        "abandoned_step": "fhgjpgtew",
+        "count_recover_mail_sent": "1/6"
+      }
+    },
+    "metadata": {
+      "data": [
+        {
+          "key": "fast_checkout_buyer_found",
+          "value": "1"
+        },
+        {
+          "key": "pagina",
+          "value": "voianxm-ybbke-gmgjbc"
+        },
+        {
+          "key": "v",
+          "value": "dmantbdq-6i94-343p-2h65-2s30xm28215s"
+        }
+      ]
+    },
+    "search": {
+      "data": {
+        "has_shipment_service": true,
+        "has_address": true,
+        "has_customer": true,
+        "has_refused_payment": false,
+        "abandoned_step": "fhgjpgtew",
+        "count_recover_mail_sent": 0,
+        "created_at": "2026-08-21",
+        "updated_at": "2026-08-21"
+      }
+    },
+    "emails": {
+      "data": [
+        {
+          "id": 283908309,
+          "cart_id": 172746878,
+          "promocode_id": null,
+          "turn": 1,
+          "email": "cliente.teste@example.com",
+          "subject": null,
+          "fire_date": "2026-08-22 08:00:00",
+          "sent_at": null,
+          "created_at": "2026-08-21 23:38:28",
+          "updated_at": "2026-08-21 23:38:28"
+        },
+        {
+          "id": 489953778,
+          "cart_id": 172746878,
+          "promocode_id": null,
+          "turn": 2,
+          "email": "cliente.teste@example.com",
+          "subject": null,
+          "fire_date": "2026-08-22 08:00:00",
+          "sent_at": null,
+          "created_at": "2026-08-21 23:38:28",
+          "updated_at": "2026-08-21 23:38:28"
+        },
+        {
+          "id": 954523360,
+          "cart_id": 172746878,
+          "promocode_id": null,
+          "turn": 3,
+          "email": "cliente.teste@example.com",
+          "subject": null,
+          "fire_date": "2026-08-22 08:00:00",
+          "sent_at": null,
+          "created_at": "2026-08-21 23:38:28",
+          "updated_at": "2026-08-21 23:38:28"
+        },
+        {
+          "id": 494773644,
+          "cart_id": 172746878,
+          "promocode_id": null,
+          "turn": 4,
+          "email": "cliente.teste@example.com",
+          "subject": null,
+          "fire_date": "2026-08-23 08:00:00",
+          "sent_at": null,
+          "created_at": "2026-08-21 23:38:28",
+          "updated_at": "2026-08-21 23:38:28"
+        }
+      ]
+    }
+  }
+}

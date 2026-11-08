@@ -91,6 +91,10 @@ test("Pix: o início do formato EMV e o tamanho ficam; o resto não", () => {
   assert.ok(codigo.startsWith("000201"));
   assert.equal(codigo.length, EMV.length);
   assert.ok(!codigo.includes("br.gov.bcb.pix"));
+  // chave Pix em e-mail: o "@" mascarado ainda parecia e-mail e o conferir acusava a fixture
+  const comEmail = redator().valor({ pix_qr_code: "00020126330014br.gov.bcb.pix0111loja@exemplo.com5204000053039865802BR6304ABCD" }).pix_qr_code;
+  assert.ok(!comEmail.includes("@"));
+  assert.equal(comEmail.length, 77);
 });
 
 test("datas: tudo desloca junto, então os intervalos continuam valendo (inclusive virando o dia)", () => {
@@ -143,13 +147,21 @@ test("cabeçalho da assinatura: continua base64 de 44 caracteres e deixa de ser 
 });
 
 test("números: epoch desloca junto, dinheiro passa, documento numérico é mascarado", () => {
-  const r = redator().valor({ a: 1761746591, b: 1761746651, total: 12.5, quantity: 2, cpf: 12345678909, id: 987654 });
+  const r = redator().valor({ a: 1761746591, b: 1761746651, total: 12.5, quantity: 2, cpf: 12345678909, id: 987654, merchant_id: 1547257, payment_id: 43 });
   assert.equal(r.b - r.a, 60);
   assert.notEqual(r.a, 1761746591);
   assert.equal(r.total, 12.5);
   assert.equal(r.quantity, 2);
   assert.notEqual(r.cpf, 12345678909);
-  assert.equal(r.id, 987654);
+  // id de 6+ dígitos é mascarado: a mesma id aparece em texto (metadata, URL), e lá já era mascarada (o conferir acusava)
+  assert.notEqual(r.id, 987654);
+  assert.notEqual(r.merchant_id, 1547257);
+  assert.equal(r.payment_id, 43);
+});
+
+test("palavras de esquema que a Yampi manda como valor ficam legíveis (o conferir as acusava em nome de chave)", () => {
+  const r = redator().valor({ a: "whatsapp", b: "active", c: "anonymized", d: "birthday", e: "newsletter", f: "shipped", g: "pagina" });
+  assert.deepEqual(Object.values(r), ["whatsapp", "active", "anonymized", "birthday", "newsletter", "shipped", "pagina"]);
 });
 
 test("o redator recusa rodar sem o alias, os celulares e os termos da loja (falharia aberto)", () => {

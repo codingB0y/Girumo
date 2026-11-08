@@ -1,0 +1,566 @@
+{
+  "event": "order.created",
+  "time": "2026-08-24 18:47:06",
+  "merchant": {
+    "id": 5893219,
+    "alias": "loja-exemplo"
+  },
+  "resource": {
+    "id": 760528335,
+    "merchant_id": 5893219,
+    "customer_id": 446973491,
+    "status_id": 3,
+    "desire_status_id": [
+      8,
+      4,
+      9
+    ],
+    "desire_status": [
+      "cancelled",
+      "paid",
+      "refused"
+    ],
+    "promocode_id": null,
+    "marketplace_id": null,
+    "marketplace_account_id": null,
+    "authorized": false,
+    "sync_by_erp": false,
+    "has_recomm": false,
+    "has_upsell": false,
+    "has_freebie": true,
+    "has_order_bump": false,
+    "order_bump_types": [],
+    "has_payment": true,
+    "is_upsell": false,
+    "delivered": false,
+    "number": 3939242869975355,
+    "marketplace_partner_id": null,
+    "marketplace_sale_number": null,
+    "value_total": 537,
+    "buyer_value_total": 537,
+    "value_products": 537,
+    "value_shipment": 0,
+    "value_tax": 0,
+    "buyer_value_tax": 0,
+    "value_discount": 0,
+    "value_wallet_discount": 0,
+    "shipment_cost": 0,
+    "shipment_service": "XBIDCAJE BG QOII",
+    "shipment_service_id": "Gyqmqvxx kz Upju",
+    "shipment_icon_url": null,
+    "shipment_quote_id": "74259699",
+    "track_code": null,
+    "track_url": null,
+    "days_delivery": 1,
+    "date_delivery": {
+      "date": "2026-08-25 00:00:00.000000",
+      "timezone_type": 3,
+      "timezone": "America/Sao_Paulo"
+    },
+    "cart_token": "o008x60v-n5bn-86d0-5c67-49pampkh30l0-4xeis9by0z80u",
+    "utm_source": null,
+    "utm_campaign": null,
+    "utm_content": null,
+    "utm_term": null,
+    "utm_medium": null,
+    "total_comments": 0,
+    "payments": [
+      {
+        "alias": "pix",
+        "name": "Vcp",
+        "icon_url": "https://loja-exemplo.example/nfj/qet.gsi"
+      }
+    ],
+    "ip": "52.750.068.53",
+    "device": "lkqsodu",
+    "reorder_url": "https://loja-exemplo.example/cart/qsmtu?customerToken=84w53u21-moq0-74n6-y4c2-m1hy908ub652&product_option_id[0]=381391973&quantity[0]=2&has_recomm[0]=1&redirectTo=ipiooloy&skipToCheckout=2&store_token=Icng7ZSSgNb8ldcKYYLGlbKbMiBoEUIHXruLUrhO",
+    "content_statement_url": "https://api.dooki.com.br/gnhf/orders/mjwncti-jygzhufcc/o008x60v-n5bn-86d0-5c67-49pampkh30l0-4xeis9by0z80u?id=vkw30164q613xz74j92g2m49by38q783w124ylx14yae025ih0093z4809i04w7139606ls495qr2nzac51ihfaw1ion17g872o20qobb72rnifrf8t8635431xog7328rl422nb3k1459tt77esa975l2r3689u886vu47822rm0z6j00f4b4j291",
+    "billet_whatsapp_link": "https://api.whatsapp.com/frtf?phone=5511999990002&text=",
+    "billet_whatsapp_app_link": "cptnenbb://ypvz?xfeuo=5511999990002&msfi=",
+    "public_url": "https://api.dooki.com.br/v2/maiyav/orders/o008x60v-n5bn-86d0-5c67-49pampkh30l0-4xeis9by0z80u",
+    "created_at": {
+      "date": "2026-08-24 18:46:46.000000",
+      "timezone_type": 3,
+      "timezone": "America/Sao_Paulo"
+    },
+    "updated_at": {
+      "date": "2026-08-24 18:46:46.000000",
+      "timezone_type": 3,
+      "timezone": "America/Sao_Paulo"
+    },
+    "status": {
+      "data": {
+        "id": 3,
+        "alias": "waiting_payment",
+        "name": "Ncqgvphvaq ebpumxhme",
+        "description": "Ibeeducubb jbxyqhajxug eb kforzmpqb"
+      }
+    },
+    "marketplace": {
+      "data": []
+    },
+    "customer": {
+      "data": {
+        "id": 446973491,
+        "merchant_id": 5893219,
+        "marketplace_id": null,
+        "cluster_id": null,
+        "active": true,
+        "type": "f",
+        "name": "Ngww Xmcnqt ny hctko",
+        "razao_social": null,
+        "first_name": "Jyqr",
+        "last_name": "inndf",
+        "generic_name": "Ngww Xmcnqt ny hctko",
+        "email": "cliente.teste@example.com",
+        "cnpj": null,
+        "state_registration": null,
+        "cpf": "33861437403",
+        "birthday": null,
+        "phone": {
+          "full_number": "11999990002",
+          "area_code": "11",
+          "number": "999990002",
+          "formated_number": "(80) 24397-3613",
+          "whatsapp_link": "https://api.whatsapp.com/frtf?phone=5511999990002"
+        },
+        "social_driver": null,
+        "social_id": null,
+        "newsletter": false,
+        "whatsapp": false,
+        "utm_source": null,
+        "utm_campaign": null,
+        "ip": "93.175.090.683",
+        "notes": null,
+        "token": "84w53u21-moq0-74n6-y4c2-m1hy908ub652",
+        "login_url": "https://loja-exemplo.example/rbyw/waixl/ploto?token=84w53u21-moq0-74n6-y4c2-m1hy908ub652",
+        "anonymized": false,
+        "created_at": {
+          "date": "2026-08-05 16:16:23.000000",
+          "timezone_type": 3,
+          "timezone": "America/Sao_Paulo"
+        },
+        "updated_at": {
+          "date": "2026-08-06 09:37:21.000000",
+          "timezone_type": 3,
+          "timezone": "America/Sao_Paulo"
+        }
+      }
+    },
+    "items": {
+      "data": [
+        {
+          "id": 595516916,
+          "product_id": 115593,
+          "sku_id": 381391973,
+          "bundle_id": null,
+          "bundle_name": null,
+          "freebie_id": null,
+          "price_cost": 390,
+          "price": 537,
+          "item_sku": "3370198726821",
+          "quantity": 1,
+          "shipment_cost": 0,
+          "gift": false,
+          "gift_value": 0,
+          "has_recomm": 0,
+          "customizations": [],
+          "is_digital": false,
+          "is_upsell": false,
+          "sku": {
+            "data": {
+              "id": 381391973,
+              "product_id": 115593,
+              "seller_id": null,
+              "sku": "3370198726821",
+              "token": "4OOT659VGD",
+              "erp_id": "09045460074",
+              "blocked_sale": false,
+              "barcode": null,
+              "title": "Tzn Pxdrxfhloq 8 i 28 cekd Npicdbswf - 20 Faaoqgetb",
+              "availability": 0,
+              "availability_soldout": 0,
+              "days_availability_formated": "Uyxpzdlu",
+              "price_cost": 390,
+              "price_sale": 537,
+              "price_discount": 0,
+              "width": 0,
+              "height": 0,
+              "length": 0,
+              "weight": 4,
+              "quantity_managed": true,
+              "variations": [],
+              "combinations": "381391973",
+              "order": 0,
+              "total_in_stock": 0,
+              "stock_status": "out_of_stock",
+              "total_orders": null,
+              "allow_sell_without_customization": false,
+              "image_reference_sku_id": null,
+              "purchase_url": "https://loja-exemplo.example/r/4OOT659VGD",
+              "created_at": {
+                "date": "2026-08-15 19:28:04.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "updated_at": {
+                "date": "2026-08-19 14:21:32.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "customizations": {
+                "data": []
+              }
+            }
+          }
+        },
+        {
+          "id": 367303672,
+          "product_id": 45415799,
+          "sku_id": 839455520,
+          "bundle_id": null,
+          "bundle_name": null,
+          "freebie_id": 8331,
+          "price_cost": 0,
+          "price": 0,
+          "item_sku": "8211041351870",
+          "quantity": 1,
+          "shipment_cost": 0,
+          "gift": false,
+          "gift_value": 0,
+          "has_recomm": 0,
+          "customizations": [],
+          "is_digital": false,
+          "is_upsell": false,
+          "sku": {
+            "data": {
+              "id": 839455520,
+              "product_id": 45415799,
+              "seller_id": null,
+              "sku": "8211041351870",
+              "token": "QZ9XQ6QWKH",
+              "erp_id": "87822891119",
+              "blocked_sale": false,
+              "barcode": null,
+              "title": "IPONOX Gmweemkqnf zbbz mxmzst zw 160 zf",
+              "availability": 0,
+              "availability_soldout": -1,
+              "days_availability_formated": "Uyxpzdlu",
+              "price_cost": 0,
+              "price_sale": 100,
+              "price_discount": 0,
+              "width": 0.01,
+              "height": 0.01,
+              "length": 0.01,
+              "weight": 0.01,
+              "quantity_managed": false,
+              "variations": [],
+              "combinations": "839455520",
+              "order": 0,
+              "total_in_stock": 0,
+              "stock_status": "out_of_stock",
+              "total_orders": null,
+              "allow_sell_without_customization": false,
+              "image_reference_sku_id": null,
+              "purchase_url": "https://loja-exemplo.example/r/QZ9XQ6QWKH",
+              "created_at": {
+                "date": "2026-08-09 11:18:26.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "updated_at": {
+                "date": "2026-08-09 13:34:50.000000",
+                "timezone_type": 3,
+                "timezone": "America/Sao_Paulo"
+              },
+              "customizations": {
+                "data": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    "marketplace_account": {
+      "data": []
+    },
+    "statuses": {
+      "data": [
+        {
+          "id": 3,
+          "alias": "waiting_payment",
+          "name": "Ncqgvphvaq ebpumxhme",
+          "description": "Ibeeducubb jbxyqhajxug eb kforzmpqb",
+          "details": null,
+          "created_at": {
+            "date": "2026-08-24 18:46:46.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "updated_at": {
+            "date": "2026-08-24 18:46:46.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          }
+        }
+      ]
+    },
+    "shipping_address": {
+      "data": {
+        "id": 550710479,
+        "order_id": 760528335,
+        "address_name": null,
+        "receiver": "Ngww Xmcnqt ny hctko",
+        "zipcode": "17229485",
+        "zip_code": "17229485",
+        "street": "Jfo Cybugfw Mivscxd Tpfyqhf",
+        "number": "22",
+        "complement": null,
+        "reference": null,
+        "neighborhood": "Ezcr Olevapc",
+        "full_address": "Uen Slkkmaq Pasluha Mknxibo, 02 - Oosb Bhljsem",
+        "city": "Autqwvddfxs",
+        "state": "GO",
+        "uf": "GO",
+        "country": "BR"
+      }
+    },
+    "pickup_address": {
+      "data": []
+    },
+    "promocode": {
+      "data": []
+    },
+    "transactions": {
+      "data": [
+        {
+          "id": 395107191,
+          "customer_id": 446973491,
+          "payment_id": 43,
+          "affiliation_id": 241816,
+          "marketplace_id": null,
+          "marketplace_account_id": null,
+          "authorized": true,
+          "captured": false,
+          "cancelled": false,
+          "gateway_transaction_id": "379367989127",
+          "gateway_order_id": null,
+          "gateway_authorization_code": null,
+          "gateway_billet_id": null,
+          "amount": 537,
+          "buyer_amount": 0,
+          "installments": 1,
+          "installment_value": 537,
+          "buyer_installment_value": 0,
+          "installment_formated": "1s ko W$ 827,63",
+          "buyer_installment_formated": "6b lr L$ 6,64",
+          "bank_name": null,
+          "bank_alias": null,
+          "status": "waiting_payment",
+          "error_message": null,
+          "error_code": null,
+          "truncated_card": null,
+          "holder_name": null,
+          "holder_document": null,
+          "billet_url": null,
+          "billet_barcode": null,
+          "billet_date": null,
+          "billet_our_number": null,
+          "billet_document_number": null,
+          "billet_whatsapp_link": "https://api.whatsapp.com/frtf?phone=5511999990002&text=",
+          "antifraud_sale_id": null,
+          "antifraud_status": null,
+          "antifraud_score": null,
+          "sent_to_antifraud": false,
+          "total_logs": 0,
+          "capture_date": null,
+          "authorized_at": {
+            "date": "2026-08-24 18:46:46.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "captured_at": null,
+          "cancelled_at": null,
+          "can_be_captured": true,
+          "can_be_cancelled": true,
+          "created_at": {
+            "date": "2026-08-24 18:46:46.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "updated_at": {
+            "date": "2026-08-24 18:46:46.000000",
+            "timezone_type": 3,
+            "timezone": "America/Sao_Paulo"
+          },
+          "payment": {
+            "data": {
+              "id": 43,
+              "alias": "pix",
+              "name": "Vcp",
+              "has_config": false,
+              "active_config": false,
+              "is_credit_card": false,
+              "is_deposit": false,
+              "is_billet": false,
+              "is_pix": true,
+              "is_pix_in_installments": false,
+              "is_wallet": false,
+              "icon_url": "https://loja-exemplo.example/nfj/bylw-koi.arm"
+            }
+          },
+          "metadata": {
+            "data": {
+              "pix_expiration_date": "2026-08-25 18:46:44",
+              "pix_qr_code": "00020123488366ok.fyq.sgr.lpq8506csmldqidzvakoamamkk.kcw1515296503914210811135.989777JN1394QR615970894518054111Ufm Zulea59587962cnyctsdtt65687598463674584666"
+            }
+          }
+        }
+      ]
+    },
+    "search": {
+      "data": {
+        "payment_id": 43,
+        "antifraud_status": null,
+        "affiliation_id": 241816,
+        "products_ids": [
+          46551701,
+          46493399
+        ],
+        "gateway_transaction_id": "379367989127",
+        "created_at": "2026-08-24",
+        "updated_at": "2026-08-24",
+        "captured_at": null,
+        "cancelled_at": null,
+        "date_delivery": "2026-08-25",
+        "inventory_ids": [],
+        "payment_method": "pix",
+        "payment_retry": false,
+        "has_upsell": false,
+        "has_order_bump": false,
+        "has_freebie": true,
+        "upsell_ids": [],
+        "order_bump_ids": [],
+        "freebie_ids": [
+          8331
+        ],
+        "discount_names": [],
+        "discount_types": []
+      }
+    },
+    "services": {
+      "data": []
+    },
+    "spreadsheet": {
+      "data": [
+        {
+          "product": "Tzn Pxdrxfhloq 8 i 28 cekd Npicdbswf - 20 Faaoqgetb",
+          "sku": "3370198726821",
+          "quantity": 1,
+          "total_cost": 390,
+          "total_item": 537,
+          "customization": "",
+          "payment_date": "",
+          "cancelled_date": "",
+          "customer": "Ngww Xmcnqt ny hctko",
+          "customer_email": "cliente.teste@example.com",
+          "customer_phone": "11999990002",
+          "customer_document": "33861437403",
+          "status": "Ncqgvphvaq ebpumxhme",
+          "payment": "Pix",
+          "credit_card": null,
+          "delivered": 0,
+          "shipping_address": "Uen Slkkmaq Pasluha Mknxibo, 02 - Oosb Bhljsem",
+          "shipping_street": "Jfo Cybugfw Mivscxd Tpfyqhf",
+          "shipping_number": "22",
+          "shipping_neighborhood": "Ezcr Olevapc",
+          "shipping_complement": "",
+          "shipping_city": "Tbmemaefkcw",
+          "shipping_state": "Bzlus",
+          "shipping_zip_code": "17229485",
+          "gateway_transaction_id": "379367989127",
+          "billet_barcode": null
+        },
+        {
+          "product": "IPONOX Gmweemkqnf zbbz mxmzst zw 160 zf",
+          "sku": "8211041351870",
+          "quantity": 1,
+          "total_cost": 0,
+          "total_item": 0,
+          "customization": "",
+          "payment_date": "",
+          "cancelled_date": "",
+          "customer": "Ngww Xmcnqt ny hctko",
+          "customer_email": "cliente.teste@example.com",
+          "customer_phone": "11999990002",
+          "customer_document": "33861437403",
+          "status": "Ncqgvphvaq ebpumxhme",
+          "payment": "Pix",
+          "credit_card": null,
+          "delivered": 0,
+          "shipping_address": "Uen Slkkmaq Pasluha Mknxibo, 02 - Oosb Bhljsem",
+          "shipping_street": "Jfo Cybugfw Mivscxd Tpfyqhf",
+          "shipping_number": "22",
+          "shipping_neighborhood": "Ezcr Olevapc",
+          "shipping_complement": "",
+          "shipping_city": "Tbmemaefkcw",
+          "shipping_state": "Bzlus",
+          "shipping_zip_code": "17229485",
+          "gateway_transaction_id": "379367989127",
+          "billet_barcode": null
+        }
+      ]
+    },
+    "metadata": {
+      "data": [
+        {
+          "key": "cart_id",
+          "value": "172746878"
+        },
+        {
+          "key": "fast_checkout_buyer_found",
+          "value": "1"
+        },
+        {
+          "key": "pagina",
+          "value": "voianxm-ybbke-gmgjbc"
+        },
+        {
+          "key": "v",
+          "value": "dmantbdq-6i94-343p-2h65-2s30xm28215s"
+        }
+      ]
+    },
+    "pix": {
+      "data": {
+        "pix_expiration_date": "2026-08-25 18:46:44",
+        "pix_qr_code": "00020123488366ok.fyq.sgr.lpq8506csmldqidzvakoamamkk.kcw1515296503914210811135.989777JN1394QR615970894518054111Ufm Zulea59587962cnyctsdtt65687598463674584666"
+      }
+    },
+    "whatsapp": {
+      "data": {
+        "abandoned_cart": null,
+        "order_shipped": null,
+        "billet": null,
+        "pix": {
+          "message": "[REDIGIDO len=511]",
+          "link": "[REDIGIDO len=566]"
+        },
+        "payment_link": null
+      }
+    },
+    "whatsapp_app": {
+      "data": {
+        "abandoned_cart": null,
+        "order_shipped": null,
+        "billet": null,
+        "pix": {
+          "message": "[REDIGIDO len=511]",
+          "link": "[REDIGIDO len=552]"
+        },
+        "payment_link": null
+      }
+    },
+    "tags": []
+  }
+}

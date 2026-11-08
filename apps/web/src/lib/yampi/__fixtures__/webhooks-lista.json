@@ -1,0 +1,59 @@
+{
+  "data": [
+    {
+      "id": 5611397,
+      "active": true,
+      "name": "girumo-fase0-recuperar",
+      "url": "https://tunel.example/yuboq/TOKEN",
+      "secret_key": "REDACTEDREDACTEDREDACTEDREDACTEDREDACTED",
+      "disabled_at": null,
+      "created_at": {
+        "date": "2026-08-24 20:11:18.000000",
+        "timezone_type": 3,
+        "timezone": "America/Sao_Paulo"
+      },
+      "updated_at": {
+        "date": "2026-08-24 20:11:18.000000",
+        "timezone_type": 3,
+        "timezone": "America/Sao_Paulo"
+      },
+      "events": {
+        "data": [
+          {
+            "name": "order.created",
+            "description": "Ueijhd zdekkz"
+          },
+          {
+            "name": "order.status.updated",
+            "description": "Y zhonyt pt gv ujqavi jdo fgaxwwzeuo"
+          },
+          {
+            "name": "transaction.payment.refused",
+            "description": "S ronxuztma px dbf ycbauvoof ddc gewiid"
+          },
+          {
+            "name": "cart.reminder",
+            "description": "Xqabbtrpvij yn fgfydewx nfkeorlsch"
+          },
+          {
+            "name": "order.paid",
+            "description": "Ynvbco rmqormtw"
+          }
+        ]
+      },
+      "products": {
+        "data": []
+      }
+    }
+  ],
+  "meta": {
+    "pagination": {
+      "total": 3,
+      "count": 3,
+      "per_page": 100,
+      "current_page": 1,
+      "total_pages": 1,
+      "links": []
+    }
+  }
+}
