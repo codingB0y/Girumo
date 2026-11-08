@@ -336,6 +336,16 @@ function gravarParticipantesDepois(
   l: Leitura,
   opts: { soGruposDoBanco: boolean; espelharComunidades: boolean },
 ): void {
+  // Agendar o que roda depois da resposta não pode derrubar o sync: o `after`
+  // do Next lança fora de uma request, e a contagem já está gravada.
+  try {
+    agendarParticipantes(l, opts);
+  } catch (e) {
+    console.error("[groups/sincronizar] nao consegui agendar participantes e leads:", e);
+  }
+}
+
+function agendarParticipantes(l: Leitura, opts: { soGruposDoBanco: boolean; espelharComunidades: boolean }): void {
   l.depois(async () => {
     const alvos = opts.soGruposDoBanco ? l.gruposAdmin.filter((g) => l.anterior.has(String(g.id))) : l.gruposAdmin;
     const grupos: GrupoDoSync[] = alvos.map((g) => ({
