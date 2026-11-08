@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { bloqueioDaOferta, checkoutInstagramParams, cotacao, metadataAddon, subscriptionInstagramParams } from "./instagram-oferta";
+import { bloqueioDaOferta, checkoutInstagramParams, cotacao, metadataAddon, problemaNosPrecos, subscriptionInstagramParams } from "./instagram-oferta";
 
 const PRECOS = { mensal: "price_m", implantacao: "price_i" };
 
@@ -52,4 +52,26 @@ test("checkout: duas linhas, cupom na sessão, metadata na assinatura, volta pro
   assert.equal(p.payment_method_types?.[0], "card");
   const semCupom = checkoutInstagramParams({ customerId: "cus_1", precos: PRECOS, appUrl: "https://app", tenantId: "loja-a", inviteId: null, cupomId: null, voltar: "/painel/instagram/assinar" });
   assert.equal("discounts" in semCupom, false);
+});
+
+// 08/11/2026: o preço da implantação estava cadastrado no Stripe como R$ 497/MÊS. Pelo Checkout
+// ele virou item fixo da assinatura e cobrou 297 + 497 na renovação (R$ 794) em vez de só 297.
+test("preços do Stripe: mensal recorrente por mês e implantação avulsa passam", () => {
+  const mensal = { active: true, recurring: { interval: "month" } };
+  const implantacao = { active: true, recurring: null };
+  assert.equal(problemaNosPrecos(mensal, implantacao), null);
+});
+
+test("preços do Stripe: implantação recorrente é recusada (cobraria todo mês)", () => {
+  const mensal = { active: true, recurring: { interval: "month" } };
+  const implantacao = { active: true, recurring: { interval: "month" } };
+  assert.match(problemaNosPrecos(mensal, implantacao) ?? "", /implanta/i);
+});
+
+test("preços do Stripe: mensal avulso, anual ou arquivado é recusado", () => {
+  const implantacao = { active: true, recurring: null };
+  assert.match(problemaNosPrecos({ active: true, recurring: null }, implantacao) ?? "", /mensal/i);
+  assert.match(problemaNosPrecos({ active: true, recurring: { interval: "year" } }, implantacao) ?? "", /mensal/i);
+  assert.match(problemaNosPrecos({ active: false, recurring: { interval: "month" } }, implantacao) ?? "", /mensal/i);
+  assert.match(problemaNosPrecos({ active: true, recurring: { interval: "month" } }, { active: false, recurring: null }) ?? "", /implanta/i);
 });

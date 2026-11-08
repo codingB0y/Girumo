@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { addonNoStripe, contextoDaAssinatura, recusaDoInstagramExistente } from "@/lib/billing/instagram-contexto";
+import { addonNoStripe, contextoDaAssinatura, recusaDePrecosInvalidos, recusaDoInstagramExistente } from "@/lib/billing/instagram-contexto";
 import { checkoutInstagramParams } from "@/lib/billing/instagram-oferta";
 import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { resolveTenantCustomerId } from "@/lib/billing/tenant-customer";
@@ -26,6 +26,8 @@ export async function POST(req: Request) {
     if (c.bloqueio === "ja_assinado") return Response.json({ error: "O Instagram já está assinado." }, { status: 409 });
     if (c.conviteInvalido) return Response.json({ error: "Este convite não vale mais. Fale com a Girumo." }, { status: 409 });
     if (!c.precos) return Response.json({ error: "Assinatura do Instagram indisponível no momento." }, { status: 503 });
+    const precoRuim = await recusaDePrecosInvalidos(c.precos);
+    if (precoRuim) return precoRuim;
 
     const supabase = getSupabaseAdmin();
     const stripe = getStripe();
