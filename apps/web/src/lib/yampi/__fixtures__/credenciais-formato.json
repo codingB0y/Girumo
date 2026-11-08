@@ -1,0 +1,12 @@
+{
+  "userToken": {
+    "tamanho": 40,
+    "soImprimivelAscii": true,
+    "temArroba": false
+  },
+  "userSecretKey": {
+    "tamanho": 40,
+    "soImprimivelAscii": true,
+    "temArroba": false
+  }
+}
