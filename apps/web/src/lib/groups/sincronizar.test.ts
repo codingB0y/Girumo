@@ -186,7 +186,7 @@ function prepara(over: { instancias?: unknown[]; evolution?: Resposta; travaOcup
 test("recontagem regrava só membros e admins dos grupos que já estão no banco", async () => {
   prepara();
 
-  const r = await sincronizarGrupos(LOJA, { somenteContagem: true });
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: true, depois: () => {} });
 
   assert.deepEqual(r, { ok: true, synced: 1, admin: 1, semBackup: 0, ignorados: 1, removidos: 0 });
 
@@ -240,7 +240,7 @@ test("recontagem regrava só membros e admins dos grupos que já estão no banco
 test("com outro sync do mesmo número rodando, a recontagem desiste sem tocar na Evolution", async () => {
   prepara({ travaOcupada: true });
 
-  const r = await sincronizarGrupos(LOJA, { somenteContagem: true });
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: true, depois: () => {} });
 
   assert.deepEqual(r, {
     ok: false,
@@ -258,7 +258,7 @@ test("com outro sync do mesmo número rodando, a recontagem desiste sem tocar na
 test("Evolution fora: a trava é liberada e a falha fica registrada como recontagem", async () => {
   prepara({ evolution: { status: 500, corpo: { message: "Internal Server Error" } } });
 
-  const r = await sincronizarGrupos(LOJA, { somenteContagem: true });
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: true, depois: () => {} });
 
   assert.deepEqual(r, { ok: false, status: 502, error: "Erro ao sincronizar grupos." });
   assert.deepEqual(comandosDaTrava(), ["set", "del"]);
@@ -272,7 +272,7 @@ test("Evolution fora: a trava é liberada e a falha fica registrada como reconta
 test("sem número conectado, 409 sem tocar na trava nem na Evolution", async () => {
   prepara({ instancias: [{ ...INSTANCIA, status: "disconnected" }] });
 
-  const r = await sincronizarGrupos(LOJA, { somenteContagem: true });
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: true, depois: () => {} });
 
   assert.deepEqual(r, { ok: false, status: 409, error: "Nenhuma instancia conectada." });
   assert.equal(chamadas.filter((c) => !c.url.pathname.startsWith("/rest/v1/")).length, 0);
@@ -472,6 +472,44 @@ test("sync que acha novos demais não cria lead nenhum e deixa aviso", async () 
   assert.equal(feitas("POST", "/rest/v1/group_participants").length, 1);
 });
 
+test("a recontagem diária cria o lead de quem entrou sem aviso, só nos grupos que já estão no banco", async () => {
+  const CLIENTE = { id: "77777@lid", phoneNumber: "5562977770001@s.whatsapp.net", admin: null };
+  prepara({
+    evolution: {
+      status: 200,
+      corpo: [
+        { id: "g1@g.us", subject: "Moda Kids 1", size: 3, participants: [NOS, SOCIA, CLIENTE] },
+        // g3 não está em CONTAGENS: a recontagem não importa grupo novo, nem os participantes dele.
+        { id: "g3@g.us", subject: "Grupo novo", size: 2, participants: [NOS, CLIENTE] },
+      ],
+    },
+  });
+  banco["GET /rest/v1/group_participants"] = () => ({
+    status: 200,
+    corpo: [{ whatsapp_group_id: "g1@g.us", participant_lid: NOS.id, phone: NOS.phoneNumber }],
+  });
+  banco["GET /rest/v1/optouts"] = () => ({ status: 200, corpo: [] });
+  banco["POST /rest/v1/group_participants"] = () => ({ status: 201 });
+  banco["POST /rest/v1/rpc/upsert_lead"] = () => ({ status: 200, corpo: { id: "lead-1" } });
+  const depois: Array<() => Promise<void>> = [];
+
+  await sincronizarGrupos(LOJA, { somenteContagem: true, depois: (t) => void depois.push(t) });
+  for (const tarefa of depois) await tarefa();
+
+  const leads = feitas("POST", "/rest/v1/rpc/upsert_lead").map((c) => c.corpo as Record<string, unknown>);
+  assert.deepEqual(
+    leads.map((l) => [l.target_phone, l.target_source_group_id]),
+    [[CLIENTE.phoneNumber, "g1@g.us"]],
+  );
+  // Mutante: gravar os participantes de todos os grupos lidos — g3 entraria na base sem o lojista importar.
+  const gravados = feitas("POST", "/rest/v1/group_participants").flatMap(
+    (c) => c.corpo as Array<Record<string, unknown>>,
+  );
+  assert.deepEqual([...new Set(gravados.map((r) => r.whatsapp_group_id))], ["g1@g.us"]);
+  // Recontagem não espelha comunidade.
+  assert.equal(chamadas.some((c) => c.url.pathname.includes("communit")), false);
+});
+
 const ATENDIMENTO = {
   ...INSTANCIA,
   id: "inst-p",
@@ -483,7 +521,7 @@ const ATENDIMENTO = {
 test("o Sincronizar sem número escolhido usa o dos grupos, nunca o do atendimento", async () => {
   prepara({ instancias: [ATENDIMENTO, INSTANCIA] });
 
-  const r = await sincronizarGrupos(LOJA, { somenteContagem: true });
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: true, depois: () => {} });
 
   assert.equal(r.ok, true);
   // Mutante: listInstances no lugar de listGroupInstances — o atendimento vem primeiro: o Sincronizar falha (409) ou usa o número errado.
