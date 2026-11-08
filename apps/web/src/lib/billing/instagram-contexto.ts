@@ -2,7 +2,7 @@ import "server-only";
 
 import type Stripe from "stripe";
 import { hashToken, precoInstagram } from "@/lib/billing/instagram-addon";
-import { bloqueioDaOferta, cotacao, type Bloqueio, type Cotacao, type Precos } from "@/lib/billing/instagram-oferta";
+import { bloqueioDaOferta, cotacao, problemaNosPrecos, type Bloqueio, type Cotacao, type Precos } from "@/lib/billing/instagram-oferta";
 import { getStripe } from "@/lib/billing/stripe";
 import type { AddonId } from "@/lib/billing/stripe-webhook";
 import { getOpenInviteByHash, type InstagramInvite } from "@/lib/stores/instagram-invites";
@@ -40,6 +40,20 @@ export async function contextoDaAssinatura(tenantId: string, token: string | nul
     cotacao: cotacao(convite?.discount_percent ?? 0),
     precos: precoInstagram(),
   };
+}
+
+/**
+ * 503 quando os preços configurados no Stripe não são os que a cobrança assume (ver
+ * `problemaNosPrecos`), ou `null` para seguir. Lê o Stripe a cada tentativa de assinar:
+ * é um clique raro, e um preço errado cobra o cliente de verdade.
+ */
+export async function recusaDePrecosInvalidos(precos: Precos): Promise<Response | null> {
+  const stripe = getStripe();
+  const [mensal, implantacao] = await Promise.all([stripe.prices.retrieve(precos.mensal), stripe.prices.retrieve(precos.implantacao)]);
+  const problema = problemaNosPrecos(mensal, implantacao);
+  if (!problema) return null;
+  console.error("[billing/instagram] preços do Stripe fora do esperado:", problema);
+  return Response.json({ error: "Assinatura do Instagram indisponível no momento." }, { status: 503 });
 }
 
 /** Cartão para "Autorizar cobrança": o padrão do customer; senão, o primeiro cartão salvo. */

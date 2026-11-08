@@ -21,6 +21,21 @@ export function cotacao(descontoPercent: number): Cotacao {
   return { descontoPercent, implantacaoCheiaCents: IMPLANTACAO_CENTS, implantacaoCents, mensalCents: MENSAL_CENTS, totalHojeCents: implantacaoCents + MENSAL_CENTS };
 }
 
+type PrecoDoStripe = { active: boolean; recurring: { interval: string } | null };
+
+/**
+ * Confere, nos preços que o Stripe devolveu, o que a cobrança assume: mensal recorrente
+ * por mês e implantação AVULSA. Implantação recorrente vira item fixo da assinatura e
+ * volta a cobrar todo mês (08/11/2026: R$ 794 em vez de R$ 297). Devolve o motivo, ou
+ * `null` quando está certo.
+ */
+export function problemaNosPrecos(mensal: PrecoDoStripe, implantacao: PrecoDoStripe): string | null {
+  if (!mensal.active || mensal.recurring?.interval !== "month") return "o preço mensal precisa estar ativo e recorrente por mês";
+  if (!implantacao.active) return "o preço da implantação está arquivado";
+  if (implantacao.recurring) return "o preço da implantação é recorrente; precisa ser avulso";
+  return null;
+}
+
 export type Bloqueio = "sem_plano" | "ja_assinado";
 
 /** Só loja com plano ativo ou em teste assina; quem já tem o add-on não assina de novo. */
