@@ -79,6 +79,11 @@ export async function listarParticipantesDosGrupos(
       .select("whatsapp_group_id, participant_lid, phone")
       .eq("tenant_id", tid)
       .in("whatsapp_group_id", whatsappGroupIds)
+      // Sem ORDER BY o Postgres não garante a mesma ordem entre as páginas, e o
+      // `range` pula e repete linhas. Em 07/11 isso fez 639 participantes antigos
+      // parecerem novos no sync (8047 linhas). Ordena pela chave primária.
+      .order("whatsapp_group_id", { ascending: true })
+      .order("participant_lid", { ascending: true })
       .range(desde, desde + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
 

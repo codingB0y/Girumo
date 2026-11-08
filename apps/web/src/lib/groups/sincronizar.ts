@@ -16,7 +16,8 @@ import { escolherContagem } from "@/lib/groups/member-count";
 import { liberarSync, travarSync } from "@/lib/groups/sync-lock";
 import { partitionByAdmin } from "@/lib/groups/sync-partition";
 import { enqueueBulkJobs, listPendingCheckInviteGroupIds } from "@/lib/stores/group-bulk-jobs";
-import { upsertParticipantesDoGrupo } from "@/lib/stores/group-participants";
+import { leadsNovosDoSync, TETO_DE_LEADS_POR_SYNC, type GrupoDoSync, type LeadDoSync } from "@/lib/groups/leads-do-sync";
+import { listarParticipantesDosGrupos, upsertParticipantesDoGrupo } from "@/lib/stores/group-participants";
 import {
   listGroups,
   listMemberCounts,
@@ -27,6 +28,8 @@ import {
 } from "@/lib/stores/groups";
 import { espelharComunidadesNativas } from "@/lib/stores/communities";
 import { getInstance, listGroupInstances, listInstances, type Instance } from "@/lib/stores/instances";
+import { addLead } from "@/lib/stores/leads";
+import { chavesEmOptout } from "@/lib/stores/optouts";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /**
@@ -325,25 +328,31 @@ function semContagemDeAdmins(r: LinhaDoSync): Omit<LinhaDoSync, "admins_total" |
  */
 function gravarParticipantesDepois(l: Leitura): void {
   l.depois(async () => {
+    const grupos: GrupoDoSync[] = l.gruposAdmin.map((g) => ({
+      whatsappGroupId: String(g.id),
+      nome: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
+      participantes: (g.participants ?? [])
+        .filter((p): p is { id: string; phoneNumber?: string | null; admin?: string | null } => Boolean(p?.id))
+        .map((p) => ({
+          participantLid: p.id,
+          phone: p.phoneNumber ?? null,
+          isAdmin: p.admin === "admin" || p.admin === "superadmin",
+        })),
+    }));
+
+    // Lido ANTES de gravar os participantes deste sync: depois, todo mundo já
+    // estaria "visto" e ninguém seria novo.
+    const leads = await leadsQueOAvisoPerdeu(l.tenantId, grupos);
+
     const r = await Promise.allSettled(
-      l.gruposAdmin.map((g) =>
-        upsertParticipantesDoGrupo(
-          l.tenantId,
-          String(g.id),
-          (g.participants ?? [])
-            .filter((p): p is { id: string; phoneNumber?: string | null; admin?: string | null } => Boolean(p?.id))
-            .map((p) => ({
-              participantLid: p.id,
-              phone: p.phoneNumber ?? null,
-              isAdmin: p.admin === "admin" || p.admin === "superadmin",
-            })),
-        ),
-      ),
+      grupos.map((g) => upsertParticipantesDoGrupo(l.tenantId, g.whatsappGroupId, g.participantes)),
     );
     const falhas = r.filter((x) => x.status === "rejected");
     if (falhas.length > 0) {
       console.error(`[groups/sincronizar] ${falhas.length} grupo(s) sem participantes gravados:`, falhas[0]);
     }
+
+    await criarLeads(l.tenantId, leads);
 
     try {
       await espelharComunidadesNativas(l.tenantId);
@@ -353,6 +362,60 @@ function gravarParticipantesDepois(l: Leitura): void {
       console.error("[groups/sincronizar] falha ao espelhar comunidades nativas:", e);
     }
   });
+}
+
+/**
+ * Quem entrou num grupo desde o último sync — ver `leads-do-sync.ts`. Falhar
+ * aqui devolve lista vazia: os participantes ainda precisam ser gravados.
+ */
+async function leadsQueOAvisoPerdeu(tenantId: string, grupos: GrupoDoSync[]): Promise<LeadDoSync[]> {
+  try {
+    const [vistos, optouts] = await Promise.all([
+      listarParticipantesDosGrupos(
+        tenantId,
+        grupos.map((g) => g.whatsappGroupId),
+      ),
+      chavesEmOptout(tenantId),
+    ]);
+    const porGrupo = new Map<string, Set<string>>();
+    for (const v of vistos) {
+      const lids = porGrupo.get(v.whatsappGroupId) ?? new Set<string>();
+      lids.add(v.participantLid);
+      porGrupo.set(v.whatsappGroupId, lids);
+    }
+    const leads = leadsNovosDoSync(grupos, porGrupo, optouts);
+    if (leads.length > TETO_DE_LEADS_POR_SYNC) {
+      await getSupabaseAdmin().from("logs").insert({
+        tenant_id: tenantId,
+        level: "warn",
+        event: "groups.sync_leads_skipped",
+        message: `${leads.length} participantes "novos" num sync so (teto ${TETO_DE_LEADS_POR_SYNC}): nenhum lead criado.`,
+        metadata: { novos: leads.length, teto: TETO_DE_LEADS_POR_SYNC },
+      });
+      return [];
+    }
+    return leads;
+  } catch (e) {
+    console.error("[groups/sincronizar] nao consegui ler quem ja estava nos grupos; sem lead pelo sync:", e);
+    return [];
+  }
+}
+
+/** Um por vez: o mesmo telefone em dois grupos acumula a origem em `also_in`. */
+async function criarLeads(
+  tenantId: string,
+  leads: LeadDoSync[],
+): Promise<void> {
+  let falhas = 0;
+  for (const lead of leads) {
+    try {
+      await addLead(tenantId, { phone: lead.phone, sourceGroupId: lead.whatsappGroupId, sourceGroup: lead.nomeDoGrupo });
+    } catch (e) {
+      falhas += 1;
+      if (falhas === 1) console.error("[groups/sincronizar] lead pelo sync falhou:", e);
+    }
+  }
+  if (falhas > 0) console.error(`[groups/sincronizar] ${falhas} de ${leads.length} lead(s) pelo sync nao gravados.`);
 }
 
 /**
