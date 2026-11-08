@@ -13,7 +13,7 @@ import { NOME_DO_AVISO, celulares, dirBruto, gravarJson, lerJson, marcadores, pe
 
 const FALSO_DA_LOJA = "loja-exemplo";
 const FALSOS_TELEFONE = { CHIP: "5511999990001", B: "5511999990002", C: "5511999990003" };
-const PALAVRAS = new Set(["pix", "billet", "boleto", "paid", "authorized", "created", "refused", "cancelled", "canceled", "approved", "pending", "failed", "true", "false", "null", "brl", "store", "delivered", "invoiced", "image", "video", "audio", "document", "conversation", "notify", "append", "android", "ios", "web", "unknown", "open", "close", "connecting", "read", "played", "error"]);
+const PALAVRAS = new Set(["pix", "billet", "boleto", "paid", "authorized", "created", "refused", "cancelled", "canceled", "approved", "pending", "failed", "true", "false", "null", "brl", "store", "delivered", "invoiced", "image", "video", "audio", "document", "conversation", "notify", "append", "android", "ios", "web", "unknown", "open", "close", "connecting", "read", "played", "error", "whatsapp", "active", "anonymized", "birthday", "newsletter", "shipped", "pagina"]);
 const CHAVES_DE_VOCABULARIO = /^(event|timezone|currency|type|kind|status|alias|payment_alias|last_transaction_status|messageType|mediaType|mimetype|source|state|reason|action|integration)$/i;
 const CHAVES_DE_PESSOA = /(^|_)(name|nome|pushname|street|address|neighborhood|city|complement|text|conversation|caption|title|description|notes?)$/i;
 const CHAVES_SECRETAS = /^(apikey|api_key|secret|secret_key|webhook_secret|password|senha|authorization|access_token|refresh_token|customertoken)$/i;
@@ -168,7 +168,7 @@ export function criarRedator({ sal, conhecidos = [], frases = [] }) {
     if (SEMPRE_LEGIVEIS.has(s) || s.length <= 2 || frases.includes(s.trim())) return s;
     const jid = RE_JID.exec(s);
     if (jid) return mascararJid(jid);
-    if (/^000201/.test(s)) return s.slice(0, 6) + fpm(s.slice(6)); // Pix copia e cola: mantém só o início do formato EMV
+    if (/^000201/.test(s)) return s.slice(0, 6) + fpm(s.slice(6)).replace(/@/g, "a"); // Pix copia e cola: mantém só o início do formato EMV; chave em e-mail deixa de parecer e-mail
     if (s.length > 300) return `[REDIGIDO len=${s.length}]`;
     if (/^https?:\/\//i.test(s)) return mascararUrl(s) ?? mascararTexto(s);
     if (/birth|nasc|aniver/i.test(chave)) return mascararTexto(s); // nascimento: o deslocamento comum é recuperável pela data do commit
@@ -187,6 +187,8 @@ export function criarRedator({ sal, conhecidos = [], frases = [] }) {
     if (!Number.isInteger(n)) return n; // dinheiro e fracionários passam
     // chave de pessoa antes do epoch: um CPF inteiro entre 1.4e9 e 2.2e9 seria só deslocado, e o deslocamento é recuperável
     if (CHAVES_NUMERICAS_DE_PESSOA.test(chave)) return mascararNumero(n);
+    // id da loja, do carrinho, do SKU: a mesma id também vem em texto (metadata, URL), onde já era mascarada
+    if (/(^|_)id$/i.test(chave) && String(Math.abs(n)).length >= 6) return mascararNumero(n);
     if (n >= 1.4e9 && n <= 2.2e9) return n - dias * 86_400; // epoch em segundos
     if (String(Math.abs(n)).length >= 10) return mascararNumero(n);
     return n;
