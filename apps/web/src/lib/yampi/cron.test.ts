@@ -83,6 +83,17 @@ test("depois de 90 s não começa outro evento (o relógio salta durante o prime
   assert.ok(chamadas.includes("listarParaConferir"), "a conferência roda mesmo assim");
 });
 
+test("depois de 180 s não começa outra conferência (a loja de fora é a primeira da próxima volta)", async () => {
+  const { deps, chamadas } = mundo({ conexoes: ["loja-a", "loja-b"] });
+  const conferir = deps.conferir;
+  let relogio = INICIO;
+  deps.agora = () => relogio;
+  deps.conferir = async (t) => { relogio += 181_000; return conferir(t); };
+  const r = await executarCronYampi(deps, "*/5 * * * *");
+  assert.equal(r.conferidas, 1);
+  assert.deepEqual(chamadas.filter((c) => c.startsWith("conferir")), ["conferir loja-a"]);
+});
+
 test("listagem que lança conta erro e não impede o outro passo; limpeza que lança: erros 1 e o resto do resumo preservado", async (t) => {
   t.mock.method(console, "error", () => {});
   const { deps, chamadas } = mundo({ conexoes: ["loja-a"] });

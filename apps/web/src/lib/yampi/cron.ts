@@ -8,6 +8,11 @@ const JANELA_DO_REPROCESSO_MS = 24 * 3_600_000;
 const EVENTOS_POR_EXECUCAO = 50;
 const ORCAMENTO_DO_REPROCESSO_MS = 90_000;
 const CONFERIR_A_CADA_MS = 3_600_000;
+/**
+ * Não começa outra conferência depois disto (desde o início): uma conferência lenta (recriar = 3 chamadas de até
+ * 34 s cada) ainda cabe nos 300 s do `maxDuration`. A loja que ficou de fora é a primeira da próxima volta.
+ */
+const ORCAMENTO_DA_CONFERENCIA_MS = 180_000;
 const CONEXOES_POR_EXECUCAO = 20;
 
 export type DepsDoCron = {
@@ -66,6 +71,7 @@ export async function executarCronYampi(deps: DepsDoCron, agenda: string | null)
   try {
     const lojas = await deps.listarParaConferir(new Date(inicio - CONFERIR_A_CADA_MS), CONEXOES_POR_EXECUCAO);
     for (const tenantId of lojas) {
+      if (deps.agora() - inicio > ORCAMENTO_DA_CONFERENCIA_MS) break;
       try {
         const r = await deps.conferir(tenantId);
         if (!r) continue;

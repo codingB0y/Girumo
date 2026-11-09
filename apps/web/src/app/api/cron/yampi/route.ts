@@ -9,7 +9,7 @@ import { processarEventoYampi } from "@/lib/yampi/processar";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 /** O reprocesso para de começar evento novo em 90 s; o resto é a conferência e a folga para responder. */
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 /**
  * GET /api/cron/yampi — pelo Vercel Cron (vercel.json) com `Authorization: Bearer <CRON_SECRET>`, em duas agendas:

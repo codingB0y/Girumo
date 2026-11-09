@@ -23,7 +23,7 @@ async function comCliente<T>(conexao: ConexaoYampi, fn: (c: ClienteYampi) => Pro
   try {
     return await fn(criarClienteYampi({ alias: conexao.alias, token, secretKey }));
   } catch (e) {
-    if (e instanceof YampiErro && e.status === 401) await marcarCredencialInvalida(conexao.tenantId);
+    if (e instanceof YampiErro && e.status === 401) await marcarCredencialInvalida(conexao.tenantId, conexao.userTokenSelado);
     throw e;
   }
 }

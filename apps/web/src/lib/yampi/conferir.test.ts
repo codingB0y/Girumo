@@ -90,3 +90,23 @@ test("conferirConexao: credencial_invalida não chama a Yampi; sem conexão ou d
   assert.equal(await conferirConexao(TENANT), null);
   assert.equal(estado.chamadasYampi.length, 0);
 });
+
+test("conferirConexao: toda escrita é da mesma conexão viva — a loja que desconectou no meio não volta a ativa", async () => {
+  const linha = linhaDaConexao();
+  for (const cenario of [
+    { "GET /loja-exemplo/webhooks": [200, LISTA] },            // ativo
+    { "GET /loja-exemplo/webhooks": [503, { erro: "fora" }] },  // Yampi fora
+    { ...recriando(nossoNaYampi(false)), "POST /loja-exemplo/webhooks": [500, { erro: "fora" }] }, // não religou
+  ] as Array<typeof yampi>) {
+    estado.chamadas.length = 0;
+    banco = { ...comConexao(), "GET /rest/v1/yampi_connections": [200, [linha]] };
+    yampi = cenario;
+    await conferirConexao(TENANT);
+    const escritas = estado.chamadas.filter((c) => c.metodo === "PATCH" && c.url.pathname === "/rest/v1/yampi_connections");
+    assert.ok(escritas.length > 0);
+    for (const c of escritas) {
+      assert.equal(c.url.searchParams.get("user_token"), `eq.${linha.user_token as string}`);
+      assert.equal(c.url.searchParams.get("status"), "in.(ativa,aviso_desativado)");
+    }
+  }
+});

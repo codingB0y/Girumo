@@ -25,7 +25,7 @@ servirYampi(estado);
 
 beforeEach(() => {
   Object.assign(process.env, ENV);
-  banco = { "PATCH /rest/v1/yampi_connections": [200, []] };
+  banco = { "PATCH /rest/v1/yampi_connections": [200, [{ tenant_id: TENANT }]] };
   yampi = {};
   estado.chamadas.length = 0;
   estado.chamadasYampi.length = 0;
@@ -50,13 +50,13 @@ test("estadoDoAviso: ativo, desativado (active:false e disabled_at) e ausente (i
   assert.equal(estadoDoAviso(lista, { webhookId: null }), "ausente");
 });
 
-test("listarAvisosDaYampi lê data[] e traduz active/disabled_at em ativo", async () => {
+test("listarAvisosDaYampi lê data[] e traduz active/disabled_at em ativo; id que não é número fica de fora (entra no caminho do DELETE)", async () => {
   // A fixture da Fase 0 tem o ativo; o desativado é o da doc (a Yampi não desativa por API, Y20).
   const desligados = [
     { id: 8, url: "https://x.exemplo/a", active: false, disabled_at: null },
     { id: 9, url: "https://x.exemplo/b", active: true, disabled_at: "2026-11-01 10:00:00" },
   ];
-  yampi = { "GET /loja-exemplo/webhooks": [200, { ...LISTA, data: [...(LISTA.data as unknown[]), ...desligados, { sem: "id" }] }] };
+  yampi = { "GET /loja-exemplo/webhooks": [200, { ...LISTA, data: [...(LISTA.data as unknown[]), ...desligados, { sem: "id" }, { id: "../..", url: "https://x.exemplo/c" }] }] };
   const lista = await listarAvisosDaYampi(conexao());
   assert.deepEqual(lista.map((a) => [a.id, a.ativo]), [["5611397", true], ["8", false], ["9", false]]);
   assert.equal(estado.chamadasYampi[0].consulta.get("limit"), "100");
@@ -74,12 +74,16 @@ test("recriarAviso apaga os avisos da nossa rota (até os de outro host), cria u
     "DELETE /loja-exemplo/webhooks/12": [204, null],
     "POST /loja-exemplo/webhooks": [200, CRIADO],
   };
-  await recriarAviso(conexao());
+  const lida = conexao();
+  await recriarAviso(lida);
   assert.deepEqual(metodos("DELETE").map((c) => c.caminho), ["/loja-exemplo/webhooks/11", "/loja-exemplo/webhooks/12"]);
   assert.deepEqual(metodos("POST")[0]?.corpo, { name: "Girumo", url: urlDoAviso(CONEXAO_ID), events: [...EVENTOS_YAMPI] });
   const patch = estado.chamadas.find((c) => c.metodo === "PATCH" && c.url.pathname === "/rest/v1/yampi_connections");
   const salvo = patch?.corpo as { webhook_id: string; webhook_secret: string; status: string };
   assert.equal(patch?.url.searchParams.get("tenant_id"), `eq.${TENANT}`);
+  // Só grava na mesma conexão (token selado de quando foi lida) e ainda viva.
+  assert.equal(patch?.url.searchParams.get("user_token"), `eq.${lida.userTokenSelado}`);
+  assert.equal(patch?.url.searchParams.get("status"), "in.(ativa,aviso_desativado)");
   assert.equal(salvo.status, "ativa");
   assert.equal(salvo.webhook_id, String(ID_DA_FIXTURE));
   assert.notEqual(salvo.webhook_secret, SECRET_KEY_DA_FIXTURE); // nunca em texto
@@ -99,5 +103,16 @@ test("recriarAviso: resposta sem secret_key apaga o aviso criado e lança; falha
   yampi = { ...yampi, "POST /loja-exemplo/webhooks": [200, CRIADO], [`DELETE /loja-exemplo/webhooks/${ID_DA_FIXTURE}`]: [204, null] };
   banco = { "PATCH /rest/v1/yampi_connections": [500, { message: "banco fora" }] };
   await assert.rejects(recriarAviso(conexao()), /banco fora/);
+  assert.deepEqual(metodos("DELETE").map((c) => c.caminho), [`/loja-exemplo/webhooks/${ID_DA_FIXTURE}`]);
+});
+
+test("recriarAviso: a loja desconectou (ou trocou o token) enquanto o aviso nascia: apaga o criado e lança", async () => {
+  yampi = {
+    "GET /loja-exemplo/webhooks": [200, { data: [] }],
+    "POST /loja-exemplo/webhooks": [200, CRIADO],
+    [`DELETE /loja-exemplo/webhooks/${ID_DA_FIXTURE}`]: [204, null],
+  };
+  banco = { "PATCH /rest/v1/yampi_connections": [200, []] };
+  await assert.rejects(recriarAviso(conexao()), /a conexão mudou/);
   assert.deepEqual(metodos("DELETE").map((c) => c.caminho), [`/loja-exemplo/webhooks/${ID_DA_FIXTURE}`]);
 });

@@ -135,3 +135,25 @@ test("post manda JSON; apagar aceita 204; resposta que não é JSON vira YampiEr
   assert.deepEqual([pedidos[1].init.method, pedidos[1].url], ["DELETE", "https://api.dooki.com.br/v2/loja-exemplo/webhooks/7"]);
   await assert.rejects(c.get("/orders"), erroCom(502));
 });
+
+test("POST não repete em 5xx nem em falha de rede (a 1ª pode ter criado o aviso); 429 repete, porque não foi processado", async () => {
+  for (const falha of [json({}, 503), new Error("ECONNRESET")]) {
+    const { c, pedidos, esperas } = cliente([falha, json({ data: { id: 1 } })]);
+    await assert.rejects(c.post("/webhooks", { name: "Girumo" }), erroCom(falha instanceof Response ? 503 : 0));
+    assert.deepEqual([pedidos.length, esperas], [1, []]);
+  }
+  const limite = cliente([json({}, 429, { "retry-after": "1" }), json({ data: { id: 1 } })]);
+  assert.deepEqual(await limite.c.post("/webhooks", {}), { data: { id: 1 } });
+  assert.equal(limite.pedidos.length, 2);
+});
+
+test("caminho com `..`, `.`, `#` ou segmento vazio nunca chega ao fetch; a consulta separada continua valendo", async () => {
+  for (const caminho of ["/webhooks/..", "/./orders", "/orders#x", "//orders", "orders", "/orders/", ""]) {
+    const { c, pedidos } = cliente([json({})]);
+    await assert.rejects(c.apagar(caminho), /caminho inválido/, caminho);
+    assert.equal(pedidos.length, 0, caminho);
+  }
+  const { c, pedidos } = cliente([json({ data: [] })]);
+  await c.get("/search/orders", { q: "1" });
+  assert.equal(pedidos[0].url, "https://api.dooki.com.br/v2/loja-exemplo/search/orders?q=1");
+});

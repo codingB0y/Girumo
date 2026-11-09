@@ -84,22 +84,6 @@ export async function salvarConexaoYampi(
   return paraConexao(salva);
 }
 
-/** O aviso criado na Yampi: id e segredo selado. A conexão volta a `ativa`. */
-export async function salvarAvisoYampi(tenantId: string, a: { webhookId: string; webhookSecretSelado: string }): Promise<void> {
-  const { error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .update({
-      webhook_id: a.webhookId,
-      webhook_secret: a.webhookSecretSelado,
-      events: [...EVENTOS_YAMPI],
-      status: "ativa" satisfies StatusYampi,
-      last_error: null,
-      last_check_at: new Date().toISOString(),
-    })
-    .eq("tenant_id", tenantId);
-  if (error) throw new Error(error.message);
-}
-
 export type PatchConexaoYampi = Partial<{
   status: StatusYampi;
   last_error: string | null;
@@ -112,16 +96,49 @@ export async function atualizarConexaoYampi(tenantId: string, patch: PatchConexa
   if (error) throw new Error(error.message);
 }
 
-/** Só `ativa` e `aviso_desativado` mudam: o sino avisa uma vez. true = mudou agora. */
-export async function marcarCredencialInvalidaNoBanco(tenantId: string, erro: string): Promise<boolean> {
+const VIVAS: StatusYampi[] = ["ativa", "aviso_desativado"];
+
+/**
+ * Grava só se a linha ainda é a conexão que quem chama leu: o mesmo token selado (cada selagem tem IV novo, então
+ * ele serve de versão) e ainda viva. Assim uma chamada lenta à Yampi não desfaz a desconexão, a troca de token ou o
+ * 401 que aconteceram no meio dela. true = gravou.
+ */
+export async function atualizarMesmaConexaoYampi(
+  tenantId: string,
+  userTokenSelado: string | null,
+  patch: PatchConexaoYampi & { webhook_id?: string; webhook_secret?: string; events?: string[] },
+): Promise<boolean> {
+  if (!userTokenSelado) return false;
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
-    .update({ status: "credencial_invalida" satisfies StatusYampi, last_error: erro })
+    .update(patch)
     .eq("tenant_id", tenantId)
-    .in("status", ["ativa", "aviso_desativado"])
+    .eq("user_token", userTokenSelado)
+    .in("status", VIVAS)
     .select("tenant_id");
   if (error) throw new Error(error.message);
   return (data ?? []).length > 0;
+}
+
+/** O aviso criado na Yampi: id e segredo selado. A conexão volta a `ativa`. false = a conexão mudou no meio. */
+export function salvarAvisoYampi(
+  tenantId: string,
+  userTokenSelado: string | null,
+  a: { webhookId: string; webhookSecretSelado: string },
+): Promise<boolean> {
+  return atualizarMesmaConexaoYampi(tenantId, userTokenSelado, {
+    webhook_id: a.webhookId,
+    webhook_secret: a.webhookSecretSelado,
+    events: [...EVENTOS_YAMPI],
+    status: "ativa",
+    last_error: null,
+    last_check_at: new Date().toISOString(),
+  });
+}
+
+/** Só a conexão viva com aquele token muda: o sino avisa uma vez, e o 401 de um token velho não derruba o novo. */
+export function marcarCredencialInvalidaNoBanco(tenantId: string, userTokenSelado: string | null, erro: string): Promise<boolean> {
+  return atualizarMesmaConexaoYampi(tenantId, userTokenSelado, { status: "credencial_invalida", last_error: erro });
 }
 
 /** Apaga credencial e aviso e mantém a linha (o id, e a URL do aviso, sobrevivem). Devolve a conexão de antes. */

@@ -24,8 +24,11 @@ export function urlDoAviso(conexaoId: string): string {
 
 export type AvisoNaYampi = { id: string; url: string; ativo: boolean };
 
+/** Id de aviso da Yampi: só dígitos (entra no caminho do DELETE). */
+const idDoAviso = z.union([z.string().regex(/^\d{1,20}$/), z.number().int().positive()]);
+
 const avisoDaLista = z.object({
-  id: z.union([z.string(), z.number()]),
+  id: idDoAviso,
   url: z.string(),
   active: z.boolean().nullish(),
   disabled_at: z.unknown().optional(),
@@ -64,7 +67,7 @@ function ehNosso(url: string, conexaoId: string): boolean {
 
 async function apagarSeExistir(c: ConexaoYampi, id: string): Promise<void> {
   try {
-    await yampiApagar(c, `/webhooks/${encodeURIComponent(id)}`);
+    await yampiApagar(c, `/webhooks/${id}`);
   } catch (e) {
     if (!(e instanceof YampiErro && e.status === 404)) throw e;
   }
@@ -77,10 +80,14 @@ export async function apagarAvisosDaNossaUrl(c: ConexaoYampi): Promise<void> {
 }
 
 const avisoCriado = z.object({
-  data: z.object({ id: z.union([z.string(), z.number()]).optional(), secret_key: z.string().min(16).optional() }),
+  data: z.object({ id: idDoAviso.optional(), secret_key: z.string().min(16).optional() }),
 });
 
-/** Apaga os nossos, cria um com os cinco eventos e grava id + segredo selado (status `ativa`). Lança se falhar. */
+/**
+ * Apaga os nossos, cria um com os cinco eventos e grava id + segredo selado (status `ativa`). Lança se falhar.
+ * Apagar antes de criar: se a função morrer no meio, a loja fica sem aviso só até a próxima volta do cron (5 min,
+ * o `last_check_at` não andou); criar antes deixaria um aviso cujo segredo ninguém tem.
+ */
 export async function recriarAviso(c: ConexaoYampi): Promise<void> {
   const chave = chaveDeIntegracoes();
   if (!chave) throw new Error("Yampi indisponível: INTEGRATIONS_ENCRYPTION_KEY ausente");
@@ -94,7 +101,10 @@ export async function recriarAviso(c: ConexaoYampi): Promise<void> {
     throw new Error("Yampi: o aviso criado não trouxe segredo");
   }
   try {
-    await salvarAvisoYampi(c.tenantId, { webhookId: id, webhookSecretSelado: selar(segredo, contextoDoSegredo(c.tenantId, "webhook_secret"), chave) });
+    const segredoSelado = selar(segredo, contextoDoSegredo(c.tenantId, "webhook_secret"), chave);
+    const gravou = await salvarAvisoYampi(c.tenantId, c.userTokenSelado, { webhookId: id, webhookSecretSelado: segredoSelado });
+    // A loja desconectou, trocou o token ou levou 401 enquanto o aviso nascia: ele não pode ficar ligado.
+    if (!gravou) throw new Error("Yampi: a conexão mudou enquanto o aviso era criado");
   } catch (e) {
     // Sem o segredo gravado o aviso só daria 401: melhor não deixar nenhum.
     await apagarSeExistir(c, id).catch(() => undefined);

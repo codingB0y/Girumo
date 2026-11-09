@@ -8,7 +8,9 @@ import { lerAlias } from "./credenciais";
  * O limite (~60 req/min por rota) é do IP de saída, dividido entre todas as lojas. A doc promete
  * `X-RateLimit-Remaining` e `Retry-After`; a Fase 0 não viu nenhum dos dois (Y16), então quem segura de verdade é o
  * 429 e o teto por loja do cartão. `Remaining` ≤ 0 adia a próxima chamada desta loja até o fim da janela; 429 espera
- * o `Retry-After` (até 10 s) e repete uma vez. 5xx e rede tentam mais 2 vezes (1 s e 3 s); 4xx não repete.
+ * o `Retry-After` (até 10 s) e repete uma vez. 5xx e rede tentam mais 2 vezes (1 s e 3 s) no GET e no DELETE; o
+ * POST não repete (a 1ª tentativa pode ter criado, e um segundo aviso nasceria com um segredo que ninguém guarda);
+ * 4xx não repete. O caminho só aceita segmentos simples: nada de `..`, `#` ou segmento vazio.
  *
  * Mensagem de erro fixa, sem a consulta: o erro do `fetch` cita o valor do cabeçalho (o token), e o corpo da
  * resposta pode trazer dado da cliente.
@@ -23,6 +25,8 @@ const ESPERA_MAXIMA_MS = 10_000;
 const RETRY_AFTER_PADRAO_MS = 2_000;
 const JANELA_DO_LIMITE_MS = 60_000;
 const ESPERAS_TRANSITORIO = [1_000, 3_000];
+/** `/a/b-c/1.json`: cada segmento começa por letra, dígito, `_` ou `-` (fora `.` e `..`). */
+const CAMINHO_VALIDO = /^(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$/;
 
 export class YampiErro extends Error {
   /** 0 = sem resposta. */
@@ -91,11 +95,12 @@ export function criarClienteYampi(o: OpcoesClienteYampi): ClienteYampi {
 
   async function chamar(metodo: "GET" | "POST" | "DELETE", caminhoComConsulta: string, query?: Query, corpo?: unknown): Promise<unknown> {
     const caminho = caminhoComConsulta.split("?")[0];
+    if (!CAMINHO_VALIDO.test(caminho)) throw new Error("Yampi: caminho inválido");
     const consulta = query ? `?${new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)]))}` : "";
     const url = `${YAMPI_API_BASE}/${alias}${caminhoComConsulta}${consulta}`;
     const cabecalhos: Record<string, string> = { "User-Token": o.token, "User-Secret-Key": o.secretKey, Accept: "application/json" };
     if (corpo !== undefined) cabecalhos["Content-Type"] = "application/json";
-    const esperasTransitorio = [...ESPERAS_TRANSITORIO];
+    const esperasTransitorio = metodo === "POST" ? [] : [...ESPERAS_TRANSITORIO];
     let repetiuLimite = false;
 
     for (;;) {
