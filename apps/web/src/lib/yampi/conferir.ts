@@ -10,8 +10,8 @@ export type ResultadoDaConferencia = {
   aviso: "ativo" | "recriado" | "falhou" | "desconhecido";
 };
 
-const YAMPI_FORA = "A Yampi não respondeu na última conferência.";
-const NAO_RELIGOU = "Não foi possível religar o aviso na Yampi.";
+export const YAMPI_FORA = "A Yampi não respondeu na última conferência.";
+export const NAO_RELIGOU = "Não foi possível religar o aviso na Yampi.";
 
 const recusou = (e: unknown) => e instanceof YampiErro && e.status === 401;
 

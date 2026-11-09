@@ -33,6 +33,75 @@ Para aplicar qualquer mudança daqui em produção: cole o arquivo inteiro em
 "Edit Compose file" → Save → Deploy → **confira a contagem em *Compose
 resources*** antes de considerar aplicado.
 
+## Imagem corrigida: ack das stanzas `<status>` (o ciclo de 50 min)
+
+**Sintoma** (medido em prod em 08–09/11/2026, instância da Moda kids): a cada
+50 min exatos chega `connection.update` `connecting` → `open`, nunca um `close`,
+e o relógio não se mexe com redeploy. No log do container da Evolution aparece,
+no mesmo minuto, `"msg":"stream errored out"` com
+`"reasonNode":{"tag":"ack","attrs":{"class":"status",...}}`. O pior não é a
+reconexão: durante os 50 min a instância fica `open` mas **surda** — 100% dos
+`messages.update` e `group-participants.update` das 30 h medidas chegaram no
+primeiro minuto depois de cada `open` (a fila offline do WhatsApp sendo
+despejada), nenhum no meio do intervalo. Começou em 05/11/2026, no dia em que o
+chip `556283145300` foi pareado; o chip anterior não tinha o ciclo.
+
+**Causa:** o WhatsApp passou a mandar, para algumas contas, os status dos
+contatos como stanza `<status>` de nível superior. O Baileys 7.0.0-rc.9 (o da
+Evolution v2.3.7) não tem handler para ela e nunca responde o ack; o servidor
+segura a entrada e, ~50 min depois, fecha o stream nomeando o ack que faltou.
+Na reconexão a mesma `<status>` volta, sem ack, e recomeça.
+Referências: [WhiskeySockets/Baileys#2858](https://github.com/WhiskeySockets/Baileys/issues/2858)
+(bug), [WhiskeySockets/Baileys#2883](https://github.com/WhiskeySockets/Baileys/pull/2883)
+(correção upstream, aberta em 09/11/2026),
+[evolution-api#2778](https://github.com/evolution-foundation/evolution-api/issues/2778)
+(mesmo sintoma na v2.3.7) e
+[evolution-api#2785](https://github.com/evolution-foundation/evolution-api/pull/2785)
+(backport via patch-package, aberto).
+
+**Correção daqui:** `deploy/coolify/evolution/` tem um `Dockerfile` que parte da
+imagem oficial e roda `patch-baileys-status-ack.mjs` no
+`node_modules/baileys/lib/Socket/messages-recv.js`: registra `CB:status`,
+responde o ack (e só o ack — o conteúdo do status continua ignorado, como já
+era) e põe `status` no processador de nós offline. O workflow
+`.github/workflows/evolution-image.yml` constrói em todo PR que mexe na pasta e
+publica no push em `main` como
+`ghcr.io/codingb0y/evolution-api:v2.3.7-status-ack` (e `...-<sha>`).
+O script é idempotente e **recusa** uma versão do Baileys cujas âncoras não
+foram conferidas — o build falha de propósito em vez de gerar imagem sem o fix.
+Se a base um dia já trouxer o `CB:status`, ele não faz nada e o build passa.
+
+**Aplicar no Coolify** (o compose é colado, ver acima): recurso `evolution-api`
+→ *Edit Compose file* → no serviço `evolution`, trocar a linha `image:` por
+`ghcr.io/codingb0y/evolution-api:v2.3.7-status-ack` → Save → **Redeploy**.
+Se o pull falhar com `denied`/401, o pacote no GHCR está privado: em
+github.com/codingB0y → Packages → `evolution-api` → *Package settings* →
+*Change visibility* → Public (ou cadastre credenciais do GHCR no Coolify).
+Rollback: voltar a linha para `evoapicloud/evolution-api:v2.3.7` e Redeploy.
+
+**Verificar (obrigatório):**
+
+1. Container certo: a stack tem 4 serviços (`evolution`, `evolution-postgres`,
+   `evolution-redis`, `evolution-gateway`) e o workdir da Evolution é
+   `/evolution`. O worker do Girumo é **outro recurso** (workdir `/app`, logs
+   JSON com `"msg":"worker iniciado"`) — em 09/11 o `LOG_LEVEL` e um redeploy
+   caíram nele por engano.
+2. `docker logs <container evolution> 2>&1 | grep -c "stream errored out"` deve
+   parar de crescer depois do deploy (antes: +1 a cada 50 min).
+3. No banco do Girumo (prod), os `open` da instância deixam de vir a cada 50 min:
+   ```sql
+   select created_at from public.engine_events
+    where instance_id = '<id>' and type = 'connection.update'
+      and payload->'data'->>'state' = 'open'
+    order by created_at desc limit 5;
+   ```
+4. `group-participants.update` e `messages.update` passam a chegar espalhados
+   no tempo, não mais só no minuto após o `open`.
+
+**Sair do patch:** quando uma release estável da Evolution trouxer um Baileys
+com #2883, trocar a base (`EVOLUTION_BASE` no workflow, ou voltar direto para a
+imagem oficial no compose) e apagar `deploy/coolify/evolution/` e o workflow.
+
 ## Passo a passo (infra — feito por você na VPS/Coolify)
 
 1. **DNS:** aponte `wa.seudominio.com` para o IP da VPS.

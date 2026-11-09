@@ -1,0 +1,75 @@
+name: Evolution image
+
+# Constrói a imagem derivada da Evolution (deploy/coolify/evolution/Dockerfile):
+# a oficial mais o patch que faz o Baileys confirmar as stanzas <status>.
+# Em PR só constrói e testa; no push em main publica no GHCR. Só roda quando
+# algo dessa pasta (ou este arquivo) muda, para não gastar minuto à toa.
+on:
+  pull_request:
+    paths:
+      - "deploy/coolify/evolution/**"
+      - ".github/workflows/evolution-image.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/coolify/evolution/**"
+      - ".github/workflows/evolution-image.yml"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Imagem base (evoapicloud/evolution-api:<tag>)"
+        default: "evoapicloud/evolution-api:v2.3.7"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: evolution-image-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE: ${{ github.event.inputs.base || 'evoapicloud/evolution-api:v2.3.7' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Testes do script de patch
+        run: node --test deploy/coolify/evolution/patch-baileys-status-ack.test.mjs
+      - name: Nome da imagem
+        id: meta
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/${owner}/evolution-api:${BASE##*:}-status-ack" >> "$GITHUB_OUTPUT"
+      - name: Build (aplica o patch no Baileys da imagem oficial)
+        run: docker build --build-arg "EVOLUTION_BASE=${BASE}" -t "${{ steps.meta.outputs.image }}" deploy/coolify/evolution
+      - name: Smoke test (o módulo patchado carrega e registra CB:status)
+        run: |
+          docker run --rm --entrypoint node "${{ steps.meta.outputs.image }}" -e '
+            const fs = require("fs");
+            const f = "/evolution/node_modules/baileys/lib/Socket/messages-recv.js";
+            const s = fs.readFileSync(f, "utf8");
+            if (!s.includes("ws.on(\x27CB:status\x27")) { console.error("CB:status listener missing"); process.exit(1); }
+            require(f);
+            console.log("ok: patched messages-recv.js loads, baileys", require("/evolution/node_modules/baileys/package.json").version);
+          '
+      - name: Login no GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push
+        if: github.event_name != 'pull_request'
+        run: |
+          img="${{ steps.meta.outputs.image }}"
+          docker tag "$img" "${img}-${GITHUB_SHA::7}"
+          docker push "$img"
+          docker push "${img}-${GITHUB_SHA::7}"
