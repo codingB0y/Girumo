@@ -202,6 +202,11 @@ function cenarioConexao() {
   respostas = {
     "GET /rest/v1/instances": { status: 200, corpo: [INSTANCIA] },
     "POST /rest/v1/rpc/update_instance_status": { status: 200, corpo: null },
+    // Troca de chip (09/11/2026): qualquer `open` com telefone diferente do gravado passa por aqui antes do status.
+    "POST /rest/v1/rpc/registrar_troca_de_chip": {
+      status: 200,
+      corpo: { aplicado: true, phone_antigo: "5511999990000", phone_novo: "5511988887777", convalescenca_removida: false },
+    },
     "POST /rest/v1/funnel_events": { status: 201 },
     "POST /rest/v1/rpc/record_engine_event": { status: 200, corpo: [{ is_new: true }] },
     "POST /rest/v1/engine_events": { status: 201 },
@@ -332,6 +337,74 @@ test("erro do banco na convalescença não derruba o webhook e guarda a hora par
   assert.equal(res.status, 200);
   assert.equal(iniciouConvalescenca().length, 1);
   assert.equal(metadataGravado()[0].lastLoggedOutAt, derrubadaEm);
+});
+
+// Troca de chip (09/11/2026): outro número abrindo a sessão da instância dos grupos reinicia o aquecimento.
+const OUTRO_CHIP = "5511988887777@s.whatsapp.net";
+
+function cenarioTrocaDeChip(instancia: Record<string, unknown> = INSTANCIA) {
+  cenarioConexao();
+  respostas["GET /rest/v1/instances"] = { status: 200, corpo: [instancia] };
+}
+
+const registrouTroca = () =>
+  chamadas
+    .filter((c) => c.metodo === "POST" && c.url.pathname === "/rest/v1/rpc/registrar_troca_de_chip")
+    .map((c) => c.corpo);
+
+const posts = () => chamadas.filter((c) => c.metodo === "POST").map((c) => c.url.pathname);
+
+test("outro chip abrindo a sessão dos grupos registra a troca antes de gravar o telefone novo", async () => {
+  cenarioTrocaDeChip();
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("open", OUTRO_CHIP)));
+
+  assert.equal(res.status, 200, JSON.stringify(posts()));
+  assert.deepEqual(registrouTroca(), [{ p_tenant: LOJA, p_instance: "inst-1", p_phone_novo: "5511988887777" }]);
+  const ordem = posts();
+  assert.ok(
+    ordem.indexOf("/rest/v1/rpc/registrar_troca_de_chip") < ordem.indexOf("/rest/v1/rpc/update_instance_status"),
+    `ordem: ${ordem.join(" > ")}`,
+  );
+});
+
+test("o mesmo chip reconectando não é troca", async () => {
+  cenarioTrocaDeChip();
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("open", MEU_CHIP)));
+
+  assert.equal(res.status, 200);
+  assert.equal(registrouTroca().length, 0);
+});
+
+test("primeira conexão da instância (sem telefone gravado) não é troca", async () => {
+  cenarioTrocaDeChip({ ...INSTANCIA, phone: null });
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("open", OUTRO_CHIP)));
+
+  assert.equal(res.status, 200);
+  assert.equal(registrouTroca().length, 0);
+});
+
+test("o número do atendimento trocando de chip não passa pela troca (não tem aquecimento)", async () => {
+  cenarioTrocaDeChip({ ...INSTANCIA, purpose: "privado" });
+  // O atendimento conectando grava o seu estado próprio; não é o que se testa aqui.
+  respostas["POST /rest/v1/private_number_state"] = { status: 201 };
+
+  const res = await naRequisicao(novoEscopo(), () => POST(conexao("open", OUTRO_CHIP)));
+
+  assert.equal(res.status, 200, JSON.stringify(posts()));
+  assert.equal(registrouTroca().length, 0);
+});
+
+test("erro do banco na troca não vira 200 e não grava o telefone novo: a Evolution reentrega", async () => {
+  cenarioTrocaDeChip();
+  respostas["POST /rest/v1/rpc/registrar_troca_de_chip"] = ERRO_DO_BANCO;
+
+  // Sem catch na rota, o Next responde 500 — a reentrega ainda vê o telefone antigo na linha.
+  await assert.rejects(naRequisicao(novoEscopo(), () => POST(conexao("open", OUTRO_CHIP))), /banco fora/);
+  assert.equal(registrouTroca().length, 1);
+  assert.equal(posts().filter((p) => p === "/rest/v1/rpc/update_instance_status").length, 0);
 });
 
 // Disjuntor do anti-ban (23/10/2026): só a saída voluntária faz o banco recontar.

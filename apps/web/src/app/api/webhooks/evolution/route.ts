@@ -20,7 +20,7 @@ import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { findOpenWindow, insertEntry } from "@/lib/stores/flash-offers";
 import { recordGroupMemberEvents } from "@/lib/stores/group-member-events";
-import { avaliarDisjuntorSaidas, iniciarConvalescenca } from "@/lib/stores/instance-health";
+import { avaliarDisjuntorSaidas, iniciarConvalescenca, registrarTrocaDeChip } from "@/lib/stores/instance-health";
 import {
   applyAdminCountDelta,
   applyMemberCountDelta,
@@ -149,6 +149,20 @@ async function applyConnectionUpdate(
     // próxima abertura tenta de novo (connection.update open chega em rajada).
     const tratada = await iniciarConvalescencaSeDerrubado(instance, derrubadaEm, phone, chegouEm);
     lastLoggedOutAt = tratada ? null : derrubadaEm;
+  }
+
+  // Chip trocado na mesma vaga (09/11/2026): outro número abrindo a sessão da instância dos grupos herdaria
+  // o que o anterior conquistou (perfil, aquecimento graduado, tetos de veterano) e, se o anterior caiu, isso
+  // é a cara de fuga de restrição. O banco reinicia o aquecimento (migração 20261109130000) ANTES de gravar
+  // o telefone novo: se falhar, o 5xx faz a Evolution reentregar e o telefone antigo ainda está na linha para
+  // a próxima tentativa enxergar a troca. O número do atendimento não tem aquecimento (a RPC recusa).
+  if (status === "connected" && phone && instance.phone && phone !== instance.phone && instance.purpose === "grupos") {
+    const troca = await registrarTrocaDeChip(instance.tenant_id, instance.id, phone);
+    if (troca.aplicado) {
+      console.warn(
+        `[webhook/evolution] chip trocado em ${instance.id}: ${troca.phone_antigo} -> ${troca.phone_novo}; aquecimento reiniciado`,
+      );
+    }
   }
 
   await updateInstanceStatus({
