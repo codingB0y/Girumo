@@ -650,3 +650,8 @@ apps/web/supabase/migrations/20261109130000_troca_de_chip.sql
 # (nova) e o corpo de app.enqueue_broadcast (trava de md5). Tudo em app.*: não muda a baseline. Conferir com
 # infra/tests/envio-pelo-avisos-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261109140000_envio_pelo_avisos.sql
+
+# 09/11: complemento do envio pelo Avisos: o pai da comunidade (que "todos os grupos" inclui quando somos admin
+# dele, e que nao e um chat) sai do alvo junto com os grupos-membro. Arquivo separado porque o CI nao reaplica
+# arquivo ja registrado. Mesmo check: infra/tests/envio-pelo-avisos-check.sql.
+apps/web/supabase/migrations/20261109150000_avisos_cobre_o_pai.sql

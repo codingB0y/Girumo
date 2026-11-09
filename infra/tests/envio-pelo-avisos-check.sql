@@ -1,5 +1,5 @@
--- Conferência da migração 20261109140000_envio_pelo_avisos.sql (comunidade inteira no alvo sai pelo
--- Avisos), nos DOIS bancos, depois de aplicar. Rodar de apps\web:
+-- Conferência das migrações 20261109140000_envio_pelo_avisos.sql e 20261109150000_avisos_cobre_o_pai.sql
+-- (comunidade inteira no alvo sai pelo Avisos, pai incluído), nos DOIS bancos, depois de aplicar. Rodar de apps\web:
 --   supabase link --project-ref <ref> --yes      # dev wfjuwogxaupyadwhvoxy / prod nidoatbxaylrkcgbszns
 --   supabase db query --linked -o json -f ..\..\infra\tests\envio-pelo-avisos-check.sql
 --
@@ -17,9 +17,9 @@ select '7f0b0000-0000-4000-8000-000000000001', p.id, 'free' from public.plans p 
 insert into public.instances (id, tenant_id, name, status, phone, purpose, provider_instance_id) values
   ('7f0b0000-0000-4000-8000-0000000000e1', '7f0b0000-0000-4000-8000-000000000001', 'Check grupos', 'connected', '5511999990001', 'grupos', 'gr_check_avisos');
 
--- Comunidade A: pai (não admin), Avisos admin, 3 grupos-membro admin.
+-- Comunidade A: pai admin (quem cria a comunidade é admin dele), Avisos admin, 3 grupos-membro admin.
 insert into public.groups (tenant_id, whatsapp_group_id, name, is_admin, members, community_jid, community_role) values
-  ('7f0b0000-0000-4000-8000-000000000001', 'comA-check@g.us',    'Comunidade A',        false, 1,   'comA-check@g.us', 'parent'),
+  ('7f0b0000-0000-4000-8000-000000000001', 'comA-check@g.us',    'Comunidade A',        true,  1,   'comA-check@g.us', 'parent'),
   ('7f0b0000-0000-4000-8000-000000000001', 'comA-check-av@g.us', 'Avisos A',            true,  300, 'comA-check@g.us', 'announce'),
   ('7f0b0000-0000-4000-8000-000000000001', 'a1-check@g.us',      'A 1',                 true,  100, 'comA-check@g.us', 'member'),
   ('7f0b0000-0000-4000-8000-000000000001', 'a2-check@g.us',      'A 2',                 true,  100, 'comA-check@g.us', 'member'),
@@ -67,7 +67,7 @@ begin
   end if;
 end $$;
 
--- 2) A decisão pura: só a comunidade inteira com Avisos admin.
+-- 2) A decisão pura: só a comunidade inteira com Avisos admin; `cobertos` traz os grupos-membro e o pai.
 do $$
 declare
   n int;
@@ -79,7 +79,7 @@ begin
   select * into r from app.avisos_que_cobrem('7f0b0000-0000-4000-8000-000000000001',
     array['a1-check@g.us','a2-check@g.us','a3-check@g.us','b1-check@g.us','b2-check@g.us','c1-check@g.us','c2-check@g.us','l1-check@g.us']);
   if r.community_jid <> 'comA-check@g.us' or r.aviso_jid <> 'comA-check-av@g.us'
-     or r.cobertos <> array['a1-check@g.us','a2-check@g.us','a3-check@g.us'] then
+     or r.cobertos <> array['a1-check@g.us','a2-check@g.us','a3-check@g.us','comA-check@g.us'] then
     raise exception 'FALHOU: cobertura errada: % % %', r.community_jid, r.aviso_jid, r.cobertos;
   end if;
   select count(*) into n from app.avisos_que_cobrem('7f0b0000-0000-4000-8000-000000000001', array['a1-check@g.us','a2-check@g.us']);
@@ -150,7 +150,8 @@ begin
 end $$;
 
 -- 6) "Todos os grupos" (group_ids vazio): A e C colapsam; B segue grupo a grupo (Avisos sem admin não é
---    alvo nem colapsa); o pai não é admin, não entra. O Avisos de A já tem 2 posts hoje: cai no teto.
+--    alvo nem colapsa). O pai de A é admin e entraria em "todos": sai com a comunidade, porque não é um
+--    chat (20261109150000). O Avisos de A já tem 2 posts hoje: cai no teto.
 do $$
 declare
   b public.broadcasts;
@@ -162,7 +163,7 @@ begin
   select array_agg(x.payload->>'jid' order by x.payload->>'jid') into jids
     from public.engine_commands x where x.tenant_id = '7f0b0000-0000-4000-8000-000000000001' and x.origin_id = '7f0b0000-0000-4000-8000-0000000000b4';
   if jids <> array['b1-check@g.us','b2-check@g.us','comA-check-av@g.us','comC-check-av@g.us','l1-check@g.us'] then
-    raise exception 'FALHOU: alvos do post 4: %', jids;
+    raise exception 'FALHOU: alvos do post 4 (o pai comA-check@g.us não pode estar aqui): %', jids;
   end if;
   select * into c from public.engine_commands x
    where x.tenant_id = '7f0b0000-0000-4000-8000-000000000001' and x.origin_id = '7f0b0000-0000-4000-8000-0000000000b4' and x.payload->>'jid' = 'comA-check-av@g.us';
