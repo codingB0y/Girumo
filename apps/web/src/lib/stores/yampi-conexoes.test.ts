@@ -7,6 +7,7 @@ import { EVENTOS_YAMPI } from "@/lib/yampi/tipos";
 
 import {
   atualizarConexaoYampi,
+  atualizarMesmaConexaoYampi,
   desconectarConexaoYampi,
   lerConexaoYampi,
   lerConexaoYampiPorId,
@@ -88,22 +89,31 @@ test("salvarConexaoYampi sem linha de volta lança", async () => {
   await assert.rejects(salvarConexaoYampi("loja-a", { alias: "loja-exemplo", userTokenSelado: "v1.t", userSecretKeySelado: "v1.k" }), /não foi gravada/);
 });
 
-test("salvarAvisoYampi grava id e segredo selado, os cinco eventos e volta a ativa, filtrando pela loja", async () => {
-  preparar([200, []]);
-  await salvarAvisoYampi("loja-a", { webhookId: "88", webhookSecretSelado: "v1.s.e.g" });
+test("salvarAvisoYampi grava id e segredo selado, os cinco eventos e volta a ativa, só na mesma conexão viva", async () => {
+  preparar([200, [{ tenant_id: "loja-a" }]], [200, []]);
+  assert.equal(await salvarAvisoYampi("loja-a", "v1.t", { webhookId: "88", webhookSecretSelado: "v1.s.e.g" }), true);
   assert.equal(pedidos[0].metodo, "PATCH");
-  assert.deepEqual(filtros(0), { tenant_id: "eq.loja-a" });
+  assert.deepEqual(filtros(0), { tenant_id: "eq.loja-a", user_token: "eq.v1.t", status: "in.(ativa,aviso_desativado)" });
   const c = corpo(0);
   assert.deepEqual([c.webhook_id, c.webhook_secret, c.status, c.last_error], ["88", "v1.s.e.g", "ativa", null]);
   assert.deepEqual(c.events, [...EVENTOS_YAMPI]);
   assert.ok(!Number.isNaN(Date.parse(String(c.last_check_at))));
+  // Desconectou, trocou o token ou levou 401 no meio: nenhuma linha casa e quem chamou fica sabendo.
+  assert.equal(await salvarAvisoYampi("loja-a", "v1.t", { webhookId: "88", webhookSecretSelado: "v1.s.e.g" }), false);
+});
+
+test("atualizarMesmaConexaoYampi sem token (conexão desconectada) não grava nem consulta", async () => {
+  preparar();
+  assert.equal(await atualizarMesmaConexaoYampi("loja-a", null, { status: "ativa" }), false);
+  assert.equal(pedidos.length, 0);
 });
 
 test("marcarCredencialInvalidaNoBanco só muda ativa e aviso_desativado e devolve se mudou", async () => {
   preparar([200, [{ tenant_id: "loja-a" }]], [200, []]);
-  assert.equal(await marcarCredencialInvalidaNoBanco("loja-a", "x"), true);
-  assert.equal(await marcarCredencialInvalidaNoBanco("loja-a", "x"), false);
-  assert.deepEqual([filtros(0).tenant_id, filtros(0).status], ["eq.loja-a", "in.(ativa,aviso_desativado)"]);
+  assert.equal(await marcarCredencialInvalidaNoBanco("loja-a", "v1.t", "x"), true);
+  assert.equal(await marcarCredencialInvalidaNoBanco("loja-a", "v1.t", "x"), false);
+  // O token da chamada que levou o 401: o de uma conexão já trocada não derruba a nova.
+  assert.deepEqual([filtros(0).tenant_id, filtros(0).user_token, filtros(0).status], ["eq.loja-a", "eq.v1.t", "in.(ativa,aviso_desativado)"]);
   assert.equal(corpo(0).status, "credencial_invalida");
   assert.equal(corpo(0).last_error, "x");
 });
@@ -141,9 +151,9 @@ test("toda função com loja manda tenant_id=eq.<loja> (CLAUDE.md: o service-rol
   preparar([200, [LINHA]], [200, [LINHA]], [200, []], [200, []], [200, []], [200, [LINHA]], [200, []]);
   await lerConexaoYampi("loja-z");
   await salvarConexaoYampi("loja-z", { alias: "loja-exemplo", userTokenSelado: "v1.t", userSecretKeySelado: "v1.k" });
-  await salvarAvisoYampi("loja-z", { webhookId: "1", webhookSecretSelado: "v1.s" });
+  await salvarAvisoYampi("loja-z", "v1.t", { webhookId: "1", webhookSecretSelado: "v1.s" });
   await atualizarConexaoYampi("loja-z", { last_event_at: new Date().toISOString() });
-  await marcarCredencialInvalidaNoBanco("loja-z", "x");
+  await marcarCredencialInvalidaNoBanco("loja-z", "v1.t", "x");
   await desconectarConexaoYampi("loja-z");
   for (const p of pedidos) {
     const comLoja = p.url.searchParams.get("tenant_id") === "eq.loja-z" || (p.corpo as { tenant_id?: string } | null)?.tenant_id === "loja-z";
