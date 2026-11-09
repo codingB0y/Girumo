@@ -644,7 +644,8 @@ apps/web/supabase/migrations/20261109120000_agendamento_sem_post.sql
 # (antiban_chip_trocado) e registra em logs: public.registrar_troca_de_chip (nova em public: baseline regerada).
 # Conferir com infra/tests/troca-de-chip-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261109130000_troca_de_chip.sql
-\n# 09/11: envio pelo Avisos automático — comunidade nativa com TODOS os grupos-membro no alvo e Avisos admin sai
+
+# 09/11: envio pelo Avisos automático — comunidade nativa com TODOS os grupos-membro no alvo e Avisos admin sai
 # num envio só pelo Avisos (sem @todos, payload.viaAvisos); post parcial segue grupo a grupo. app.avisos_que_cobrem
 # (nova) e o corpo de app.enqueue_broadcast (trava de md5). Tudo em app.*: não muda a baseline. Conferir com
 # infra/tests/envio-pelo-avisos-check.sql nos dois bancos.
