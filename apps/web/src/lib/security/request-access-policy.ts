@@ -44,6 +44,9 @@ const PROVIDER_WEBHOOKS = new Set([
   // Aviso de pedido do Bling: vem do servidor do Bling, que não tem sessão nem Bearer. O
   // handler confere o HMAC do corpo cru (X-Bling-Signature-256) antes de tocar no banco.
   "POST /api/integracoes/bling/webhook",
+  // Aviso da Yampi: vem do servidor da Yampi, sem sessão. Quem autentica é o HMAC do corpo cru
+  // (X-Yampi-Hmac-SHA256) com o segredo da conexão do ?c=, conferido antes de gravar.
+  "POST /api/integracoes/yampi/webhook",
 ]);
 
 const SHARED_PREFIXES = [
