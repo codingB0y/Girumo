@@ -7,7 +7,8 @@ import { lerAlias } from "./credenciais";
  *
  * O limite (~60 req/min por rota) é do IP de saída, dividido entre todas as lojas. A doc promete
  * `X-RateLimit-Remaining` e `Retry-After`; a Fase 0 não viu nenhum dos dois (Y16), então quem segura de verdade é o
- * 429 e o teto por loja do cartão. `Remaining` ≤ 0 adia a próxima chamada desta loja até o fim da janela; 429 espera
+ * 429 e os tetos do cartão. Por isso o bloqueio é da rota (`/webhooks`, `/orders`…), não da loja: `Remaining` ≤ 0
+ * adia a próxima chamada àquela rota, de qualquer loja, até o fim da janela; 429 espera
  * o `Retry-After` (até 10 s) e repete uma vez. 5xx e rede tentam mais 2 vezes (1 s e 3 s) no GET e no DELETE; o
  * POST não repete (a 1ª tentativa pode ter criado, e um segundo aviso nasceria com um segredo que ninguém guarda);
  * 4xx não repete. O caminho só aceita segmentos simples: nada de `..`, `#` ou segmento vazio.
@@ -55,7 +56,7 @@ export type OpcoesClienteYampi = {
   fetchImpl?: typeof fetch;
   esperar?: (ms: number) => Promise<void>;
   agora?: () => number;
-  /** alias → epoch ms até quando não chamar; padrão: o mapa do módulo. */
+  /** rota (1º segmento do caminho) → epoch ms até quando não chamar; padrão: o mapa do módulo. */
   bloqueios?: Map<string, number>;
 };
 
@@ -82,15 +83,18 @@ export function criarClienteYampi(o: OpcoesClienteYampi): ClienteYampi {
   const esperar = o.esperar ?? esperarDeVerdade;
   const bloqueios = o.bloqueios ?? BLOQUEIOS_DO_MODULO;
 
+  /** A rota do limite: o 1º segmento (`/orders/123` → `orders`), o mesmo para todas as lojas. */
+  const rotaDe = (caminho: string) => caminho.split("/")[1];
+
   async function respeitarBloqueio(caminho: string): Promise<void> {
-    const falta = (bloqueios.get(alias) ?? 0) - agora();
+    const falta = (bloqueios.get(rotaDe(caminho)) ?? 0) - agora();
     if (falta <= 0) return;
     if (falta > ESPERA_MAXIMA_MS) throw new YampiErro(429, `Yampi: limite em ${caminho}`, falta);
     await esperar(falta);
   }
 
-  function bloquear(ms: number): void {
-    bloqueios.set(alias, agora() + ms);
+  function bloquear(caminho: string, ms: number): void {
+    bloqueios.set(rotaDe(caminho), agora() + ms);
   }
 
   async function chamar(metodo: "GET" | "POST" | "DELETE", caminhoComConsulta: string, query?: Query, corpo?: unknown): Promise<unknown> {
@@ -123,11 +127,11 @@ export function criarClienteYampi(o: OpcoesClienteYampi): ClienteYampi {
 
       const retry = retryAfterMs(res, agora());
       const restante = res.headers.get("x-ratelimit-remaining");
-      if (restante !== null && Number(restante) <= 0) bloquear(retry ?? JANELA_DO_LIMITE_MS);
+      if (restante !== null && Number(restante) <= 0) bloquear(caminho, retry ?? JANELA_DO_LIMITE_MS);
 
       if (res.status === 429) {
         const espera = retry ?? RETRY_AFTER_PADRAO_MS;
-        bloquear(espera);
+        bloquear(caminho, espera);
         if (espera > ESPERA_MAXIMA_MS || repetiuLimite) throw new YampiErro(429, `Yampi: HTTP 429 em ${caminho}`, espera);
         repetiuLimite = true;
         continue; // a espera é a do bloqueio, no início da volta
