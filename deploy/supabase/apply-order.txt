@@ -634,3 +634,8 @@ apps/web/supabase/migrations/20261105130000_convalescenca.sql
 # com travas de md5). Tudo em app.*: não muda a baseline. Conferir com infra/tests/fanout-lento-e-jitter-check.sql
 # nos dois bancos.
 apps/web/supabase/migrations/20261105140000_fanout_lento_e_jitter.sql
+# 09/11: agendamento sem post — schedules.broadcast_id é FK ON DELETE SET NULL; o agendamento que ficou sem post
+# era "promovido" todo dia sem fazer nada. Agora vira failed, notifica (agendamento_sem_post) e registra em logs.
+# Só o corpo de app.promote_due_schedules (trava de md5); não muda a baseline. Conferir com
+# infra/tests/agendamento-sem-post-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261109120000_agendamento_sem_post.sql

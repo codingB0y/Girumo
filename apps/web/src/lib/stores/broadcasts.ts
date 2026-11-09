@@ -229,7 +229,20 @@ export async function cancelCampaignBroadcasts(tenantId: string, campaignGroupId
 }
 
 export async function deleteBroadcast(tenantId: string, id: string): Promise<void> {
-  const { error } = await getSupabaseAdmin()
+  const supabase = getSupabaseAdmin();
+  // Agendamento pendente deste post é encerrado ANTES de apagar: o FK
+  // (schedules_broadcast_id_fkey, ON DELETE SET NULL) deixaria a linha pendente
+  // e sem destino, e o promote só a encerraria, com aviso à loja, na próxima
+  // rodada (migração 20261109120000). Quem apagou o post não precisa do aviso.
+  const { error: scheduleError } = await supabase
+    .from("schedules")
+    .update({ status: "failed", updated_at: new Date().toISOString() })
+    .eq("tenant_id", tenantId)
+    .eq("broadcast_id", id)
+    .eq("status", "pending");
+  if (scheduleError) throw new Error(scheduleError.message);
+
+  const { error } = await supabase
     .from(TABLE)
     .delete()
     .eq("tenant_id", tenantId)
