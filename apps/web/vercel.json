@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/ig-rotina",
       "schedule": "23 * * * *"
+    },
+    {
+      "path": "/api/cron/yampi",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/yampi",
+      "schedule": "0 6 * * *"
     }
   ]
 }

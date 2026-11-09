@@ -84,11 +84,15 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   //
   // /api/cron/ig-rotina: prazos das Pessoas do Instagram, de hora em hora. Fora desta lista o cron
   // leva 401 do gate de sessão e as fichas nunca expiram.
+  //
+  // /api/cron/yampi: aviso parado da Yampi e conferência do aviso a cada 5 min, e a limpeza da base às
+  // 06:00 UTC. Fora desta lista o aviso que o after() perdeu nunca chega aos módulos.
   if (
     pathname === "/api/cron/emails" ||
     pathname === "/api/notifications/alerts" ||
     pathname === "/api/cron/bling" ||
-    pathname === "/api/cron/ig-rotina"
+    pathname === "/api/cron/ig-rotina" ||
+    pathname === "/api/cron/yampi"
   ) {
     return "cron";
   }

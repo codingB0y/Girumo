@@ -268,3 +268,14 @@ test("acertar so um prefixo do token nao passa", () => {
   assert.equal(decideEngineAccess("engine-only", "Expected", "expected"), "reject-401");
   assert.equal(decideEngineAccess("engine-only", "expecteD", "expected"), "reject-401");
 });
+
+test("o cron da Yampi usa a autenticação do próprio handler, em path exato", () => {
+  assert.equal(classifyRequest("/api/cron/yampi", "GET"), "cron");
+  assert.equal(classifyRequest("/api/cron/yampi/outra", "GET"), "user");
+});
+
+test("todo cron do vercel.json está na lista de crons da política — fora dela o cron leva 401 do gate de sessão em produção", () => {
+  const crons = JSON.parse(readFileSync(join(AQUI, "..", "..", "..", "vercel.json"), "utf8")).crons as Array<{ path: string }>;
+  assert.ok(crons.length >= 6); // emails, alertas, bling, ig-rotina e as duas agendas da Yampi: o laço não pode passar vazio
+  for (const { path } of crons) assert.equal(classifyRequest(path.split("?")[0], "GET"), "cron", path);
+});
