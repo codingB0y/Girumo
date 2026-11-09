@@ -3,6 +3,7 @@ import "server-only";
 import type { DadosRender, DocumentoBio, LinkBio } from "@/lib/bio/documento";
 import { midiasPublicasDaLoja } from "@/lib/media-store";
 import { chaveDoTelefone } from "@/lib/pages/phone";
+import { numeroDoAtendimento } from "@/lib/privado/numero";
 import { listCampaignGroups, type CampaignGroup } from "@/lib/stores/campaign-groups";
 import { listGroupInstances } from "@/lib/stores/instances";
 import { listTrackedLinksBySlugs } from "@/lib/stores/tracked-links";
@@ -54,6 +55,18 @@ async function chavesDasInstancias(tenantId: string): Promise<Set<string>> {
 function ehDaLoja(chaves: Set<string>, numero: string): boolean {
   const chave = chaveDoTelefone(numero);
   return chave !== null && chaves.has(chave);
+}
+
+/**
+ * O número é de algum chip da Girumo na loja — os dos grupos (postam) ou o do atendimento (avisos do
+ * Rastreio)? Com e sem o nono dígito. Ao contrário do bio, que aceita o número do atendimento, aqui
+ * os dois são recusados: o WhatsApp da loja no Rastreio é onde a cliente fala com a gente, não um chip.
+ */
+export async function numeroEhDeInstanciaDaLoja(tenantId: string, numero: string): Promise<boolean> {
+  const [chaves, atendimento] = await Promise.all([chavesDasInstancias(tenantId), numeroDoAtendimento(tenantId)]);
+  const chave = chaveDoTelefone(atendimento?.phone);
+  if (chave) chaves.add(chave);
+  return ehDaLoja(chaves, numero);
 }
 
 /** Cada mídia do documento com o caminho do campo, na ordem da página. */
