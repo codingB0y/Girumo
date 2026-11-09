@@ -125,6 +125,7 @@ test("o secret da Evolution não tira do teto as outras rotas de webhook", () =>
   // continuam no teto por IP mesmo se alguém mandar o header da Evolution.
   assert.equal(webhookSkipsIpLimit("/api/ig/webhook", "segredo-certo", "segredo-certo"), false);
   assert.equal(webhookSkipsIpLimit("/api/integracoes/bling/webhook", "segredo-certo", "segredo-certo"), false);
+  assert.equal(webhookSkipsIpLimit("/api/integracoes/yampi/webhook", "segredo-certo", "segredo-certo"), false);
   assert.equal(webhookSkipsIpLimit("/api/webhooks/evolution/replay", "segredo-certo", "segredo-certo"), false);
 });
 
@@ -132,6 +133,15 @@ test("o aviso do Bling entra sem sessão, só no POST e só no path exato", () =
   assert.equal(classifyRequest("/api/integracoes/bling/webhook", "POST"), "webhook");
   assert.equal(classifyRequest("/api/integracoes/bling/webhook", "GET"), "user");
   assert.equal(classifyRequest("/api/integracoes/bling/webhook/outra", "POST"), "user");
+});
+
+test("o aviso da Yampi entra sem sessão, só no POST e só no path exato", () => {
+  assert.equal(classifyRequest("/api/integracoes/yampi/webhook", "POST"), "webhook");
+  assert.equal(classifyRequest("/api/integracoes/yampi/webhook", "GET"), "user");
+  assert.equal(classifyRequest("/api/integracoes/yampi/webhook/outra", "POST"), "user");
+  // O resto da família é chamada do painel, com Bearer: continua no gate de sessão.
+  assert.equal(classifyRequest("/api/integracoes/yampi", "POST"), "user");
+  assert.equal(classifyRequest("/api/integracoes/yampi/testar", "POST"), "user");
 });
 
 test("the webhook prefix is not open — only the exact provider path is", () => {
@@ -208,7 +218,7 @@ test("toda rota pública com teto e todo webhook têm entrada em RATE_LIMITS —
     ),
   ].sort();
   // Se a leitura da fonte quebrar e não achar nada, o teste passaria vazio: estas têm de aparecer.
-  for (const conhecida of ["/api/track/outbound", "/api/webhooks/evolution", "/api/integracoes/bling/webhook"]) {
+  for (const conhecida of ["/api/track/outbound", "/api/webhooks/evolution", "/api/integracoes/bling/webhook", "/api/integracoes/yampi/webhook"]) {
     assert.ok(expostas.includes(conhecida), `a política deveria expor ${conhecida}`);
   }
   const chaves = chavesDeRateLimit();
