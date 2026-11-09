@@ -10,6 +10,7 @@ import { AbaPlano, type PropsDoPlano } from "./aba-plano";
 import { Bling } from "@/components/painel/configuracoes/bling";
 import { DominioProprio } from "@/components/painel/configuracoes/dominio-proprio";
 import { SiteProprio } from "@/components/painel/configuracoes/site-proprio";
+import { Yampi } from "@/components/painel/configuracoes/yampi";
 
 const PORTAS: Porta[] = ["Conexão", "Integrações", "Equipe", "Notificações", "Plano", "Conta"];
 
@@ -106,6 +107,8 @@ export function ConfiguracoesVitrine({
               <SiteProprio />
               {/* Só dono e administração: para os outros papéis o Bling se cala (o Site próprio já dá o recado). */}
               <Bling />
+              {/* Idem: a mesma conexão do Rastreio do pedido e do Recuperar. */}
+              <Yampi />
             </div>
           )}
           {porta === "Equipe" && <AbaEquipe {...equipe} />}

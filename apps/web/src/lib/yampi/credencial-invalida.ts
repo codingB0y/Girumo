@@ -3,7 +3,7 @@ import "server-only";
 import { marcarCredencialInvalidaNoBanco } from "@/lib/stores/yampi-conexoes";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-const ERRO_DA_CONEXAO = "A Yampi recusou o acesso (credencial inválida).";
+export const ERRO_DA_CONEXAO = "A Yampi recusou o acesso (credencial inválida).";
 const TITULO = "A Yampi recusou o acesso";
 const CORPO = "Troque o token e a chave em Configurações › Integrações para voltar a receber os pedidos.";
 const LINK = "/painel/configuracoes?secao=integracoes";
