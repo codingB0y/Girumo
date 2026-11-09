@@ -57,15 +57,18 @@ export async function conectarYampi(tenantId: string, entrada: unknown): Promise
 
 /**
  * Desconectar: o banco primeiro (credencial e aviso apagados, `desconectada`), depois o aviso na Yampi, com as
- * credenciais de antes e por melhor esforço — sem ele a desconexão já vale aqui. false = não havia conexão.
+ * credenciais de antes e por melhor esforço — sem ele a desconexão já vale aqui. Ninguém tenta de novo depois (o
+ * cron ignora `desconectada`), então `avisoApagado: false` vai para a tela, que pede para apagar na Yampi.
+ * null = não havia conexão.
  */
-export async function desconectarYampi(tenantId: string): Promise<boolean> {
+export async function desconectarYampi(tenantId: string): Promise<{ avisoApagado: boolean } | null> {
   const anterior = await desconectarConexaoYampi(tenantId);
-  if (!anterior || anterior.status === "desconectada") return false;
+  if (!anterior || anterior.status === "desconectada") return null;
   try {
     await apagarAvisosDaNossaUrl(anterior);
+    return { avisoApagado: true };
   } catch (e) {
     console.warn(`[yampi/desconectar] ${tenantId}: aviso na Yampi não apagado (${mensagemDe(e)})`);
+    return { avisoApagado: false };
   }
-  return true;
 }

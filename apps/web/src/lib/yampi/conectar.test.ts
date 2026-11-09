@@ -115,21 +115,21 @@ test("aviso não criado: as credenciais ficam gravadas com aviso_desativado, las
   assert.equal(estado.chamadasYampi.filter((c) => c.metodo === "POST").length, 1, "o POST não repete");
 });
 
-test("desconectar: o banco primeiro, depois apaga o aviso na Yampi com as credenciais de antes; a Yampi fora não impede; sem conexão devolve false", async (t) => {
+test("desconectar: o banco primeiro, depois apaga o aviso na Yampi com as credenciais de antes; a Yampi fora não impede (e é dito); sem conexão devolve null", async (t) => {
   t.mock.method(console, "warn", () => {});
   const nosso = { data: [{ id: 5611397, url: urlDoAviso(CONEXAO_ID), active: true }, { id: 9, url: "https://outro.exemplo/x", active: true }] };
   banco = { "GET /rest/v1/yampi_connections": [200, [linhaDaConexao()]], "PATCH /rest/v1/yampi_connections": [200, []] };
   yampi = { "GET /loja-exemplo/webhooks": [200, nosso], "DELETE /loja-exemplo/webhooks/5611397": [204, null] };
-  assert.equal(await desconectarYampi(TENANT), true);
+  assert.deepEqual(await desconectarYampi(TENANT), { avisoApagado: true });
   assert.deepEqual(estado.linhaDoTempo.slice(0, 2), ["db GET yampi_connections", "db PATCH yampi_connections"]); // banco antes da Yampi
   assert.deepEqual(estado.chamadasYampi.filter((c) => c.metodo === "DELETE").map((c) => c.caminho), ["/loja-exemplo/webhooks/5611397"]);
   assert.equal(estado.chamadasYampi[0].cabecalhos["user-token"], TOKEN);
 
   yampi = { "GET /loja-exemplo/webhooks": [404, {}] };
-  assert.equal(await desconectarYampi(TENANT), true, "a Yampi fora não desfaz a desconexão");
+  assert.deepEqual(await desconectarYampi(TENANT), { avisoApagado: false }, "a Yampi fora não desfaz a desconexão, e quem chamou fica sabendo");
 
   banco = { "GET /rest/v1/yampi_connections": [200, []] };
-  assert.equal(await desconectarYampi(TENANT), false);
+  assert.equal(await desconectarYampi(TENANT), null);
   banco = { "GET /rest/v1/yampi_connections": [200, [linhaDaConexao({ status: "desconectada", user_token: null, user_secret_key: null })]], "PATCH /rest/v1/yampi_connections": [200, []] };
-  assert.equal(await desconectarYampi(TENANT), false, "já desconectada conta como sem conexão");
+  assert.equal(await desconectarYampi(TENANT), null, "já desconectada conta como sem conexão");
 });

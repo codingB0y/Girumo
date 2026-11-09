@@ -23,7 +23,8 @@ import { POST as TESTAR } from "./testar/route";
 /**
  * As rotas do cartão da Yampi com o dono logado por Bearer contra o PostgREST falso e a Yampi num fetch falso
  * (`src/test/yampi-falso.ts`). O teto de 5/min é um balde em memória que vive o arquivo inteiro: cada teste usa
- * uma loja própria.
+ * uma loja própria. O de todas as lojas (20/min) também: o arquivo inteiro gasta menos que isso (o teste dele é
+ * `lib/yampi/rota.test.ts`).
  */
 
 const CRIADO = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../../lib/yampi/__fixtures__/webhook-criado.json"), "utf8")) as unknown;
@@ -120,14 +121,13 @@ test("POST ok: 200 { ok: true } e nem a resposta nem os logs repetem o token ou 
   assert.doesNotMatch(tudo, new RegExp(`${TOKEN}|${CHAVE_SECRETA}`));
 });
 
-test("a sexta chamada no minuto a Conectar ou a Testar: 429 sem chamar a Yampi", async () => {
-  for (let i = 0; i < 5; i += 1) await POST(pedir("POST", { ...ENTRADA, alias: "a" })); // fora do formato: não chama a Yampi
-  const r = await POST(pedir("POST", ENTRADA));
-  assert.deepEqual([r.status, await r.json()], [429, { error: "Muitas tentativas. Aguarde 1 minuto." }]);
-
+test("a sexta chamada no minuto, somando Conectar e Testar: 429 sem chamar a Yampi", async () => {
   banco = { "GET /rest/v1/yampi_connections": [200, []] };
-  for (let i = 0; i < 5; i += 1) assert.equal((await testar()).status, 404);
-  assert.equal((await testar()).status, 429);
+  for (let i = 0; i < 3; i += 1) await POST(pedir("POST", { ...ENTRADA, alias: "a" })); // fora do formato: não chama a Yampi
+  for (let i = 0; i < 2; i += 1) assert.equal((await testar()).status, 404);
+  for (const r of [await POST(pedir("POST", ENTRADA)), await testar()]) {
+    assert.deepEqual([r.status, await r.json()], [429, { error: "Muitas tentativas. Aguarde 1 minuto." }]);
+  }
   assert.equal(estado.chamadasYampi.length, 0);
 });
 
@@ -145,14 +145,20 @@ test("testar devolve o resultado da conferência; sem conexão: 404; sem a chave
   assert.equal((await testar()).status, 503);
 });
 
-test("DELETE: 200 e a Yampi recebe o DELETE do aviso; sem conexão: 404 { error: \"Sem conexão com a Yampi.\" }", async () => {
+test("DELETE: 200 e a Yampi recebe o DELETE do aviso; sem conexão: 404 { error: \"Sem conexão com a Yampi.\" }", async (t) => {
+  t.mock.method(console, "warn", () => {});
   banco = { "GET /rest/v1/yampi_connections": [200, [linhaDaConexao({}, loja)]], "PATCH /rest/v1/yampi_connections": [200, []] };
   yampi = { "GET /loja-exemplo/webhooks": [200, { data: [{ id: 5611397, url: urlDoAviso(CONEXAO_ID), active: true }] }], "DELETE /loja-exemplo/webhooks/5611397": [204, null] };
   const r = await DELETE(pedir("DELETE"));
-  assert.deepEqual([r.status, await r.json()], [200, { ok: true }]);
+  assert.deepEqual([r.status, await r.json()], [200, { ok: true, aviso_apagado: true }]);
   assert.ok(estado.chamadasYampi.some((c) => c.metodo === "DELETE"));
   const patch = estado.chamadas.find((c) => c.metodo === "PATCH" && c.url.pathname === "/rest/v1/yampi_connections");
   assert.equal(patch?.url.searchParams.get("tenant_id"), `eq.${loja}`);
+
+  // A Yampi fora: desconectada mesmo assim, e a tela fica sabendo que o aviso ficou lá.
+  yampi = { "GET /loja-exemplo/webhooks": [404, {}] };
+  const ficou = await DELETE(pedir("DELETE"));
+  assert.deepEqual([ficou.status, await ficou.json()], [200, { ok: true, aviso_apagado: false }]);
 
   banco = { "GET /rest/v1/yampi_connections": [200, []] };
   const sem = await DELETE(pedir("DELETE"));

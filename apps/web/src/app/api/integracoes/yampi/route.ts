@@ -34,7 +34,7 @@ const RESPOSTA_DA_FALHA: Record<FalhaDeConexao, [status: number, corpo: { error:
 export async function POST(req: Request): Promise<Response> {
   const tenantId = await lojaDoDonoYampi(req, "yampi/conectar");
   if (tenantId instanceof Response) return tenantId;
-  const teto = await passouDoTetoYampi("conectar", tenantId);
+  const teto = await passouDoTetoYampi(tenantId);
   if (teto) return teto;
 
   let bruto: unknown;
@@ -62,8 +62,9 @@ export async function DELETE(req: Request): Promise<Response> {
   const tenantId = await lojaDoDonoYampi(req, "yampi/desconectar");
   if (tenantId instanceof Response) return tenantId;
   try {
-    if (!(await desconectarYampi(tenantId))) return respostaYampi({ error: "Sem conexão com a Yampi." }, 404);
-    return respostaYampi({ ok: true }, 200);
+    const r = await desconectarYampi(tenantId);
+    if (!r) return respostaYampi({ error: "Sem conexão com a Yampi." }, 404);
+    return respostaYampi({ ok: true, aviso_apagado: r.avisoApagado }, 200);
   } catch (e) {
     console.error(`[yampi/desconectar] ${tenantId}: ${(e as Error).message}`);
     return respostaYampi({ error: "Não foi possível desconectar a Yampi." }, 500);

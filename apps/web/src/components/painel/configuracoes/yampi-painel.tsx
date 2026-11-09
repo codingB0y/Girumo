@@ -62,30 +62,42 @@ const Carregando = () => <Loader2 className="h-4 w-4 animate-spin" aria-hidden="
 /** Os segredos fora do vocabulário de senha: o gerenciador não preenche e o autofill não cola e-mail. */
 const SEGREDO = { type: "password", autoComplete: "new-password", "data-1p-ignore": true, "data-lpignore": "true", spellCheck: false } as const;
 
+/** O que está nos campos agora, aparado. */
+function lerCampos(form: HTMLFormElement): CredenciaisDaYampi {
+  const d = new FormData(form);
+  const valor = (nome: string) => String(d.get(nome) ?? "").trim();
+  return { alias: valor("yampi-loja"), user_token: valor("yampi-campo-1"), user_secret_key: valor("yampi-campo-2") };
+}
+const completas = (c: CredenciaisDaYampi) => c.alias !== "" && c.user_token !== "" && c.user_secret_key !== "";
+
+/**
+ * Campos não controlados: um input controlado escreve o valor no atributo `value` do DOM (o React sincroniza o
+ * `defaultValue`), e o token ficaria legível por seletor de atributo, extensão ou cópia do HTML. O estado guarda
+ * só se os três estão preenchidos; os valores são lidos do formulário no envio.
+ */
 function Formulario({ aliasInicial, rotulo, p }: { aliasInicial: string; rotulo: string; p: PropsDaYampi }) {
-  const [alias, setAlias] = useState(aliasInicial);
-  const [token, setToken] = useState("");
-  const [chave, setChave] = useState("");
-  const completo = alias.trim() !== "" && token.trim() !== "" && chave.trim() !== "";
+  const [completo, setCompleto] = useState(false);
   return (
     <form
       className="mt-4 max-w-[480px] space-y-4"
+      onInput={(e) => setCompleto(completas(lerCampos(e.currentTarget)))}
       onSubmit={(e) => {
         e.preventDefault();
-        if (completo) p.onConectar({ alias: alias.trim(), user_token: token.trim(), user_secret_key: chave.trim() });
+        const campos = lerCampos(e.currentTarget);
+        if (completas(campos)) p.onConectar(campos);
       }}
     >
       <div className="flex flex-col gap-1.5">
         <label htmlFor="yampi-alias" className="text-13 font-semibold text-volt-950">Loja (alias na Yampi)</label>
-        <input id="yampi-alias" name="yampi-loja" autoComplete="off" spellCheck={false} value={alias} onChange={(e) => setAlias(e.target.value)} className={cn(CAMPO, ANEL)} />
+        <input id="yampi-alias" name="yampi-loja" autoComplete="off" spellCheck={false} defaultValue={aliasInicial} className={cn(CAMPO, ANEL)} />
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="yampi-token" className="text-13 font-semibold text-volt-950">User-Token</label>
-        <input id="yampi-token" name="yampi-campo-1" {...SEGREDO} value={token} onChange={(e) => setToken(e.target.value)} className={cn(CAMPO, ANEL)} />
+        <input id="yampi-token" name="yampi-campo-1" {...SEGREDO} className={cn(CAMPO, ANEL)} />
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="yampi-chave" className="text-13 font-semibold text-volt-950">User-Secret-Key</label>
-        <input id="yampi-chave" name="yampi-campo-2" {...SEGREDO} value={chave} onChange={(e) => setChave(e.target.value)} className={cn(CAMPO, ANEL)} />
+        <input id="yampi-chave" name="yampi-campo-2" {...SEGREDO} className={cn(CAMPO, ANEL)} />
       </div>
       <div className="space-y-1">
         <p className={AJUDA}>Copie em Perfil › Credenciais de API, na Yampi.</p>

@@ -131,7 +131,13 @@ export function Yampi({ children }: { children?: ReactNode }): JSX.Element | nul
         return;
       }
       setErroDoFormulario(null);
-      toast("Yampi desconectada.");
+      const { aviso_apagado } = (await res.json().catch(() => ({}))) as { aviso_apagado?: unknown };
+      if (aviso_apagado === false) {
+        // O aviso segue ligado na Yampi mandando pedidos para cá (que a Girumo recusa): só o lojista apaga.
+        toast("Yampi desconectada, mas o aviso “Girumo” ficou na Yampi. Apague em Configurações › Webhooks, lá na Yampi.", "error");
+      } else {
+        toast("Yampi desconectada.");
+      }
       await carregar();
     } catch {
       toast("Erro de conexão.", "error");

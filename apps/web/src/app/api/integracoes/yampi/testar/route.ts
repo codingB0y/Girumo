@@ -10,7 +10,7 @@ export async function POST(req: Request): Promise<Response> {
   const tenantId = await lojaDoDonoYampi(req, "yampi/testar");
   if (tenantId instanceof Response) return tenantId;
   if (!chaveDeIntegracoes()) return respostaYampi({ error: "indisponivel" }, 503);
-  const teto = await passouDoTetoYampi("testar", tenantId);
+  const teto = await passouDoTetoYampi(tenantId);
   if (teto) return teto;
   try {
     const r = await conferirConexao(tenantId);

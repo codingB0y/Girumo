@@ -64,6 +64,7 @@ test("os campos de segredo: type=password, autocomplete=new-password, fora do vo
     assert.doesNotMatch(tag, /name="(password|senha|token|user|username)"/i);
   }
   assert.doesNotMatch(campo(h, "yampi-alias"), /type="password"/);
+  for (const id of ["yampi-token", "yampi-chave"]) assert.doesNotMatch(campo(h, id), /value=/, id);
 });
 
 test("conectada: chip, alias, token só com o final, último aviso e conferência, Testar conexão e Desconectar, e nenhum campo", () => {
@@ -96,7 +97,8 @@ test("acesso recusado: alerta, formulário para colar de novo (Reconectar Yampi)
   assert.match(texto(h), /Desconectar/);
   assert.doesNotMatch(texto(h), /Testar conexão/);
   assert.match(campo(h, "yampi-alias"), /value="loja-exemplo"/, "o alias vem preenchido");
-  assert.doesNotMatch(campo(h, "yampi-token"), /value="[^"]/, "o segredo nunca");
+  // Não controlado: o React não escreve o segredo no atributo `value` (legível por CSS, extensão ou cópia do HTML).
+  for (const id of ["yampi-token", "yampi-chave"]) assert.doesNotMatch(campo(h, id), /value=/, id);
 });
 
 test("ocupado: os botões ficam desabilitados e o erro do formulário aparece em role=alert", () => {
