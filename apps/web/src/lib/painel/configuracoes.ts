@@ -16,7 +16,29 @@ import { iniciais } from "@/lib/painel/inicio";
  * texto é o que mora aqui; a tela só desenha.
  */
 
-export type Porta = "Conexão" | "Integrações" | "Equipe" | "Notificações" | "Plano" | "Conta";
+export type Porta =
+  | "Conexão"
+  | "Integrações"
+  | "Rastreio de pedidos"
+  | "Equipe"
+  | "Notificações"
+  | "Plano"
+  | "Conta";
+
+const TODAS_AS_PORTAS: readonly Porta[] = [
+  "Conexão",
+  "Integrações",
+  "Rastreio de pedidos",
+  "Equipe",
+  "Notificações",
+  "Plano",
+  "Conta",
+];
+
+/** As portas da tela, na ordem. A do Rastreio só existe com o módulo liberado para a loja. */
+export function portasVisiveis(e: { rastreio: boolean }): Porta[] {
+  return TODAS_AS_PORTAS.filter((p) => p !== "Rastreio de pedidos" || e.rastreio);
+}
 
 const PAPEIS: Record<string, string> = {
   owner: "Dono",
@@ -132,6 +154,8 @@ export function resumoDasPortas(leitura: LeituraDasPortas): Record<Porta, string
     // A integração do site carrega a própria leitura dentro da seção (só dono
     // e administração podem lê-la): a porta não escreve o que não sabe.
     "Integrações": null,
+    // O estado do número do atendimento só o cartão dele conhece.
+    "Rastreio de pedidos": null,
     Equipe: resumoDaEquipe(leitura.equipe),
     "Notificações": resumoDosAvisos(leitura.avisos),
     Plano: resumoDoPlano(leitura.plano),

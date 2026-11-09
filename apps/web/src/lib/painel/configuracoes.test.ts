@@ -9,6 +9,7 @@ import {
   MODULOS_NA_TELA,
   montarConvite,
   papelEmPortugues,
+  portasVisiveis,
   resumoDasPortas,
   ROTULO_DO_MODULO,
 } from "./configuracoes";
@@ -232,4 +233,21 @@ test("consulta que falhou não vira estado afirmado", () => {
 
 test("desconectado de verdade continua sendo dito", () => {
   assert.equal(resumoDasPortas(leitura({ conexao: { ok: true, live: false } }))["Conexão"], "desconectado");
+});
+
+test("a porta do Rastreio só aparece com o módulo liberado, depois de Integrações", () => {
+  assert.deepEqual(portasVisiveis({ rastreio: false }), ["Conexão", "Integrações", "Equipe", "Notificações", "Plano", "Conta"]);
+  assert.deepEqual(portasVisiveis({ rastreio: true }), [
+    "Conexão",
+    "Integrações",
+    "Rastreio de pedidos",
+    "Equipe",
+    "Notificações",
+    "Plano",
+    "Conta",
+  ]);
+});
+
+test("a porta do Rastreio não escreve estado: o número é do cartão dele", () => {
+  assert.equal(resumoDasPortas(leitura())["Rastreio de pedidos"], null);
 });

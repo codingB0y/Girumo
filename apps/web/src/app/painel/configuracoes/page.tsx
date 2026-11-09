@@ -30,6 +30,7 @@ type Section = Porta;
 const SECAO_POR_SLUG: Record<string, Section> = {
   conexao: "Conexão",
   integracoes: "Integrações",
+  rastreio: "Rastreio de pedidos",
   equipe: "Equipe",
   notificacoes: "Notificações",
   plano: "Plano",
