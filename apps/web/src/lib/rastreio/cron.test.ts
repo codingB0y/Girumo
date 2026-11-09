@@ -71,11 +71,13 @@ test("sem Yampi conectada não importa nem varre, e não é falha", async () => 
   assert.deepEqual([log.importar, log.varrer], [[], []]);
 });
 
-test("importação que falha tenta de novo na rodada seguinte", async (t) => {
+test("importação que falha (429 ou nenhum pedido gravou) tenta de novo na rodada seguinte", async (t) => {
   t.mock.method(console, "error", () => {});
-  const { deps, log } = montar({ lojas: async () => ["loja-a"], lerConfig: async () => null, importar: async () => { throw ERRO_429; } });
-  assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 1, falhas: 1, purgados: null });
-  assert.deepEqual([log.cursor, log.importado, log.varrer], [[], [], []]);
+  for (const erro of [ERRO_429, new Error("[rastreio] importacao: nenhum pedido gravou (3 falhas)")]) {
+    const { deps, log } = montar({ lojas: async () => ["loja-a"], lerConfig: async () => null, importar: async () => { throw erro; } });
+    assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 1, falhas: 1, purgados: null });
+    assert.deepEqual([log.cursor, log.importado, log.varrer], [[], [], []]);
+  }
 });
 
 test("purge uma vez por dia, na execução das 06:00 UTC", async () => {

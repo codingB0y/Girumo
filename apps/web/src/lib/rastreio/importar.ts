@@ -32,12 +32,19 @@ const DEPS: DepsImportar = {
 /**
  * Lê os pedidos por `updated_at` (a janela da Yampi inclui o dia final e recusa horas) e registra um a um.
  * `YampiErro` sobe: quem chama decide a espera. Log só com tenant, id do pedido e origem.
+ * Nenhum pedido gravou e algum falhou = falha sistêmica (ex.: chave de criptografia ausente): lança, para a
+ * importação não ser marcada feita nem o cursor andar sobre pedidos perdidos.
  */
 async function lerPaginas(
   tenantId: string, conexao: ConexaoYampi, de: Date, ate: Date, teto: number, origem: OrigemDoPedido,
   descartaAntesDe: number | null, deps: DepsImportar,
 ): Promise<number> {
   let registrados = 0;
+  let falhas = 0;
+  const fim = () => {
+    if (registrados === 0 && falhas > 0) throw new Error(`[rastreio] ${origem}: nenhum pedido gravou (${falhas} falhas)`);
+    return registrados;
+  };
   for (let page = 1; page <= teto; page++) {
     const { data } = await deps.get<{ data: unknown[] }>(conexao, "/orders", {
       date: `updated_at:${dayBR(de)}|${dayBR(ate)}`, include: "customer,status,statuses", limit: POR_PAGINA, page,
@@ -48,13 +55,14 @@ async function lerPaginas(
       try {
         if (await deps.registrar(tenantId, p, origem)) registrados++;
       } catch (e) {
+        falhas++;
         console.error(`[rastreio] ${tenantId}: pedido ${String((p as { id?: unknown } | null)?.id)} não gravou (${origem}): ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-    if (data.length < POR_PAGINA) return registrados;
+    if (data.length < POR_PAGINA) return fim();
   }
   console.warn(`[rastreio] ${tenantId}: ${origem} parou no teto de ${teto} páginas`);
-  return registrados;
+  return fim();
 }
 
 export async function importarPedidos(tenantId: string, desde: Date, deps: DepsImportar = DEPS): Promise<number> {

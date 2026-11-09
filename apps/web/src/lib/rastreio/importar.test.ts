@@ -138,3 +138,13 @@ test("erro da Yampi sobe, e o cursor fica", async () => {
     }
   }
 });
+
+test("nenhum pedido gravou e todos falharam: importação e varredura lançam, e o cursor fica", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const sempreFalha: Partial<DepsImportar> = { registrar: async () => { throw new Error("INTEGRATIONS_ENCRYPTION_KEY ausente"); } };
+  const a = montar([[1, 2].map((id) => pedidoYampi({ id }))], sempreFalha);
+  await assert.rejects(importarPedidos("loja-a", AGORA, a.deps), (e: Error) => e.message === "[rastreio] importacao: nenhum pedido gravou (2 falhas)");
+  const b = montar([[pedidoYampi({ id: 5, updated_at: "2026-10-29 11:58:00" })]], sempreFalha);
+  await assert.rejects(varrerPedidos("loja-a", AGORA, b.deps), /varredura: nenhum pedido gravou \(1 falhas\)/);
+  assert.equal(b.log.cursores.length, 0);
+});
