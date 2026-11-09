@@ -69,7 +69,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-ERROR}
       LOG_BAILEYS: error
       LANGUAGE: pt-BR
-      TELEMETRY: "false"
+      # Telemetria desligada. O nome que a 2.3.7 lê é TELEMETRY_ENABLED
+      # (src/config/env.config.ts); com `TELEMETRY` ela seguia ligada.
+      TELEMETRY_ENABLED: "false"
     volumes:
       - evolution_instances:/evolution/instances
       - evolution_store:/evolution/store
