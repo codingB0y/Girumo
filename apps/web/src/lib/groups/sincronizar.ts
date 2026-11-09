@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { avisoDaComunidade, comunidadesLotando, REPOUSO_DO_AVISO_DIAS } from "@/lib/communities/lotacao";
 import { classificarPapel } from "@/lib/communities/papel";
 import {
   EvolutionError,
@@ -249,6 +250,8 @@ async function gravarRecontagem(l: Leitura): Promise<ResultadoDoSync> {
     }));
   const atualizados = await updateGroupCounts(l.tenantId, contagens);
   const semBackup = contagens.filter((r) => r.admins_total <= 1).length;
+  // A recontagem é onde o crescimento aparece primeiro: ninguém clica em Sincronizar todo dia.
+  const comunidadesAvisadas = await avisarComunidadesLotando(l);
   // A mesma leitura já trouxe os participantes: sem chamada nova ao WhatsApp,
   // quem entrou e cujo aviso a Evolution não mandou vira lead em até um dia,
   // mesmo que ninguém clique em Sincronizar. Só grupos que já estão no banco,
@@ -259,7 +262,7 @@ async function gravarRecontagem(l: Leitura): Promise<ResultadoDoSync> {
     l,
     "groups.recounted",
     `${atualizados} grupos recontados (${l.protegidos} com contagem preservada de payload truncado).`,
-    { count: atualizados, removidos: 0, sem_backup: semBackup, convites_enfileirados: 0 },
+    { count: atualizados, removidos: 0, sem_backup: semBackup, convites_enfileirados: 0, comunidades_avisadas: comunidadesAvisadas },
   );
   return {
     ok: true,
@@ -287,6 +290,7 @@ async function gravarSyncCompleto(l: Leitura): Promise<ResultadoDoSync> {
   );
   gravarParticipantesDepois(l, { soGruposDoBanco: false, espelharComunidades: true });
   const convitesEnfileirados = await enfileirarConvites(l.tenantId);
+  const comunidadesAvisadas = await avisarComunidadesLotando(l);
 
   // Limpa o que sobrou de antes de o filtro existir. `descartar` vem vazio
   // quando a detecção é suspeita, então uma quebra de contrato da Evolution
@@ -314,7 +318,13 @@ async function gravarSyncCompleto(l: Leitura): Promise<ResultadoDoSync> {
     l,
     "groups.synced",
     `${synced} grupos admin sincronizados (${ignorados} ignorados por nao sermos admin, ${removidos} removidos, ${l.protegidos} com contagem preservada de payload truncado).`,
-    { count: synced, removidos, sem_backup: semBackup, convites_enfileirados: convitesEnfileirados },
+    {
+      count: synced,
+      removidos,
+      sem_backup: semBackup,
+      convites_enfileirados: convitesEnfileirados,
+      comunidades_avisadas: comunidadesAvisadas,
+    },
   );
   return { ok: true, synced, admin, semBackup, ignorados, removidos };
 }
@@ -468,11 +478,58 @@ async function enfileirarConvites(tenantId: string): Promise<number> {
   }
 }
 
+/**
+ * Comunidade perto do teto do WhatsApp (2.000 pessoas únicas): aviso no sino, uma vez por semana por
+ * comunidade, enquanto ela seguir perto. Lê o `members` do Avisos que este sync acabou de ler: é a
+ * comunidade inteira, já deduplicada (ver communities/lotacao.ts). Cheia, a comunidade barra quem
+ * tenta entrar em qualquer grupo vinculado, e a loja só descobre quando a captação para.
+ *
+ * Falha aqui não derruba o sync: é aviso, não o que o lojista veio fazer. Sem comunidade perto do
+ * teto não há leitura nenhuma a mais.
+ */
+async function avisarComunidadesLotando(l: Leitura): Promise<number> {
+  const lotando = comunidadesLotando(l.rows);
+  if (lotando.length === 0) return 0;
+
+  const desde = new Date(Date.now() - REPOUSO_DO_AVISO_DIAS * 24 * 60 * 60 * 1000).toISOString();
+  let avisadas = 0;
+  for (const c of lotando) {
+    const aviso = avisoDaComunidade(c);
+    try {
+      const supabase = getSupabaseAdmin();
+      // O href carrega o JID: é o que separa "esta comunidade já foi avisada esta semana" das outras.
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("tenant_id", l.tenantId)
+        .eq("type", aviso.type)
+        .eq("href", aviso.href)
+        .gte("created_at", desde)
+        .limit(1);
+      if (error) throw new Error(error.message);
+      if ((data ?? []).length > 0) continue;
+
+      const { error: insertError } = await supabase.from("notifications").insert({ tenant_id: l.tenantId, ...aviso });
+      if (insertError) throw new Error(insertError.message);
+      avisadas += 1;
+    } catch (e) {
+      console.error(`[groups/sincronizar] aviso de comunidade perto do teto (${c.communityJid}) nao gravado:`, e);
+    }
+  }
+  return avisadas;
+}
+
 async function registrarLog(
   l: Leitura,
   evento: "groups.synced" | "groups.recounted",
   mensagem: string,
-  extra: { count: number; removidos: number; sem_backup: number; convites_enfileirados: number },
+  extra: {
+    count: number;
+    removidos: number;
+    sem_backup: number;
+    convites_enfileirados: number;
+    comunidades_avisadas: number;
+  },
 ): Promise<void> {
   await getSupabaseAdmin().from("logs").insert({
     tenant_id: l.tenantId,
@@ -503,6 +560,8 @@ async function registrarLog(
       fetch_ms: l.fetchMs,
       // Backfill de convite pela fila do lote, disparado neste mesmo sync.
       convites_enfileirados: extra.convites_enfileirados,
+      // Comunidades nativas a partir de 1.800 pessoas que ganharam aviso no sino neste sync.
+      comunidades_avisadas: extra.comunidades_avisadas,
     },
   });
 }

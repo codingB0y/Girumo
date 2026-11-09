@@ -20,6 +20,8 @@ let banco: Record<string, (c: Chamada) => Resposta> = {};
 let evolution: Resposta = { status: 200, corpo: [] };
 /** `true` = outro sync deste número segura a trava (o SET NX não grava). */
 let travaOcupada = false;
+/** O que `notifications` devolve na busca por aviso recente de comunidade: vazio = nunca avisada. */
+let avisosRecentes: unknown[] = [];
 
 /** `set … nx` só grava se ninguém segura; `del` apaga. */
 function resultadoDaTrava(comando: unknown[]): unknown {
@@ -173,15 +175,37 @@ function bancoDaLoja(instancias: unknown[] = [INSTANCIA]): Record<string, (c: Ch
     "POST /rest/v1/group_bulk_jobs": () => ({ status: 201, corpo: [{ id: "bulk-1" }] }),
     "POST /rest/v1/funnel_events": () => ({ status: 201 }),
     "POST /rest/v1/logs": () => ({ status: 201 }),
+    "GET /rest/v1/notifications": () => ({ status: 200, corpo: avisosRecentes }),
+    "POST /rest/v1/notifications": () => ({ status: 201 }),
   };
 }
 
-function prepara(over: { instancias?: unknown[]; evolution?: Resposta; travaOcupada?: boolean } = {}): void {
+function prepara(
+  over: { instancias?: unknown[]; evolution?: Resposta; travaOcupada?: boolean; avisosRecentes?: unknown[] } = {},
+): void {
   chamadas.length = 0;
   banco = bancoDaLoja(over.instancias);
   evolution = over.evolution ?? { status: 200, corpo: DA_EVOLUTION };
   travaOcupada = over.travaOcupada ?? false;
+  avisosRecentes = over.avisosRecentes ?? [];
 }
+
+/**
+ * Uma comunidade nativa nossa (pai, Avisos e um grupo vinculado) com 1.850 pessoas no Avisos, do
+ * jeito que a Evolution 2.3.7 a descreve (ver communities/papel.ts).
+ */
+const COMUNIDADE_QUASE_CHEIA = [
+  { id: "com1@g.us", subject: "Moda Sul Atacado · Comunidade 1", size: 2, isCommunity: true, participants: [NOS, SOCIA] },
+  {
+    id: "com1-av@g.us",
+    subject: "Avisos",
+    size: 1850,
+    isCommunityAnnounce: true,
+    linkedParent: "com1@g.us",
+    participants: [NOS, SOCIA],
+  },
+  { id: "g5@g.us", subject: "Atacado 5", size: 990, linkedParent: "com1@g.us", participants: [NOS, SOCIA] },
+];
 
 test("recontagem regrava só membros e admins dos grupos que já estão no banco", async () => {
   prepara();
@@ -276,6 +300,52 @@ test("sem número conectado, 409 sem tocar na trava nem na Evolution", async () 
 
   assert.deepEqual(r, { ok: false, status: 409, error: "Nenhuma instancia conectada." });
   assert.equal(chamadas.filter((c) => !c.url.pathname.startsWith("/rest/v1/")).length, 0);
+});
+
+test("recontagem com comunidade a 1.850 pessoas no Avisos: um aviso no sino, com o nome da comunidade", async () => {
+  prepara({ evolution: { status: 200, corpo: [...DA_EVOLUTION, ...COMUNIDADE_QUASE_CHEIA] } });
+
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: true, depois: () => {} });
+
+  assert.equal(r.ok, true);
+  const [busca] = feitas("GET", "/rest/v1/notifications");
+  // "Uma vez por semana" é por comunidade: a busca filtra a loja, o tipo, a comunidade (no href) e a semana.
+  assert.equal(busca.url.searchParams.get("tenant_id"), `eq.${LOJA}`);
+  assert.equal(busca.url.searchParams.get("type"), "eq.comunidade_quase_cheia");
+  assert.equal(busca.url.searchParams.get("href"), "eq./painel/comunidades?comunidade=com1%40g.us");
+  const desde = String(busca.url.searchParams.get("created_at"));
+  assert.match(desde, /^gte\./);
+  const haSeteDias = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  assert.ok(Math.abs(Date.parse(desde.slice(4)) - haSeteDias) < 60_000, desde);
+
+  const avisos = feitas("POST", "/rest/v1/notifications");
+  assert.equal(avisos.length, 1);
+  const corpo = avisos[0].corpo as Record<string, unknown>;
+  assert.equal(corpo.tenant_id, LOJA);
+  assert.equal(corpo.type, "comunidade_quase_cheia");
+  assert.equal(corpo.title, 'Comunidade "Moda Sul Atacado · Comunidade 1" quase cheia');
+  assert.match(String(corpo.body), /^1\.850 de 2\.000 pessoas\./);
+  assert.equal(corpo.href, "/painel/comunidades?comunidade=com1%40g.us");
+  const [log] = feitas("POST", "/rest/v1/logs");
+  assert.equal(((log.corpo as Record<string, unknown>).metadata as Record<string, unknown>).comunidades_avisadas, 1);
+});
+
+test("comunidade já avisada nesta semana não ganha outro aviso; sem comunidade perto do teto, o sino nem é consultado", async () => {
+  prepara({
+    evolution: { status: 200, corpo: [...DA_EVOLUTION, ...COMUNIDADE_QUASE_CHEIA] },
+    avisosRecentes: [{ id: "aviso-de-ontem" }],
+  });
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: false, depois: () => {} });
+  assert.equal(r.ok, true);
+  assert.equal(feitas("GET", "/rest/v1/notifications").length, 1);
+  assert.equal(feitas("POST", "/rest/v1/notifications").length, 0);
+  const [log] = feitas("POST", "/rest/v1/logs");
+  assert.equal(((log.corpo as Record<string, unknown>).metadata as Record<string, unknown>).comunidades_avisadas, 0);
+
+  // A loja sem comunidade perto do teto (os grupos de sempre) não gera leitura nenhuma a mais.
+  prepara();
+  await sincronizarGrupos(LOJA, { somenteContagem: false, depois: () => {} });
+  assert.equal(chamadas.filter((c) => c.url.pathname === "/rest/v1/notifications").length, 0);
 });
 
 test("o Sincronizar do painel continua igual: importa o novo, apaga o de terceiro e pede o convite que falta", async () => {
