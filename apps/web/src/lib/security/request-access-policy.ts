@@ -87,12 +87,16 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   //
   // /api/cron/yampi: aviso parado da Yampi e conferência do aviso a cada 5 min, e a limpeza da base às
   // 06:00 UTC. Fora desta lista o aviso que o after() perdeu nunca chega aos módulos.
+  //
+  // /api/cron/rastreio: importação, varredura e purge do Rastreio a cada 5 min. Fora desta lista a
+  // loja nova nunca importa e os pedidos mexidos na Yampi nunca são varridos.
   if (
     pathname === "/api/cron/emails" ||
     pathname === "/api/notifications/alerts" ||
     pathname === "/api/cron/bling" ||
     pathname === "/api/cron/ig-rotina" ||
-    pathname === "/api/cron/yampi"
+    pathname === "/api/cron/yampi" ||
+    pathname === "/api/cron/rastreio"
   ) {
     return "cron";
   }

@@ -7,9 +7,14 @@ export function ehEtapaComAviso(etapa: Etapa): etapa is EtapaComAviso {
   return (ETAPAS_COM_AVISO as readonly string[]).includes(etapa);
 }
 
+/** O pedido foi mexido na Yampi nos últimos 3 dias. */
+export function recenteNaYampi(atualizadoNaYampi: string, agora: Date): boolean {
+  return Date.parse(atualizadoNaYampi) >= agora.getTime() - JANELA_MS; // NaN dá falso
+}
+
 /** A etapa mudou agora, não veio da importação e o pedido foi mexido na Yampi nos últimos 3 dias. */
 export function mudancaParaAvisar(e: { gravado: PedidoGravado; origem: OrigemDoPedido; atualizadoNaYampi: string; agora: Date }): boolean {
-  return e.gravado.mudou && e.origem !== "importacao" && Date.parse(e.atualizadoNaYampi) >= e.agora.getTime() - JANELA_MS; // NaN dá falso
+  return e.gravado.mudou && e.origem !== "importacao" && recenteNaYampi(e.atualizadoNaYampi, e.agora);
 }
 
 export function canaisDoAviso(e: {

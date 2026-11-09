@@ -62,6 +62,7 @@ function responder(metodo: string, url: URL, corpo: unknown): [number, unknown] 
   }
   if (rotaDoBanco === "GET /rest/v1/yampi_events") return [200, eventoGravado ? [eventoGravado] : []];
   if (rotaDoBanco === "PATCH /rest/v1/yampi_events") return [200, []];
+  if (rotaDoBanco === "GET /rest/v1/tenant_settings") return [200, []]; // rastreio desligado: o consumidor é pulado
   return [500, { message: `inesperado: ${rotaDoBanco}` }];
 }
 
@@ -251,7 +252,7 @@ test("aviso válido: grava (tenant, conexão, event, resource_id, dedupe_key, pa
 test("responde sem esperar o processamento: nada além da gravação acontece antes do after()", async () => {
   await POST(assinado(aviso()));
   assert.equal(patchesDoEvento().length, 0);
-  await (tarefasDepois[0] as () => Promise<void>)(); // roda o after(): lê o evento e o marca processado (nenhum consumidor)
+  await (tarefasDepois[0] as () => Promise<void>)(); // roda o after(): lê o evento e o marca processado (rastreio desligado, nenhum consumidor roda)
   const [marcou] = patchesDoEvento();
   assert.deepEqual([marcou?.url.searchParams.get("id"), marcou?.url.searchParams.get("tenant_id")], ["eq.e1", "eq.loja-a"]);
   assert.ok((marcou?.corpo as { processed_at?: string }).processed_at);

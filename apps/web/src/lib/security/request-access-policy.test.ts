@@ -75,6 +75,8 @@ test("cron endpoints use handler-level authentication", () => {
   assert.equal(classifyRequest("/api/cron/bling", "GET"), "cron");
   assert.equal(classifyRequest("/api/cron/ig-rotina", "GET"), "cron");
   assert.equal(classifyRequest("/api/cron/ig-rotina/outra", "GET"), "user");
+  assert.equal(classifyRequest("/api/cron/rastreio", "GET"), "cron");
+  assert.equal(classifyRequest("/api/cron/rastreio/outra", "GET"), "user");
   // Path exato: um sufixo não herda a isenção do gate de sessão.
   assert.equal(classifyRequest("/api/cron/bling/outra", "GET"), "user");
 });
