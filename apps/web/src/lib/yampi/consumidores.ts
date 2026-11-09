@@ -1,3 +1,6 @@
+import { EVENTOS_DO_RASTREIO, registrarPedidoDaYampi } from "@/lib/rastreio/registrar";
+import { rastreioLigado } from "@/lib/stores/rastreio-config";
+
 import type { ConexaoYampi, EventoYampi } from "./tipos";
 
 /**
@@ -35,4 +38,11 @@ export type ConsumidorDeEvento = {
   consumir: (e: EventoParaConsumir) => Promise<unknown>;
 };
 
-export const CONSUMIDORES: readonly ConsumidorDeEvento[] = [];
+export const CONSUMIDORES: readonly ConsumidorDeEvento[] = [
+  {
+    nome: "rastreio",
+    eventos: EVENTOS_DO_RASTREIO,
+    ligado: rastreioLigado,
+    consumir: (e) => registrarPedidoDaYampi(e.tenantId, e.recurso, "aviso"),
+  },
+];
