@@ -44,7 +44,8 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
  *   O comportamento de sempre.
  * - recontagem (`somenteContagem: true`): o worker, 1×/dia. Só `members` (com a
  *   proteção contra payload truncado) e `admins_*` dos grupos que JÁ estão no
- *   banco. Não importa, não apaga, não mexe em convite nem em participante.
+ *   banco. Não importa, não apaga, não mexe em convite; grava os participantes
+ *   desses grupos e cria o lead de quem entrou sem o aviso da Evolution.
  *
  * Os dois respeitam a trava de um sync por número (#397).
  *
@@ -248,6 +249,11 @@ async function gravarRecontagem(l: Leitura): Promise<ResultadoDoSync> {
     }));
   const atualizados = await updateGroupCounts(l.tenantId, contagens);
   const semBackup = contagens.filter((r) => r.admins_total <= 1).length;
+  // A mesma leitura já trouxe os participantes: sem chamada nova ao WhatsApp,
+  // quem entrou e cujo aviso a Evolution não mandou vira lead em até um dia,
+  // mesmo que ninguém clique em Sincronizar. Só grupos que já estão no banco,
+  // e sem espelhar comunidade — isso é decisão do Sincronizar do painel.
+  gravarParticipantesDepois(l, { soGruposDoBanco: true, espelharComunidades: false });
 
   await registrarLog(
     l,
@@ -279,7 +285,7 @@ async function gravarSyncCompleto(l: Leitura): Promise<ResultadoDoSync> {
     l.tenantId,
     l.rows.map((r) => (protegido(r) ? semContagemDeAdmins(r) : r)),
   );
-  gravarParticipantesDepois(l);
+  gravarParticipantesDepois(l, { soGruposDoBanco: false, espelharComunidades: true });
   const convitesEnfileirados = await enfileirarConvites(l.tenantId);
 
   // Limpa o que sobrou de antes de o filtro existir. `descartar` vem vazio
@@ -326,9 +332,23 @@ function semContagemDeAdmins(r: LinhaDoSync): Omit<LinhaDoSync, "admins_total" |
  * caminho crítico da resposta: a rota já tem maxDuration=60 por causa da
  * Evolution; `after()` roda depois que a resposta já saiu.
  */
-function gravarParticipantesDepois(l: Leitura): void {
+function gravarParticipantesDepois(
+  l: Leitura,
+  opts: { soGruposDoBanco: boolean; espelharComunidades: boolean },
+): void {
+  // Agendar o que roda depois da resposta não pode derrubar o sync: o `after`
+  // do Next lança fora de uma request, e a contagem já está gravada.
+  try {
+    agendarParticipantes(l, opts);
+  } catch (e) {
+    console.error("[groups/sincronizar] nao consegui agendar participantes e leads:", e);
+  }
+}
+
+function agendarParticipantes(l: Leitura, opts: { soGruposDoBanco: boolean; espelharComunidades: boolean }): void {
   l.depois(async () => {
-    const grupos: GrupoDoSync[] = l.gruposAdmin.map((g) => ({
+    const alvos = opts.soGruposDoBanco ? l.gruposAdmin.filter((g) => l.anterior.has(String(g.id))) : l.gruposAdmin;
+    const grupos: GrupoDoSync[] = alvos.map((g) => ({
       whatsappGroupId: String(g.id),
       nome: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
       participantes: (g.participants ?? [])
@@ -353,6 +373,7 @@ function gravarParticipantesDepois(l: Leitura): void {
     }
 
     await criarLeads(l.tenantId, leads);
+    if (!opts.espelharComunidades) return;
 
     try {
       await espelharComunidadesNativas(l.tenantId);
