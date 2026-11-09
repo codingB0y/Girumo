@@ -231,3 +231,11 @@ test("número de um endereço do WhatsApp", () => {
   assert.equal(conferir.numeroDoLinkWhatsapp("https://lojaexemplo.com.br/?phone=5562999990000"), null);
   assert.equal(conferir.numeroDoLinkWhatsapp("não é url"), null);
 });
+
+test("numeroEhDeInstanciaDaLoja: casa com e sem o nono dígito, consulta só a loja", async () => {
+  banco.telefones = ["5511912345678"];
+  assert.equal(await conferir.numeroEhDeInstanciaDaLoja(LOJA, "(11) 91234-5678"), true);
+  assert.equal(await conferir.numeroEhDeInstanciaDaLoja(LOJA, "11 1234-5678"), true);
+  assert.equal(await conferir.numeroEhDeInstanciaDaLoja(LOJA, "5511987654321"), false);
+  assert.equal(filtros("/rest/v1/instances").tenant_id, `eq.${LOJA}`);
+});

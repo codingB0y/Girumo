@@ -402,14 +402,22 @@ corpo), permissão `settings:connection` (a vendedora leva 403). Loja sem `rastr
 
 ### Configuração
 
-`GET /api/rastreio/config` (PR 6) → `{ config, linkDaBusca }`, com `config: Omit<RastreioConfig, "tenantId" | "sweepCursor">`.
-Cria a config na primeira leitura (`garantirConfig`).
+`GET|PATCH /api/rastreio/config` (PR 6, no ar) — `settings:connection` + `rastreio_enabled`. O `GET` cria a config na
+primeira leitura (`garantirConfig`). `200` → `RespostaDaConfig` (`lib/rastreio/config-painel.ts`):
+`{ config, linkDaBusca, loja, yampi, linksDeConvite }`
+- `config` — `Omit<RastreioConfig, "tenantId" | "sweepCursor">`
+- `linkDaBusca` — `linkDaBusca()` da loja (domínio próprio ativo, senão o www com o slug); `loja` — o nome exibido
+- `yampi` — `status` de `conexaoYampiAtiva` (`ativa` | `aviso_desativado`); sem conexão, `credencial_invalida` e
+  `desconectada` vêm `null`
+- `linksDeConvite` — `{ id, slug }[]` dos `tracked_links` da loja com `campaign_group_id`, por `slug`, máx. 200
 
-`PATCH /api/rastreio/config` (PR 6) — qualquer parte de `{ publicSlug, matrix, notifyStoreOnProblem, vipLinkId, storeWhatsapp }`;
-responde como o GET.
-- `400 { error, campo }` — slug fora do formato ou reservado, matriz incompleta, número inválido (ou o dos grupos,
-  por `lib/bio/conferir.ts`), link de outra loja
-- `409 { error, campo: "publicSlug" }` — `SlugEmUso`
+`PATCH` — qualquer parte (≥ 1) de `{ publicSlug, matrix, notifyStoreOnProblem, vipLinkId, storeWhatsapp }`, chave
+desconhecida recusada; responde como o `GET`. `matrix` vai **completa** (as 5 etapas de `ETAPAS_COM_AVISO`, cada uma
+`{ whatsapp, email }`). `storeWhatsapp`: `""`/`null` limpa; senão vira `55`+DDD+número.
+- `400 { error, campo }` — `campo` = `publicSlug` (formato ou reservado), `matrix` (incompleta), `vipLinkId` (link que
+  não é da loja ou não é de campanha), `storeWhatsapp` (inválido, ou número de instância da loja:
+  `NUMERO_DA_LOJA_CONECTADO`), `corpo` (JSON inválido, vazio ou com chave desconhecida)
+- `409 { error: "Esse endereço já está em uso. Escolha outro.", campo: "publicSlug" }` — `SlugEmUso`
 
 ### Entregas
 

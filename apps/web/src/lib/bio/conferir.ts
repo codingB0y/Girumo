@@ -56,6 +56,11 @@ function ehDaLoja(chaves: Set<string>, numero: string): boolean {
   return chave !== null && chaves.has(chave);
 }
 
+/** O número é de uma instância dos grupos da loja (o chip que posta)? Com e sem o nono dígito. */
+export async function numeroEhDeInstanciaDaLoja(tenantId: string, numero: string): Promise<boolean> {
+  return ehDaLoja(await chavesDasInstancias(tenantId), numero);
+}
+
 /** Cada mídia do documento com o caminho do campo, na ordem da página. */
 function midiasDoDocumento(d: DocumentoBio): { campo: string; id: string }[] {
   const lista: { campo: string; id: string }[] = [];
