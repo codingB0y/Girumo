@@ -138,7 +138,7 @@ export function estadoDoCampo(janela: FioDaConversa["janela"], roboPausadoAte: s
   const ultima = janela.ultimaDelaEm;
   if (janela.estado === "aberta" && ultima) {
     const ate = quando(new Date(Date.parse(ultima) + 24 * 3_600_000).toISOString(), agora, fuso);
-    return { modo: "aberta", podeEnviar: true, rotuloEnviar: "Enviar", faixa: `Janela aberta: pode responder até ${ate}`, nota: "24 h depois da última mensagem dela. Robô e você respondem normal.", pausadoAte };
+    return { modo: "aberta", podeEnviar: true, rotuloEnviar: "Enviar", faixa: `Janela aberta: pode responder até ${ate}`, nota: pausadoAte ? "24 h depois da última mensagem dela." : "24 h depois da última mensagem dela. Robô e você respondem normal.", pausadoAte };
   }
   if (janela.estado === "humano" && ultima) {
     const ate = quando(new Date(Date.parse(ultima) + 7 * 86_400_000).toISOString(), agora, fuso);
@@ -162,7 +162,8 @@ const SEM_ARQUIVO = new Map([
 /** O texto que entra no lugar do link, ou `null` quando o anexo tem arquivo para abrir. */
 export const anexoSemArquivo = (tipo: string): string | null => SEM_ARQUIVO.get(tipo.toLowerCase()) ?? null;
 
-export const NOTA_DA_PAUSA = "Volta sozinho depois de 12 h sem você responder, ou ao clicar em Resolver.";
+/** Sem prazo fixo: responder pausa 12 h, o Passar pra loja pausa 24 h; o título já mostra até quando. */
+export const NOTA_DA_PAUSA = "Volta sozinho nesse horário, ou ao clicar em Resolver. Responder pela tela adia.";
 
 /** Linha de `ig_conversations` como o Realtime entrega (colunas do banco). Só o que a tela usa. */
 export type LinhaDoRealtime = {
