@@ -4,15 +4,16 @@ import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { telefoneNaVitrine } from "@/lib/painel/conectar";
-import { resumoDasPortas, type LeituraDasPortas, type Porta } from "@/lib/painel/configuracoes";
+import { portasVisiveis, resumoDasPortas, type LeituraDasPortas, type Porta } from "@/lib/painel/configuracoes";
 import { AbaEquipe, type PropsDaEquipe } from "./aba-equipe";
 import { AbaPlano, type PropsDoPlano } from "./aba-plano";
 import { Bling } from "@/components/painel/configuracoes/bling";
 import { DominioProprio } from "@/components/painel/configuracoes/dominio-proprio";
 import { SiteProprio } from "@/components/painel/configuracoes/site-proprio";
 import { Yampi } from "@/components/painel/configuracoes/yampi";
-
-const PORTAS: Porta[] = ["Conexão", "Integrações", "Equipe", "Notificações", "Plano", "Conta"];
+import { BlocoCodigoRastreio } from "@/components/painel/rastreio/bloco-codigo-rastreio";
+import { RastreioConfiguracoes } from "@/components/painel/rastreio/rastreio-config";
+import { useRastreioLiberado } from "@/components/painel/rastreio/use-rastreio-liberado";
 
 export type PropsDosAvisos = {
   /** `null` enquanto a consulta não voltou: o interruptor vira esqueleto. */
@@ -54,6 +55,7 @@ export function ConfiguracoesVitrine({
   conta,
 }: Props) {
   const resumos = resumoDasPortas(leitura);
+  const portas = portasVisiveis({ rastreio: useRastreioLiberado() });
 
   return (
     <div className="space-y-6 px-4 py-5 lg:px-8 lg:py-8">
@@ -72,7 +74,7 @@ export function ConfiguracoesVitrine({
               MESMA página. `"page"` anunciaria a leitor de tela uma navegação
               que não acontece — quem troca de rota é o corredor, e é lá que
               `"page"` está certo. */}
-          {PORTAS.map((p) => (
+          {portas.map((p) => (
             <button
               key={p}
               type="button"
@@ -108,9 +110,13 @@ export function ConfiguracoesVitrine({
               {/* Só dono e administração: para os outros papéis o Bling se cala (o Site próprio já dá o recado). */}
               <Bling />
               {/* Idem: a mesma conexão do Rastreio do pedido e do Recuperar. */}
-              <Yampi />
+              <Yampi>
+                <BlocoCodigoRastreio />
+              </Yampi>
             </div>
           )}
+          {/* Sem a porta (módulo não liberado), `?secao=rastreio` ainda chega aqui e a rota dá o recado. */}
+          {porta === "Rastreio de pedidos" && <RastreioConfiguracoes />}
           {porta === "Equipe" && <AbaEquipe {...equipe} />}
           {porta === "Notificações" && <AbaAvisos {...avisos} />}
           {porta === "Plano" && <AbaPlano {...plano} />}
