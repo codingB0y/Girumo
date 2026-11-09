@@ -16,7 +16,11 @@ networks:
 
 services:
   evolution:
-    image: evoapicloud/evolution-api:${EVOLUTION_IMAGE_TAG:-v2.3.7}
+    # Imagem oficial + ack das stanzas <status> (deploy/coolify/evolution/,
+    # publicada por .github/workflows/evolution-image.yml). Sem o ack o
+    # WhatsApp fecha o stream a cada 50 min e segura a entrada até lá.
+    # Para voltar à oficial: EVOLUTION_IMAGE=evoapicloud/evolution-api:v2.3.7
+    image: ${EVOLUTION_IMAGE:-ghcr.io/codingb0y/evolution-api:v2.3.7-status-ack}
     restart: unless-stopped
     depends_on:
       evolution-postgres:
