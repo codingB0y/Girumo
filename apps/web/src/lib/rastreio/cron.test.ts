@@ -92,3 +92,12 @@ test("sem a lista de lojas a execução lança", async () => {
   const { deps } = montar({ lojas: async () => { throw new Error("banco fora"); } });
   await assert.rejects(rodarCronRastreio(AGORA, deps), /banco fora/);
 });
+
+test("YampiErro de outro status loga só o status, sem a mensagem da Yampi", async (t) => {
+  const erros: string[] = [];
+  t.mock.method(console, "error", (m: unknown) => erros.push(String(m)));
+  const { deps } = montar({ varrer: async (id) => { if (id === "loja-a") throw new YampiErro(500, "Yampi: HTTP 500 em /orders"); return 0; } });
+  await rodarCronRastreio(AGORA, deps);
+  assert.deepEqual(erros, ["[rastreio/cron] varrer loja-a: a Yampi respondeu 500"]);
+  assert.ok(!erros[0].includes("/orders"));
+});

@@ -55,7 +55,7 @@ export async function rodarCronRastreio(
       falhas++;
       // YampiErro: a loja para nesta rodada (o cursor só anda depois do laço) e a seguinte, 5 min depois, tenta de novo; o cron não espera o retryAfterMs.
       // 401 = token trocado: o yampiGet (B·6b) já marcou a conexão credencial_invalida e avisou no sino, então aqui é só o log. A mensagem do erro fica fora do log.
-      const motivo = (e instanceof YampiErro && MOTIVO_DA_YAMPI[e.status]) || (e instanceof Error ? e.message : String(e));
+      const motivo = e instanceof YampiErro ? (MOTIVO_DA_YAMPI[e.status] ?? `a Yampi respondeu ${e.status}`) : e instanceof Error ? e.message : String(e);
       console.error(`[rastreio/cron] ${nome} ${alvo}: ${motivo}`);
       return null;
     }
