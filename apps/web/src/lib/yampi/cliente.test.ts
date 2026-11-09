@@ -157,3 +157,15 @@ test("caminho com `..`, `.`, `#` ou segmento vazio nunca chega ao fetch; a consu
   await c.get("/search/orders", { q: "1" });
   assert.equal(pedidos[0].url, "https://api.dooki.com.br/v2/loja-exemplo/search/orders?q=1");
 });
+
+test("o 429 vale para o IP inteiro: segura a mesma rota das outras lojas, e as outras rotas seguem", async () => {
+  const bloqueios = new Map<string, number>();
+  const loja = cliente([json({}, 429, { "retry-after": "30" })], { bloqueios });
+  await assert.rejects(loja.c.get("/webhooks"), erroCom(429, 30_000));
+
+  const outra = cliente([json({ data: [] }), json({ data: [] })], { alias: "outra-loja", bloqueios });
+  await assert.rejects(outra.c.get("/webhooks/5611397"), erroCom(429), "mesma rota, outra loja: nem chama");
+  assert.equal(outra.pedidos.length, 0);
+  assert.deepEqual(await outra.c.get("/orders"), { data: [] }, "outra rota segue");
+  assert.equal(outra.pedidos.length, 1);
+});
