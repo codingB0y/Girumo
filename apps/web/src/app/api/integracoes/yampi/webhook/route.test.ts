@@ -109,9 +109,12 @@ const hmac = (corpo: Corpo, segredo = SEGREDO) => createHmac("sha256", segredo).
 const pedido = (corpo: Corpo, cabecalhos: Record<string, string> = {}, c?: string) =>
   new Request(URL_DO_AVISO(c), { method: "POST", headers: { "content-type": "application/json", ...cabecalhos }, body: corpo });
 const assinado = (corpo: Corpo, segredo = SEGREDO, c: string = CONEXAO_ID) => pedido(corpo, { "x-yampi-hmac-sha256": hmac(corpo, segredo) }, c);
+/** `time` da Yampi: hora de Brasília, sem fuso (Fase 0, Y5). */
+const horaDeBrasilia = (deslocamentoMs = 0) =>
+  new Date(Date.now() - 3 * 60 * 60 * 1000 + deslocamentoMs).toISOString().slice(0, 19).replace("T", " ");
 const aviso = (extra: Record<string, unknown> = {}) =>
   JSON.stringify({
-    event: "order.paid", time: "2026-10-29 10:00:00", merchant: { id: 1, alias: "loja-exemplo" },
+    event: "order.paid", time: horaDeBrasilia(), merchant: { id: 1, alias: "loja-exemplo" },
     resource: { id: 42, customer: { phone: "5511999990000", pix_qr_code: "000201PIXSECRETO" } }, ...extra,
   });
 
@@ -211,6 +214,20 @@ test("assinado mas fora dos cinco eventos, ou JSON quebrado: 200 e nada gravado"
   assert.equal(tarefasDepois.length, 0);
   assert.match(avisos.mock.calls.map((c) => String(c.arguments[0])).join("\n"), /outro_evento/);
   assert.doesNotMatch(erros.mock.calls.map((c) => String(c.arguments[0])).join("\n"), /não é json/);
+});
+
+test("assinado mas fora da janela (mais de 7 dias, ou no futuro): 200 e nada gravado — a dedupe some em 30 dias", async (t) => {
+  t.mock.method(console, "warn", () => {});
+  const DIA = 24 * 60 * 60 * 1000;
+  for (const time of [horaDeBrasilia(-8 * DIA), horaDeBrasilia(10 * 60 * 1000)]) {
+    const r = await POST(assinado(aviso({ time })));
+    assert.equal(r.status, 200, time);
+  }
+  assert.equal(gravacoes().length, 0);
+  assert.equal(tarefasDepois.length, 0);
+  // time que não se lê não recusa: a assinatura já valeu
+  assert.equal((await POST(assinado(aviso({ time: null })))).status, 200);
+  assert.equal(gravacoes().length, 1);
 });
 
 test("aviso válido: grava (tenant, conexão, event, resource_id, dedupe_key, payload), marca last_event_at, responde 200 e agenda o processamento", async () => {

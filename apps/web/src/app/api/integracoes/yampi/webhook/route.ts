@@ -6,7 +6,7 @@ import { atualizarConexaoYampi, lerConexaoYampiPorId } from "@/lib/stores/yampi-
 import { gravarEventoYampi } from "@/lib/stores/yampi-eventos";
 import { assinaturaYampiConfere } from "@/lib/yampi/assinatura";
 import { abrirSegredoDoAviso } from "@/lib/yampi/credenciais";
-import { chaveDeDedupe, LIMITE_CORPO_AVISO, lerEnvelope } from "@/lib/yampi/envelope";
+import { avisoForaDaJanela, chaveDeDedupe, LIMITE_CORPO_AVISO, lerEnvelope } from "@/lib/yampi/envelope";
 import { processarEventoYampi } from "@/lib/yampi/processar";
 import type { ConexaoYampi } from "@/lib/yampi/tipos";
 
@@ -78,6 +78,11 @@ export async function POST(req: Request): Promise<Response> {
   if (envelope.alias.toLowerCase() !== conexao.alias.toLowerCase()) {
     console.warn(`[yampi/webhook] alias do aviso não é o da conexão ${conexao.id}`);
     return naoAutenticado();
+  }
+  // Assinado mas velho (ou no futuro): reenvio depois que a dedupe já apagou a linha. 200 para a Yampi não insistir.
+  if (avisoForaDaJanela(envelope.time)) {
+    console.warn(`[yampi/webhook] ${envelope.evento} fora da janela de 7 dias (conexão ${conexao.id})`);
+    return recebido();
   }
 
   let gravado: { id: string } | null;

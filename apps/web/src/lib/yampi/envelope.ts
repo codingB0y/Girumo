@@ -51,3 +51,20 @@ export function lerEnvelope(json: unknown): { ok: true; envelope: EnvelopeYampi 
 export function chaveDeDedupe(conexaoId: string, corpo: Uint8Array): string {
   return `${conexaoId}:${createHash("sha256").update(corpo).digest("hex")}`;
 }
+
+const TIME_DA_YAMPI = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/;
+const IDADE_MAXIMA_MS = 7 * 24 * 60 * 60 * 1000;
+const FUTURO_MAXIMO_MS = 5 * 60 * 1000;
+
+/**
+ * A dedupe só vale enquanto a linha existe, e `yampi_events` some em 30 dias: um aviso assinado reenviado depois
+ * disso entraria de novo (um `cart.reminder` velho virava DM). O `time` vem em hora de Brasília sem fuso (Fase 0,
+ * Y5; o Brasil não tem horário de verão desde 2019). `time` que não se lê não recusa: a assinatura já valeu.
+ */
+export function avisoForaDaJanela(time: string | null, agora: number = Date.now()): boolean {
+  const partes = time ? TIME_DA_YAMPI.exec(time) : null;
+  if (!partes) return false;
+  const instante = Date.parse(`${partes[1]}T${partes[2]}-03:00`);
+  if (Number.isNaN(instante)) return false;
+  return agora - instante > IDADE_MAXIMA_MS || instante - agora > FUTURO_MAXIMO_MS;
+}

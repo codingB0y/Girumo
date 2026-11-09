@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { chaveDeDedupe, lerEnvelope } from "./envelope";
+import { avisoForaDaJanela, chaveDeDedupe, lerEnvelope } from "./envelope";
 import { EVENTOS_YAMPI } from "./tipos";
 
 const aviso = (extra: Record<string, unknown> = {}) => ({
@@ -42,4 +42,16 @@ test("chaveDeDedupe: o mesmo corpo na mesma conexão repete; outro corpo ou outr
   assert.equal(chaveDeDedupe("c1", a), chaveDeDedupe("c1", a));
   assert.notEqual(chaveDeDedupe("c1", a), chaveDeDedupe("c1", b));
   assert.notEqual(chaveDeDedupe("c1", a), chaveDeDedupe("c2", a));
+});
+
+test("avisoForaDaJanela: lê o time em hora de Brasília; mais de 7 dias ou mais de 5 min no futuro fica fora; ilegível fica dentro", () => {
+  const agora = Date.parse("2026-11-09T15:00:00Z"); // 12:00 em Brasília
+  assert.equal(avisoForaDaJanela("2026-11-09 12:00:00", agora), false);
+  assert.equal(avisoForaDaJanela("2026-11-02 12:00:01", agora), false); // 7 dias menos 1 s
+  assert.equal(avisoForaDaJanela("2026-11-02 11:59:59", agora), true);
+  assert.equal(avisoForaDaJanela("2026-11-09 12:04:59", agora), false); // relógio da Yampi adiantado (Y5)
+  assert.equal(avisoForaDaJanela("2026-11-09 12:05:01", agora), true);
+  for (const ilegivel of [null, "", "2026-11-09T12:00:00Z", "ontem", "2026-13-45 99:99:99"]) {
+    assert.equal(avisoForaDaJanela(ilegivel, agora), false, String(ilegivel));
+  }
 });

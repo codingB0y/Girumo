@@ -28,7 +28,10 @@ export type ConsumidorDeEvento = {
   eventos: readonly EventoYampi[];
   /** O módulo está ligado nesta loja? */
   ligado: (tenantId: string) => Promise<boolean>;
-  /** IDEMPOTENTE: a retentativa roda de novo, inclusive os que já deram certo. */
+  /**
+   * IDEMPOTENTE: a retentativa roda de novo, inclusive os que já deram certo. A mensagem do erro que lançar vai
+   * para a coluna `error` do evento: sem telefone, código Pix ou outro dado do pedido.
+   */
   consumir: (e: EventoParaConsumir) => Promise<unknown>;
 };
 
