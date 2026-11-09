@@ -82,6 +82,30 @@ test("problema sempre avisa a loja no sininho", async () => {
   assert.deepEqual(b.log.loja, [["loja-a", { id: "ped-1", numero: "1042" }]]);
 });
 
+test("problema sem mudança (retentativa) ainda recria o sininho, sem avisos", async () => {
+  const PROBLEMA_REPETIDO = { ...GRAVADO, etapa: "problema" as const, mudou: false };
+  const a = montar({ gravarPedido: async () => PROBLEMA_REPETIDO });
+  await registrarPedidoDaYampi("loja-a", pedidoYampi(), "aviso", a.deps);
+  assert.deepEqual([a.log.loja, a.log.criar], [[["loja-a", { id: "ped-1", numero: "1042" }]], []]);
+  const b = montar({ gravarPedido: async () => PROBLEMA_REPETIDO });
+  await registrarPedidoDaYampi("loja-a", pedidoYampi(), "importacao", b.deps);
+  assert.deepEqual([b.log.loja, b.log.config], [[], 0]);
+  const c = montar({ gravarPedido: async () => PROBLEMA_REPETIDO, agora: () => new Date("2026-11-02T15:00:00Z") });
+  await registrarPedidoDaYampi("loja-a", pedidoYampi(), "aviso", c.deps); // updated_at de 4 dias atrás
+  assert.deepEqual([c.log.loja, c.log.config], [[], 0]);
+});
+
+test("o sininho vem antes dos avisos: falha nos avisos não o perde", async () => {
+  const ordem: string[] = [];
+  const { deps } = montar({
+    gravarPedido: async () => ({ ...GRAVADO, etapa: "problema" }),
+    avisarLoja: async () => { ordem.push("loja"); return true; },
+    criarAvisos: async () => { ordem.push("avisos"); throw new Error("banco fora"); },
+  });
+  await assert.rejects(registrarPedidoDaYampi("loja-a", pedidoYampi(), "aviso", deps), /banco fora/);
+  assert.deepEqual(ordem, ["loja", "avisos"]);
+});
+
 test("payload fora do formato: null e nada gravado", async () => {
   const { deps, log } = montar();
   assert.equal(await registrarPedidoDaYampi("loja-a", {}, "aviso", deps), null);

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { tenantGrantsPlan } from "@/lib/billing/entitlements";
-import { canaisDoAviso, ehEtapaComAviso, mudancaParaAvisar } from "@/lib/rastreio/avisar";
+import { canaisDoAviso, ehEtapaComAviso, mudancaParaAvisar, recenteNaYampi } from "@/lib/rastreio/avisar";
 import { pepperDoRastreio } from "@/lib/rastreio/documento";
 import { pedidoDaYampi } from "@/lib/rastreio/pedido-yampi";
 import type { Canal, OrigemDoPedido, PedidoGravado, PedidoParaGravar, RastreioConfig } from "@/lib/rastreio/tipos";
@@ -48,7 +48,9 @@ const DEPS: DepsRegistrar = {
 
 /**
  * Grava o pedido da Yampi e cria os avisos da etapa nova. Nenhum dado do pedido entra em erro ou log.
- * // ponytail: falha entre gravar e avisar perde o aviso daquela etapa (a retentativa vê `mudou = false`);
+ * O sininho do problema vem antes dos avisos e não depende de `mudou`: é idempotente, então a retentativa
+ * o recria se ele falhou — o aviso da compradora diz "a loja já foi avisada".
+ * // ponytail: falha entre gravar e criar os avisos perde o aviso daquela etapa (a retentativa vê `mudou = false`);
  * a página fica certa. Subir para "avisos criados na RPC" se aparecer na prova.
  */
 export async function registrarPedidoDaYampi(
@@ -65,10 +67,14 @@ export async function registrarPedidoDaYampi(
   const gravado = await deps.gravarPedido(tenantId, pedido, origem);
   const agora = deps.agora();
   const sem = { gravado, avisos: [] };
-  if (!mudancaParaAvisar({ gravado, origem, atualizadoNaYampi: pedido.atualizadoNaYampi, agora })) return sem;
+  const avisar = mudancaParaAvisar({ gravado, origem, atualizadoNaYampi: pedido.atualizadoNaYampi, agora });
+  const sininho = gravado.etapa === "problema" && origem !== "importacao" && recenteNaYampi(pedido.atualizadoNaYampi, agora);
+  if (!avisar && !sininho) return sem;
 
   const [plano, config] = await Promise.all([deps.planoAtivo(tenantId), deps.lerConfig(tenantId)]);
   if (!plano || !config) return sem;
+  if (sininho) await deps.avisarLoja(tenantId, { id: gravado.id, numero: pedido.numero });
+  if (!avisar) return sem;
 
   const canais = canaisDoAviso({
     gravado, origem, atualizadoNaYampi: pedido.atualizadoNaYampi, agora, matriz: config.matrix,
@@ -77,6 +83,5 @@ export async function registrarPedidoDaYampi(
   const avisos = canais.length > 0 && ehEtapaComAviso(gravado.etapa)
     ? await deps.criarAvisos(tenantId, gravado.id, gravado.etapa, canais)
     : [];
-  if (gravado.etapa === "problema") await deps.avisarLoja(tenantId, { id: gravado.id, numero: pedido.numero });
   return { gravado, avisos };
 }
