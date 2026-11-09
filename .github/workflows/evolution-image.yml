@@ -2,8 +2,10 @@ name: Evolution image
 
 # Constrói a imagem derivada da Evolution (deploy/coolify/evolution/Dockerfile):
 # a oficial mais o patch que faz o Baileys confirmar as stanzas <status>.
-# Em PR só constrói e testa; no push em main publica no GHCR. Só roda quando
-# algo dessa pasta (ou este arquivo) muda, para não gastar minuto à toa.
+# Em PR constrói e testa (amd64 com smoke test; arm64 só valida que o patch
+# aplica); no push em main publica no GHCR um manifest com as duas
+# arquiteturas, porque a VPS pode ser ARM. Só roda quando algo dessa pasta
+# (ou este arquivo) muda, para não gastar minuto à toa.
 on:
   pull_request:
     paths:
@@ -32,9 +34,10 @@ concurrency:
 jobs:
   image:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       BASE: ${{ github.event.inputs.base || 'evoapicloud/evolution-api:v2.3.7' }}
+      PLATFORMS: linux/amd64,linux/arm64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,8 +50,15 @@ jobs:
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "image=ghcr.io/${owner}/evolution-api:${BASE##*:}-status-ack" >> "$GITHUB_OUTPUT"
-      - name: Build (aplica o patch no Baileys da imagem oficial)
-        run: docker build --build-arg "EVOLUTION_BASE=${BASE}" -t "${{ steps.meta.outputs.image }}" deploy/coolify/evolution
+      # QEMU para o arm64 e buildx para manifest multi-arch.
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v3
+      - name: Build amd64 (aplica o patch no Baileys da imagem oficial)
+        run: |
+          docker buildx build --load --platform linux/amd64 --provenance=false --sbom=false \
+            --build-arg "EVOLUTION_BASE=${BASE}" -t "${{ steps.meta.outputs.image }}" deploy/coolify/evolution
       - name: Smoke test (o módulo patchado carrega e registra CB:status)
         run: |
           docker run --rm --entrypoint node "${{ steps.meta.outputs.image }}" -e '
@@ -59,6 +69,11 @@ jobs:
             require(f);
             console.log("ok: patched messages-recv.js loads, baileys", require("/evolution/node_modules/baileys/package.json").version);
           '
+      - name: Build arm64 (valida que o patch aplica na variante ARM da base)
+        if: github.event_name == 'pull_request'
+        run: |
+          docker buildx build --platform linux/arm64 --provenance=false --sbom=false \
+            --build-arg "EVOLUTION_BASE=${BASE}" deploy/coolify/evolution
       - name: Login no GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -66,10 +81,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Push
+      - name: Push (manifest amd64 + arm64)
         if: github.event_name != 'pull_request'
         run: |
           img="${{ steps.meta.outputs.image }}"
-          docker tag "$img" "${img}-${GITHUB_SHA::7}"
-          docker push "$img"
-          docker push "${img}-${GITHUB_SHA::7}"
+          docker buildx build --push --platform "${PLATFORMS}" --provenance=false --sbom=false \
+            --build-arg "EVOLUTION_BASE=${BASE}" -t "$img" -t "${img}-${GITHUB_SHA::7}" deploy/coolify/evolution
+          docker buildx imagetools inspect "$img"
