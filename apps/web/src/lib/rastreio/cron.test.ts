@@ -22,28 +22,53 @@ const ERRO_SEM_RESPOSTA = new YampiErro(0, "timeout");
 function montar(extra: Partial<DepsCron> = {}) {
   const log = {
     garantir: [] as unknown[], importar: [] as unknown[], cursor: [] as unknown[],
-    importado: [] as unknown[], varrer: [] as unknown[], purgar: 0,
+    importado: [] as unknown[], varrer: [] as unknown[], purgar: 0, ordem: [] as string[],
   };
   const deps: DepsCron = {
     lojas: async () => ["loja-a", "loja-b"],
     lerConfig: async () => CONFIG_IMPORTADA,
     garantirConfig: async (id) => { log.garantir.push(id); return CONFIG; },
     conexao: async () => CONEXAO,
-    importar: async (id, desde) => { log.importar.push([id, desde]); return 0; },
+    importar: async (id, desde) => { log.importar.push([id, desde]); log.ordem.push(`importar ${id}`); return 0; },
     avancarCursor: async (id, c) => { log.cursor.push([id, c]); },
     marcarImportado: async (id, em) => { log.importado.push([id, em]); },
-    varrer: async (id) => { log.varrer.push(id); return 0; },
-    purgar: async () => { log.purgar++; return 3; },
+    varrer: async (id) => { log.varrer.push(id); log.ordem.push(`varrer ${id}`); return 0; },
+    purgar: async () => { log.purgar++; log.ordem.push("purgar"); return 3; },
+    relogio: () => 0,
     ...extra,
   };
   return { deps, log };
 }
 
-test("loja nova: config, 30 dias importados, cursor no começo da importação e marcada", async () => {
+test("loja nova: config, 30 dias importados, cursor no começo da importação e marcada; varre só na rodada seguinte", async () => {
   const { deps, log } = montar({ lojas: async () => ["loja-a"], lerConfig: async () => null });
   assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 1, falhas: 0, purgados: null });
   assert.deepEqual([log.garantir, log.importar, log.cursor, log.importado, log.varrer],
-    [["loja-a"], [["loja-a", new Date("2026-09-29T15:00:00Z")]], [["loja-a", "2026-10-29T15:00:00.000Z"]], [["loja-a", AGORA]], ["loja-a"]]);
+    [["loja-a"], [["loja-a", new Date("2026-09-29T15:00:00Z")]], [["loja-a", "2026-10-29T15:00:00.000Z"]], [["loja-a", AGORA]], []]);
+});
+
+test("lojas já importadas são varridas antes de as novas importarem", async () => {
+  const { deps, log } = montar({
+    lojas: async () => ["loja-nova", "loja-velha"],
+    lerConfig: async (id) => (id === "loja-velha" ? CONFIG_IMPORTADA : null),
+  });
+  await rodarCronRastreio(AGORA, deps);
+  assert.deepEqual(log.ordem, ["varrer loja-velha", "importar loja-nova"]);
+});
+
+test("purge roda antes de qualquer loja", async () => {
+  const { deps, log } = montar();
+  await rodarCronRastreio(new Date("2026-10-30T06:02:00Z"), deps);
+  assert.deepEqual(log.ordem, ["purgar", "varrer loja-a", "varrer loja-b"]);
+});
+
+test("orçamento de tempo esgotado: as lojas seguintes ficam intactas e há aviso", async (t) => {
+  const avisos: string[] = [];
+  t.mock.method(console, "warn", (m: unknown) => avisos.push(String(m)));
+  const marcas = [0, 0, 240_000]; // início, antes da loja-a, antes da loja-b
+  const { deps, log } = montar({ lojas: async () => ["loja-a", "loja-b", "loja-c"], relogio: () => marcas.shift() ?? 240_000 });
+  assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 3, falhas: 0, purgados: null });
+  assert.deepEqual([log.varrer, log.importar, avisos], [["loja-a"], [], ["[rastreio/cron] orçamento de tempo esgotado: 2 lojas ficam para a próxima rodada"]]);
 });
 
 const DA_YAMPI: Array<[erro: YampiErro, motivo: string]> = [

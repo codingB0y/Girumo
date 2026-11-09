@@ -1,6 +1,7 @@
 import "server-only";
 
 import { importarPedidos, varrerPedidos } from "@/lib/rastreio/importar";
+import type { RastreioConfig } from "@/lib/rastreio/tipos";
 import { avancarCursor, garantirConfig, lerConfig, lojasComRastreio, marcarImportado } from "@/lib/stores/rastreio-config";
 import { purgarVencidos } from "@/lib/stores/rastreio-pedidos";
 import { YampiErro } from "@/lib/yampi/cliente";
@@ -8,6 +9,8 @@ import { conexaoYampiAtiva } from "@/lib/yampi/conexao";
 
 const DIAS_DA_IMPORTACAO = 30;
 const DIA_EM_MS = 24 * 60 * 60 * 1000;
+/** 60 s abaixo do `maxDuration` (300 s) da rota: a loja em andamento termina e a rota ainda responde. */
+const ORCAMENTO_DA_EXECUCAO_MS = 240_000;
 
 export type DepsCron = {
   lojas: typeof lojasComRastreio;
@@ -19,11 +22,12 @@ export type DepsCron = {
   marcarImportado: typeof marcarImportado;
   varrer: typeof varrerPedidos;
   purgar: typeof purgarVencidos;
+  relogio: () => number;
 };
 
 const DEPS: DepsCron = {
   lojas: lojasComRastreio, lerConfig, garantirConfig, conexao: conexaoYampiAtiva, importar: importarPedidos,
-  avancarCursor, marcarImportado, varrer: varrerPedidos, purgar: purgarVencidos,
+  avancarCursor, marcarImportado, varrer: varrerPedidos, purgar: purgarVencidos, relogio: Date.now,
 };
 
 const MOTIVO_DA_YAMPI: Record<number, string> = {
@@ -32,21 +36,25 @@ const MOTIVO_DA_YAMPI: Record<number, string> = {
   0: "a Yampi não respondeu",
 };
 
-/** Liga a loja nova (config + 30 dias de importação). `true` = já importada, pode varrer. */
-async function ligarLoja(tenantId: string, agora: Date, deps: DepsCron): Promise<boolean> {
-  const config = (await deps.lerConfig(tenantId)) ?? (await deps.garantirConfig(tenantId));
-  if (config.importedAt) return true;
-  if (!(await deps.conexao(tenantId))) return false;
+/** Liga a loja nova (config + 30 dias de importação). A varredura dela fica para a rodada seguinte. */
+async function ligarLoja(tenantId: string, lida: RastreioConfig | null, agora: Date, deps: DepsCron): Promise<void> {
+  if (!lida) await deps.garantirConfig(tenantId);
+  if (!(await deps.conexao(tenantId))) return;
   await deps.importar(tenantId, new Date(agora.getTime() - DIAS_DA_IMPORTACAO * DIA_EM_MS));
   await deps.avancarCursor(tenantId, agora.toISOString());
   await deps.marcarImportado(tenantId, agora);
-  return true;
 }
 
+/**
+ * Purge primeiro; depois varre as lojas já importadas e só então importa as novas — uma importação grande
+ * não deixa as outras lojas sem varredura. Passado o orçamento, nenhuma loja começa: fica para daqui a 5 min.
+ */
 export async function rodarCronRastreio(
   agora: Date,
   deps: DepsCron = DEPS,
 ): Promise<{ lojas: number; falhas: number; purgados: number | null }> {
+  const inicio = deps.relogio();
+  const esgotado = () => deps.relogio() - inicio >= ORCAMENTO_DA_EXECUCAO_MS;
   let falhas = 0;
   async function passo<T>(nome: string, alvo: string, f: () => Promise<T>): Promise<T | null> {
     try {
@@ -60,13 +68,23 @@ export async function rodarCronRastreio(
       return null;
     }
   }
-  // ponytail: sem orçamento de tempo por loja (molde app/api/cron/bling/executar.ts); acrescentar quando lojas × páginas encostarem nos 300 s.
-  const lojas = await deps.lojas(); // lista fora = execução inteira falha (a rota responde 500)
-  for (const tenantId of lojas) {
-    const importada = await passo("ligar", tenantId, () => ligarLoja(tenantId, agora, deps));
-    if (importada) await passo("varrer", tenantId, () => deps.varrer(tenantId, agora));
-    // PRs 4 e 5: passos de e-mail e WhatsApp aqui, fora do `if`: aviso criado pelo webhook sai mesmo com a API da loja fora.
-  }
   const purgados = agora.getUTCHours() === 6 && agora.getUTCMinutes() < 5 ? await passo("purgar", "global", deps.purgar) : null;
+  // ponytail: o orçamento é por execução, não por loja; uma importação maior que ele ainda estoura os 300 s — fatiar a importação por página se aparecer.
+  const lojas = await deps.lojas(); // lista fora = execução inteira falha (a rota responde 500)
+  let adiadas = 0;
+  const novas: Array<[string, RastreioConfig | null]> = [];
+  for (const [i, tenantId] of lojas.entries()) {
+    if (esgotado()) { adiadas += lojas.length - i; break; }
+    const lida = await passo("ler", tenantId, async () => ({ config: await deps.lerConfig(tenantId) }));
+    if (!lida) continue;
+    if (lida.config?.importedAt) await passo("varrer", tenantId, () => deps.varrer(tenantId, agora));
+    else novas.push([tenantId, lida.config]);
+  }
+  for (const [i, [tenantId, config]] of novas.entries()) {
+    if (esgotado()) { adiadas += novas.length - i; break; }
+    await passo("ligar", tenantId, () => ligarLoja(tenantId, config, agora, deps));
+  }
+  // PRs 4 e 5: passos de e-mail e WhatsApp por loja, independentes da varredura: aviso criado pelo webhook sai mesmo com a API da loja fora.
+  if (adiadas > 0) console.warn(`[rastreio/cron] orçamento de tempo esgotado: ${adiadas} lojas ficam para a próxima rodada`);
   return { lojas: lojas.length, falhas, purgados };
 }
