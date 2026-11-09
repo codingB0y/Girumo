@@ -73,3 +73,31 @@ export async function iniciarConvalescenca(
   if (error) throw new Error(error.message);
   return data as Convalescenca;
 }
+
+export type TrocaDeChip = {
+  aplicado: boolean;
+  motivo?: string;
+  phone_antigo?: string;
+  phone_novo?: string;
+  convalescenca_removida?: boolean;
+};
+
+/**
+ * Troca de chip na mesma vaga (migração 20261109130000): outro número abrindo
+ * a sessão da instância dos grupos grava o telefone novo, volta o perfil para
+ * 'novo', reinicia o aquecimento e apaga a convalescença do chip antigo. A RPC
+ * recebe o tenant e filtra por ele; mesmo chip de novo responde `mesmo_chip`.
+ */
+export async function registrarTrocaDeChip(
+  tenantId: string,
+  instanceId: string,
+  phoneNovo: string,
+): Promise<TrocaDeChip> {
+  const { data, error } = await getSupabaseAdmin().rpc("registrar_troca_de_chip", {
+    p_tenant: tenantId,
+    p_instance: instanceId,
+    p_phone_novo: phoneNovo,
+  });
+  if (error) throw new Error(error.message);
+  return data as TrocaDeChip;
+}

@@ -639,3 +639,8 @@ apps/web/supabase/migrations/20261105140000_fanout_lento_e_jitter.sql
 # Só o corpo de app.promote_due_schedules (trava de md5); não muda a baseline. Conferir com
 # infra/tests/agendamento-sem-post-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261109120000_agendamento_sem_post.sql
+# 09/11: troca de chip na mesma vaga — outro número abrindo a sessão da instância dos grupos grava o telefone
+# novo, numero_perfil 'novo', reinicia instance_send_state, apaga a convalescença do chip antigo, notifica
+# (antiban_chip_trocado) e registra em logs: public.registrar_troca_de_chip (nova em public: baseline regerada).
+# Conferir com infra/tests/troca-de-chip-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261109130000_troca_de_chip.sql
