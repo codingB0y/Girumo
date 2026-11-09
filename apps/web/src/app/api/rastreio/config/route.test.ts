@@ -161,3 +161,11 @@ test("vendedora: 403 do mapa; operador: 403; módulo desligado: 403", async () =
   assert.equal(d.status, 403);
   assert.deepEqual(await d.json(), RASTREIO_DISABLED);
 });
+
+test("PATCH com o número do atendimento da loja: 400", async () => {
+  tabelas = { ...tabelas, "GET /rest/v1/instances": [{ id: "i2", tenant_id: "loja-b", phone: "5511912345678", status: "connected", purpose: "privado" }] };
+  const r = await salvar({ storeWhatsapp: "5511912345678" });
+  assert.equal(r.status, 400);
+  assert.equal((await r.json()).campo, "storeWhatsapp");
+  assert.deepEqual(escritas(), []);
+});

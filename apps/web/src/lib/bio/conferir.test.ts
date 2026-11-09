@@ -239,3 +239,11 @@ test("numeroEhDeInstanciaDaLoja: casa com e sem o nono dígito, consulta só a l
   assert.equal(await conferir.numeroEhDeInstanciaDaLoja(LOJA, "5511987654321"), false);
   assert.equal(filtros("/rest/v1/instances").tenant_id, `eq.${LOJA}`);
 });
+
+test("numeroEhDeInstanciaDaLoja: o número do atendimento também é recusado, só da loja", async () => {
+  banco.privados = ["5511912345678"];
+  assert.equal(await conferir.numeroEhDeInstanciaDaLoja(LOJA, "(11) 91234-5678"), true);
+  assert.equal(await conferir.numeroEhDeInstanciaDaLoja(LOJA, "5511987654321"), false);
+  const privado = vistos.find((v) => v.url.pathname === "/rest/v1/instances" && v.url.searchParams.get("purpose") === "eq.privado");
+  assert.equal(privado?.url.searchParams.get("tenant_id"), `eq.${LOJA}`);
+});

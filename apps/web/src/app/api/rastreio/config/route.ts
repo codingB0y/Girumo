@@ -1,5 +1,5 @@
 import { numeroEhDeInstanciaDaLoja } from "@/lib/bio/conferir";
-import { falhou, resposta } from "@/lib/bio/painel-api";
+import { falhou, limiteDaLoja, resposta } from "@/lib/bio/painel-api";
 import {
   corpoDoPatchDaConfig,
   erroDoPatchDaConfig,
@@ -63,6 +63,8 @@ export async function GET(req: Request): Promise<Response> {
 export async function PATCH(req: Request): Promise<Response> {
   const loja = await lojaDoRastreioNoPainel(req);
   if (loja instanceof Response) return loja;
+  const limitado = await limiteDaLoja("rastreio-config", loja.tenantId, 30);
+  if (limitado) return limitado;
   try {
     let bruto: unknown;
     try {

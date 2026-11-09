@@ -12,6 +12,7 @@ const MSG_MATRIZ = "Escolha os avisos de todas as etapas.";
 export const MSG_LINK_VIP = "Esse link não é da sua loja.";
 const MSG_NUMERO = "Informe um WhatsApp com DDD, ex.: (11) 91234-5678.";
 const MSG_CORPO = "Corpo inválido.";
+const MSG_VALOR = "Valor inválido.";
 
 /** Texto próprio do Rastreio: o `NUMERO_CONECTADO` do bio fala em "número de atendimento", que aqui seria o chip. */
 export const NUMERO_DA_LOJA_CONECTADO =
@@ -39,15 +40,15 @@ function ehMatriz(v: unknown): v is MatrizAvisos {
 
 export const corpoDoPatchDaConfig = z
   .strictObject({
-    publicSlug: z.string().superRefine((s, ctx) => {
+    publicSlug: z.string(MSG_SLUG_FORMATO).superRefine((s, ctx) => {
       if (!SLUG_BIO.test(s)) ctx.addIssue({ code: "custom", message: MSG_SLUG_FORMATO });
       else if (slugReservado(s)) ctx.addIssue({ code: "custom", message: MSG_SLUG_RESERVADO });
     }),
     matrix: z.custom<MatrizAvisos>(ehMatriz, { message: MSG_MATRIZ }),
-    notifyStoreOnProblem: z.boolean(),
-    vipLinkId: z.string().regex(UUID_MINUSCULO, MSG_LINK_VIP).nullable(),
+    notifyStoreOnProblem: z.boolean({ error: MSG_VALOR }),
+    vipLinkId: z.string(MSG_LINK_VIP).regex(UUID_MINUSCULO, MSG_LINK_VIP).nullable(),
     storeWhatsapp: z
-      .string()
+      .string(MSG_NUMERO)
       .max(40, MSG_NUMERO)
       .nullable()
       .transform((bruto, ctx) => {

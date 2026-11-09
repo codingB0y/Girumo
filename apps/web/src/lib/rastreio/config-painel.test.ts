@@ -56,3 +56,10 @@ test("corpo vazio, chave desconhecida ou não-objeto: campo corpo", () => {
   assert.equal(falha({ publicSlug: "loja-exemplo", extra: 1 }).campo, "corpo");
   assert.equal(falha("oi").campo, "corpo");
 });
+
+test("tipo errado cai numa mensagem em português, não no inglês do zod", () => {
+  assert.equal(falha({ notifyStoreOnProblem: "x" }).error, "Valor inválido.");
+  assert.equal(falha({ vipLinkId: 5 }).error, "Esse link não é da sua loja.");
+  assert.equal(falha({ publicSlug: 3 }).error, "Use de 3 a 40 letras minúsculas, números e hífen, sem espaço nem acento.");
+  assert.equal(falha({ storeWhatsapp: 5 }).error, "Informe um WhatsApp com DDD, ex.: (11) 91234-5678.");
+});
