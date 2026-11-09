@@ -53,8 +53,11 @@ services:
       # Webhook global desligado — Girumo configura webhook por instância (F2).
       WEBHOOK_GLOBAL_ENABLED: "false"
 
-      # Sessão/QR
-      CONFIG_SESSION_PHONE_CLIENT: Girumo
+      # Sessão/QR. CLIENT vira `DeviceProps.os` no pareamento do Baileys e o nome em
+      # "Aparelhos conectados": um nome estável e realista (hubflow-engine/DECISIONS.md, E0.4).
+      # "Girumo" era auto-denúncia de automação; nenhum WhatsApp Web legítimo se chama assim.
+      # Vale só para pareamentos novos — sessão já pareada mantém o nome até parear de novo.
+      CONFIG_SESSION_PHONE_CLIENT: Ubuntu
       CONFIG_SESSION_PHONE_NAME: Chrome
       QRCODE_LIMIT: "30"
       DEL_INSTANCE: "false"
