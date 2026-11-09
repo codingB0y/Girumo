@@ -66,7 +66,9 @@ responde o ack (e só o ack — o conteúdo do status continua ignorado, como j�
 era) e põe `status` no processador de nós offline. O workflow
 `.github/workflows/evolution-image.yml` constrói em todo PR que mexe na pasta e
 publica no push em `main` como
-`ghcr.io/codingb0y/evolution-api:v2.3.7-status-ack` (e `...-<sha>`).
+`ghcr.io/codingb0y/evolution-api:v2.3.7-status-ack` (e `...-<sha>`), com manifest
+para `linux/amd64` **e** `linux/arm64` — confira a arquitetura da VPS com `uname -m`
+antes de culpar o patch por um container que não sobe.
 O script é idempotente e **recusa** uma versão do Baileys cujas âncoras não
 foram conferidas — o build falha de propósito em vez de gerar imagem sem o fix.
 Se a base um dia já trouxer o `CB:status`, ele não faz nada e o build passa.
