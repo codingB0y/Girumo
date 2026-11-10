@@ -25,6 +25,29 @@ backoff exponencial, circuit breaker.
 - `contentVariator` — spinning de conteúdo p/ driblar dedup de spam. **Evasão de detecção.**
 - `humanEntropy` — ruído (typing/presence/read) cujo propósito declarado é evitar detecção de bot. **Evasão de detecção.**
 - `banRecoveryOrchestrator` / `reputationVoucher` — retomar após ban / inflar reputação. **Burlar punição da plataforma.**
+- Rodízio de números para dividir os envios de uma loja — alternar ou sortear qual número da loja
+  executa cada envio ou ação para diluir volume ou padrão por número. Nada de balanceamento, sorteio ou
+  revezamento de número por post, por grupo ou por ação. Decisão do Igor em 2026-11-09. O propósito é
+  diluir o padrão por número para escapar da detecção da plataforma. **Evasão de detecção.**
+  - Hoje a escolha é fixa por run, nunca por envio: `pickSendInstance`
+    (`apps/worker/src/pick-send-instance.ts`) devolve o número de grupos `connected` mais antigo, e
+    `app.enqueue_broadcast` (`apps/web/supabase/migrations/20261109140000_envio_pelo_avisos.sql`) fixa um
+    único número para o disparo inteiro (o conectado há menos tempo). Nenhum sorteia nem reveza.
+  - Alcance: ter mais de um número conectado **não** é o que está recusado; cada número segue os próprios
+    tetos. Segundo número como admin reserva ou como observador de grupo está **em aberto**, não decidido aqui.
+
+## Recusado (risco de denúncia — NÃO implementar)
+
+Recusa por **risco**, não por evasão: não há detecção a driblar, só uma prática que gera denúncia.
+
+- **Adicionar pessoas a grupo de WhatsApp por número de telefone** — nem por botão no painel, nem por
+  automação ou agendamento. Grupo recebe gente **só por link de convite**. Decisão do Igor em 2026-11-09.
+  **Incluir quem não pediu para entrar leva a denúncia e à restrição do número.**
+  - No código: `apps/worker/src/evolution-groups.ts` só chama `group/updateParticipant` com
+    `action: "remove"` (`removeParticipant`), e o comentário do cabeçalho registra que o pool é
+    populado por link, nunca por `add`. Não reintroduzir `add` de terceiro sem nova decisão.
+  - Alcance: vale para terceiros. Um segundo número do próprio lojista como admin reserva está
+    **em aberto** e não é decidido aqui.
 
 ## Nome de dispositivo (revisado 2026-07-30 — E0.4)
 
