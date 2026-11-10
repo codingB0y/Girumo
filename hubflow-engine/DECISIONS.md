@@ -26,6 +26,19 @@ backoff exponencial, circuit breaker.
 - `humanEntropy` — ruído (typing/presence/read) cujo propósito declarado é evitar detecção de bot. **Evasão de detecção.**
 - `banRecoveryOrchestrator` / `reputationVoucher` — retomar após ban / inflar reputação. **Burlar punição da plataforma.**
 
+## Recusado (risco de denúncia — NÃO implementar)
+
+Recusa por **risco**, não por evasão: não há detecção a driblar, só uma prática que gera denúncia.
+
+- **Adicionar pessoas a grupo de WhatsApp por número de telefone** — nem por botão no painel, nem por
+  automação ou agendamento. Grupo recebe gente **só por link de convite**. Decisão do Igor em 2026-11-09.
+  **Incluir quem não pediu para entrar leva a denúncia e à restrição do número.**
+  - No código: `apps/worker/src/evolution-groups.ts` só chama `group/updateParticipant` com
+    `action: "remove"` (`removeParticipant`), e o comentário do cabeçalho registra que o pool é
+    populado por link, nunca por `add`. Não reintroduzir `add` de terceiro sem nova decisão.
+  - Alcance: vale para terceiros. Um segundo número do próprio lojista como admin reserva está
+    **em aberto** e não é decidido aqui.
+
 ## Nome de dispositivo (revisado 2026-07-30 — E0.4)
 
 O campo `browser` do Baileys é o **nome do dispositivo vinculado** (o que aparece em
