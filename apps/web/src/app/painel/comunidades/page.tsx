@@ -6,6 +6,7 @@ import { authenticatedFetch } from "@/lib/supabase/client";
 import { Folha } from "@/components/painel/folha";
 import { ComunidadeCard, type ComunidadeResumo } from "@/components/painel/comunidades/comunidade-card";
 import { OrfaosFaixa, type GrupoOrfao } from "@/components/painel/comunidades/orfaos-faixa";
+import { MontarComunidades } from "@/components/painel/comunidades/montar-comunidades";
 import type { Group } from "@/lib/mock-data";
 
 type Comunidade = {
@@ -33,6 +34,7 @@ export default function PainelComunidades() {
   const [membrosPorGrupo, setMembrosPorGrupo] = useState<Map<string, number>>(new Map());
   const [erro, setErro] = useState<string | null>(null);
 
+  const [montando, setMontando] = useState(false);
   const [formAberto, setFormAberto] = useState(false);
   const [nome, setNome] = useState("");
   const [erroForm, setErroForm] = useState<string | null>(null);
@@ -134,14 +136,31 @@ export default function PainelComunidades() {
             de grupos que só existem na Girumo.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={abrirForm}
-          className="font-data inline-flex h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-13 font-semibold uppercase tracking-[0.04em] text-paper-0"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" /> Nova comunidade
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setMontando((v) => !v)}
+            aria-expanded={montando}
+            aria-controls="montar-comunidades"
+            className="font-data inline-flex h-11 items-center rounded-[var(--radius-control)] border border-cobalt-500 bg-paper-0 px-4 text-13 font-semibold uppercase tracking-[0.04em] text-cobalt-500"
+          >
+            Montar comunidades
+          </button>
+          <button
+            type="button"
+            onClick={abrirForm}
+            className="font-data inline-flex h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-13 font-semibold uppercase tracking-[0.04em] text-paper-0"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" /> Nova comunidade
+          </button>
+        </div>
       </header>
+
+      {montando && (
+        <div id="montar-comunidades">
+          <MontarComunidades aoFechar={() => setMontando(false)} />
+        </div>
+      )}
 
       {erro && (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-alerta/20 bg-alerta/[0.06] px-4 py-3 text-sm text-alerta">
