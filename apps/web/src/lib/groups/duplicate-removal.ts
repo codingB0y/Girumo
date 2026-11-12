@@ -1,5 +1,6 @@
 import { jidDigits } from "@/lib/evolution/admin-group";
 import { buildBulkJobs, type BulkJobInsert, type BulkTargetGroup } from "./bulk-batch";
+import { naUltimaLeitura } from "./participantes-de-hoje";
 
 /**
  * Detecção de duplicado e do alvo de "remover pessoa de todos os grupos",
@@ -12,12 +13,19 @@ import { buildBulkJobs, type BulkJobInsert, type BulkTargetGroup } from "./bulk-
  * Evolution). Quem não tem telefone conhecido é reportado, mas nunca vira
  * job de remoção: a Evolution só aceita telefone em `updateParticipant`, e
  * inventar um número pra fechar a conta é pior do que deixar de fora.
+ *
+ * As duas buscas olham só a última leitura de cada grupo (`naUltimaLeitura`):
+ * `group_participants` guarda quem já saiu. Sem isso, quem saiu do grupo A e
+ * ficou no B virava "duplicado" mantido no A — e era removido do B, o único
+ * grupo em que ainda estava. E o remover-número enfileirava remoção em grupo
+ * de onde a pessoa já tinha saído.
  */
 
 export type ParticipantRow = {
   whatsappGroupId: string;
   participantLid: string;
   phone: string | null;
+  lastSeenAt: string;
 };
 
 export type DuplicateEntry = {
@@ -41,7 +49,7 @@ export function findDuplicates(
   const gruposPorLid = new Map<string, Set<string>>();
   const telefonePorLid = new Map<string, string>();
 
-  for (const row of rows) {
+  for (const row of naUltimaLeitura(rows)) {
     if (!escopo.has(row.whatsappGroupId)) continue;
 
     if (!gruposPorLid.has(row.participantLid)) gruposPorLid.set(row.participantLid, new Set());
@@ -85,7 +93,7 @@ export function planRemovePhoneEverywhere(
 
   const escopo = new Set(groupIds);
   const encontrados = new Set<string>();
-  for (const row of rows) {
+  for (const row of naUltimaLeitura(rows)) {
     if (!escopo.has(row.whatsappGroupId)) continue;
     if (row.phone && jidDigits(row.phone) === alvo) encontrados.add(row.whatsappGroupId);
   }

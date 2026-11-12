@@ -3,7 +3,12 @@ import { test } from "node:test";
 import { sugerirCobertura, ALVO_COBERTURA } from "./cobertura";
 
 const grupo = (id: string, name = id): { whatsappGroupId: string; name: string } => ({ whatsappGroupId: id, name });
-const pessoa = (grupoId: string, lid: string) => ({ whatsappGroupId: grupoId, participantLid: lid });
+const AGORA = "2026-11-12T12:00:00.000Z";
+const pessoa = (grupoId: string, lid: string, lastSeenAt = AGORA) => ({
+  whatsappGroupId: grupoId,
+  participantLid: lid,
+  lastSeenAt,
+});
 
 test("grupo unico com todo mundo cobre 100%", () => {
   const r = sugerirCobertura([grupo("g1")], [pessoa("g1", "a"), pessoa("g1", "b")]);
@@ -54,4 +59,17 @@ test("pessoa em dois grupos do corte so conta uma vez em pessoasCobertas", () =>
   const r = sugerirCobertura([grupo("g1"), grupo("g2")], participantes, 1);
   assert.equal(r.pessoasCobertas, 2);
   assert.equal(r.pessoasTotais, 2);
+});
+
+test("quem saiu do grupo não entra no alcance real nem puxa a sugestão", () => {
+  // g2 tinha 3 pessoas há 11 dias; na última leitura só "d" continua lá.
+  const antiga = "2026-11-01T12:00:00.000Z";
+  const participantes = [
+    pessoa("g1", "a"), pessoa("g1", "b"),
+    pessoa("g2", "d"), pessoa("g2", "x", antiga), pessoa("g2", "y", antiga), pessoa("g2", "z", antiga),
+  ];
+  const r = sugerirCobertura([grupo("g1"), grupo("g2")], participantes, 1);
+  assert.equal(r.pessoasTotais, 3, "a, b e d; x, y e z já saíram do g2");
+  assert.equal(r.grupos[0]?.whatsappGroupId, "g1", "g2 tem 1 pessoa hoje, não 4");
+  assert.equal(r.cobertura, 1);
 });

@@ -10,10 +10,16 @@
  *
  * Leitura, nunca ação: a plataforma nunca corta grupo sozinha — quem chama
  * decide o que fazer com o corte sugerido.
+ *
+ * Só conta quem estava no grupo na última leitura dele (`naUltimaLeitura`):
+ * `group_participants` guarda quem já saiu, e contar essa gente inflava o
+ * alcance real e podia sugerir um grupo pelo público que ele já perdeu.
  */
 
+import { naUltimaLeitura } from "@/lib/groups/participantes-de-hoje";
+
 export type GrupoParaCobertura = { whatsappGroupId: string; name: string };
-export type ParticipanteRef = { whatsappGroupId: string; participantLid: string };
+export type ParticipanteRef = { whatsappGroupId: string; participantLid: string; lastSeenAt: string };
 export type GrupoNoCorte = { whatsappGroupId: string; name: string; pessoasNovas: number };
 export type SugestaoCobertura = {
   grupos: GrupoNoCorte[];
@@ -26,18 +32,19 @@ export const ALVO_COBERTURA = 0.95;
 
 export function sugerirCobertura(
   grupos: GrupoParaCobertura[],
-  participantes: ParticipanteRef[],
+  participantes: readonly ParticipanteRef[],
   alvo: number = ALVO_COBERTURA,
 ): SugestaoCobertura {
+  const deHoje = naUltimaLeitura(participantes);
   const porGrupo = new Map<string, Set<string>>();
   for (const g of grupos) porGrupo.set(g.whatsappGroupId, new Set());
-  for (const p of participantes) {
+  for (const p of deHoje) {
     const set = porGrupo.get(p.whatsappGroupId);
     if (set) set.add(p.participantLid);
   }
 
   const pessoasTotais = new Set(
-    participantes.filter((p) => porGrupo.has(p.whatsappGroupId)).map((p) => p.participantLid),
+    deHoje.filter((p) => porGrupo.has(p.whatsappGroupId)).map((p) => p.participantLid),
   ).size;
 
   if (pessoasTotais === 0 || grupos.length === 0) {
