@@ -10,9 +10,11 @@ import {
 import type { BulkTargetGroup } from "./bulk-batch";
 
 const GROUP_IDS = ["a@g.us", "b@g.us", "c@g.us"];
+const AGORA = "2026-11-12T12:00:00.000Z";
+const ANTIGA = "2026-11-01T12:00:00.000Z";
 
 function row(over: Partial<ParticipantRow>): ParticipantRow {
-  return { whatsappGroupId: "a@g.us", participantLid: "lid-1", phone: null, ...over };
+  return { whatsappGroupId: "a@g.us", participantLid: "lid-1", phone: null, lastSeenAt: AGORA, ...over };
 }
 
 /* ---------- findDuplicates ---------- */
@@ -74,6 +76,16 @@ test("tres grupos: mantem o primeiro, remove os outros dois", () => {
   assert.deepEqual(dup[0].removeFromGroupIds, ["b@g.us", "c@g.us"]);
 });
 
+test("quem saiu do primeiro grupo nao vira duplicado mantido nele (e removido do unico onde esta)", () => {
+  const rows: ParticipantRow[] = [
+    // saiu do a@g.us ha 11 dias: a linha ficou na tabela
+    row({ whatsappGroupId: "a@g.us", participantLid: "lid-1", phone: "5511999990001", lastSeenAt: ANTIGA }),
+    row({ whatsappGroupId: "a@g.us", participantLid: "lid-2", phone: "5511999990002" }),
+    row({ whatsappGroupId: "b@g.us", participantLid: "lid-1", phone: "5511999990001" }),
+  ];
+  assert.deepEqual(findDuplicates(GROUP_IDS, rows), []);
+});
+
 /* ---------- planRemovePhoneEverywhere ---------- */
 
 test("acha todos os grupos administrados onde o telefone aparece", () => {
@@ -103,6 +115,15 @@ test("telefone nao encontrado devolve lista vazia", () => {
 test("telefone vazio ou so-simbolos nao casa nada", () => {
   const rows: ParticipantRow[] = [row({ whatsappGroupId: "a@g.us", phone: "111" })];
   assert.deepEqual(planRemovePhoneEverywhere("", GROUP_IDS, rows), []);
+});
+
+test("grupo de onde o telefone ja saiu nao vira alvo de remocao", () => {
+  const rows: ParticipantRow[] = [
+    row({ whatsappGroupId: "a@g.us", participantLid: "lid-1", phone: "5511999990001" }),
+    row({ whatsappGroupId: "c@g.us", participantLid: "lid-1", phone: "5511999990001", lastSeenAt: ANTIGA }),
+    row({ whatsappGroupId: "c@g.us", participantLid: "lid-2", phone: "OUTRO" }),
+  ];
+  assert.deepEqual(planRemovePhoneEverywhere("5511999990001", GROUP_IDS, rows), ["a@g.us"]);
 });
 
 /* ---------- toRemoveParticipantJobs ---------- */

@@ -10,6 +10,8 @@
  * - as comunidades ficam equilibradas pelo pior caso: cada grande cheio e cada pequeno dobrando.
  */
 
+import { naUltimaLeitura } from "@/lib/groups/participantes-de-hoje";
+
 import { TETO_DA_COMUNIDADE } from "./lotacao";
 
 /** Teto do WhatsApp para pessoas num grupo. */
@@ -23,13 +25,6 @@ export const GRUPO_GRANDE_A_PARTIR_DE = 700;
 
 /** Até aqui o grupo é interno da loja (entregas, caixa, conferência) e fica fora do plano por padrão. */
 export const GRUPO_INTERNO_ATE = 4;
-
-/**
- * `group_participants` nunca apaga quem saiu: cada sync só regrava `last_seen_at` de quem está.
- * Conta como "hoje" só a linha lida até uma hora antes da leitura mais recente do grupo (medido em
- * prod em 12/11/2026: 1.028 linhas num grupo de 874 pessoas, 880 dentro da janela).
- */
-export const JANELA_DA_ULTIMA_LEITURA_MS = 60 * 60 * 1000;
 
 export type GrupoParaPlano = { whatsappGroupId: string; name: string; members: number };
 
@@ -166,18 +161,8 @@ function distribuir(grupos: readonly GrupoNoPlano[], quantas: number): GrupoNoPl
 
 /** Os participantes de cada grupo na leitura mais recente dele, sem quem já saiu. */
 function participantesDeHoje(participantes: readonly ParticipanteLido[]): Map<string, Set<string>> {
-  const ultimaLeitura = new Map<string, number>();
-  for (const p of participantes) {
-    const quando = Date.parse(p.lastSeenAt);
-    if (Number.isNaN(quando)) continue;
-    ultimaLeitura.set(p.whatsappGroupId, Math.max(ultimaLeitura.get(p.whatsappGroupId) ?? quando, quando));
-  }
-
   const porGrupo = new Map<string, Set<string>>();
-  for (const p of participantes) {
-    const ultima = ultimaLeitura.get(p.whatsappGroupId);
-    const quando = Date.parse(p.lastSeenAt);
-    if (ultima === undefined || Number.isNaN(quando) || quando < ultima - JANELA_DA_ULTIMA_LEITURA_MS) continue;
+  for (const p of naUltimaLeitura(participantes)) {
     const atual = porGrupo.get(p.whatsappGroupId);
     if (atual) atual.add(p.participantLid);
     else porGrupo.set(p.whatsappGroupId, new Set([p.participantLid]));

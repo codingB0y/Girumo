@@ -48,7 +48,8 @@ export async function upsertParticipantesDoGrupo(
 
 /**
  * `lastSeenAt` é a última leitura em que a pessoa estava no grupo. A tabela nunca apaga quem saiu,
- * então quem precisa da lista de hoje filtra por ela (ver `lib/communities/plano.ts`).
+ * então quem precisa da lista de hoje filtra por ela com `naUltimaLeitura`
+ * (`lib/groups/participantes-de-hoje.ts`). O sync de leads é o único que quer o histórico inteiro.
  */
 export type ParticipanteDoGrupo = {
   whatsappGroupId: string;
@@ -61,10 +62,10 @@ export type ParticipanteDoGrupo = {
 const PAGE_SIZE = 1000;
 
 /**
- * Participantes de vários grupos de uma vez — usado pelo cálculo de cobertura
- * (`cobertura/route.ts`, que lê só `whatsappGroupId`/`participantLid`) e pela
- * detecção de duplicado (`duplicate-removal.ts`, que também precisa de
- * `phone`).
+ * Participantes de vários grupos de uma vez, incluindo quem já saiu — usado
+ * pela cobertura, pelo plano de comunidades, pela detecção de duplicado e pelo
+ * remover-número (que filtram por `naUltimaLeitura`) e pelo sync de leads
+ * (que quer o histórico).
  *
  * Pagina em `PAGE_SIZE` porque um `.select()` sem `.range()` no Supabase
  * corta no teto padrão do PostgREST (1000 linhas) SEM erro — devolve uma
