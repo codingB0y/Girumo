@@ -19,6 +19,7 @@ export type EmailKind =
   | "inactivity_risk"
   | "group_admin_risk"
   | "link_parado"
+  | "convite_quebrado"
   | "alert_optout"
   | "trial_ending"
   | "bling_reconectar"

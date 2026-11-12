@@ -23,6 +23,7 @@ const PERMITIDOS: ReadonlyArray<{ caminho: string; motivo: string }> = [
   { caminho: "app/api/auth/oauth-complete/", motivo: "login Google: acha ou cria a membership" },
   { caminho: "app/api/cron/emails/", motivo: "cron (CRON_SECRET): acha o dono de cada loja, sem sessão" },
   { caminho: "lib/email/cron-link-parado.ts", motivo: "Job 8 do cron de e-mails (CRON_SECRET, sem sessão): acha o dono da loja do link parado" },
+  { caminho: "lib/email/cron-convite-quebrado.ts", motivo: "Job 9 do cron de e-mails (CRON_SECRET, sem sessão): acha o dono da loja do convite quebrado" },
   { caminho: "app/api/notifications/alerts/", motivo: "cron (CRON_SECRET): enumera as lojas, sem sessão" },
   { caminho: "app/api/integracoes/bling/retorno/", motivo: "retorno do OAuth do Bling, sem sessão: confere que o usuário do state ainda é dono/admin da loja do state" },
   { caminho: "lib/melhor-envio/conexao.ts", motivo: "retorno do OAuth do Melhor Envio, sem sessão: confere que o usuário do state ainda pode conectar na loja do state" },

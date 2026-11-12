@@ -81,6 +81,8 @@ type Mundo = {
   jaAvisados?: string[];
   /** Job 8: campanhas por loja; todas com clique recente e pool só de grupo alheio (link parado). */
   campanhasParadas?: Record<string, string[]>;
+  /** Job 9: lojas cujo grupo `g1@g.us` (o das campanhas acima) está com `invite_check = 'broken'`. */
+  convitesQuebrados?: string[];
 };
 
 function filtro(url: URL, coluna: string): string | null {
@@ -141,6 +143,10 @@ function mundo(m: Mundo): (chamada: Chamada) => Resposta {
     if (rota === "GET /rest/v1/campaign_groups") {
       const slugs = m.campanhasParadas?.[filtro(url, "tenant_id") ?? ""] ?? [];
       return { status: 200, corpo: slugs.map((slug) => ({ id: `id-${slug}`, name: slug, slug, group_ids: ["g1@g.us"], metadata: {} })) };
+    }
+    if (rota === "GET /rest/v1/groups" && filtro(url, "invite_check") === "broken") {
+      const quebrado = (m.convitesQuebrados ?? []).includes(filtro(url, "tenant_id") ?? "");
+      return { status: 200, corpo: quebrado ? [{ whatsapp_group_id: "g1@g.us", name: "g1" }] : [] };
     }
     if (rota === "GET /rest/v1/link_click_events") return { status: 200, corpo: [{ id: "clique" }] };
     if (rota === "POST /rest/v1/rpc/campaign_group_states") {
@@ -254,6 +260,20 @@ test("Job 8: link de campanha parado entra no cron, só para loja com plano vale
     campanhasParadas: { pagante: ["bf"], "ex-cliente": ["bf"] },
   });
   assert.deepEqual(tentativas("link_parado"), ["pagante"]);
+});
+
+test("Job 9: convite quebrado entra no cron, só para loja com plano valendo", async () => {
+  // A regra e o dedupe estão em lib/email/cron-convite-quebrado.test.ts; aqui, a fiação.
+  await rodarCron({
+    lojas: ["pagante", "ex-cliente", "sem-quebrado"],
+    assinaturas: [
+      { tenant_id: "pagante", status: "active" },
+      { tenant_id: "sem-quebrado", status: "active" },
+    ],
+    campanhasParadas: { pagante: ["bf"], "ex-cliente": ["bf"], "sem-quebrado": ["bf"] },
+    convitesQuebrados: ["pagante", "ex-cliente"],
+  });
+  assert.deepEqual(tentativas("convite_quebrado"), ["pagante"]);
 });
 
 test("Job 3: o aviso de hoje do número dos grupos não segura o do atendimento", async () => {

@@ -57,6 +57,17 @@ export function decideInviteReview(input: InviteReviewInput): InviteReviewOutcom
   return { grava: true, verdict: "changed", inviteUrl: lido };
 }
 
+/**
+ * O convite gravado à mão é outro? Compara a forma canônica dos dois lados, como
+ * `decideInviteReview`: regravar o mesmo link num formato antigo não é troca, e
+ * não pode apagar o veredito da última revisão.
+ */
+export function conviteTrocado(guardado: string | null | undefined, novo: string | null): boolean {
+  const antes = guardado ? normalizeInviteUrl(guardado) : null;
+  const depois = novo ? normalizeInviteUrl(novo) : null;
+  return antes !== depois;
+}
+
 /** Só o que o resumo precisa de um grupo. */
 export type GrupoRevisado = {
   invite_check?: InviteVerdict | null;

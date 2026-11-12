@@ -1,6 +1,7 @@
 import "server-only";
 import { BRAND, BRAND_COLORS, getBrandAssetUrl } from "@/lib/brand";
 import { broadcastFailedCopy } from "@/lib/email/broadcast-failed-copy";
+import { listaDeGrupos, type ConviteQuebrado } from "@/lib/email/convite-quebrado-aviso";
 import { escapeHtml, inviteCopy } from "@/lib/email/invite-copy";
 import type { LinkParado } from "@/lib/email/link-parado-aviso";
 import { trialEndingCopy, type TrialEndingCopyInput } from "@/lib/email/trial-ending-copy";
@@ -343,6 +344,52 @@ export function linkParadoEmail(
       <ul style="margin:0 0 8px;padding-left:20px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">${itens}</ul>
       <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
         Se o link está num anúncio, na bio ou num post, cada clique até você arrumar é uma pessoa que não entra.
+      </p>
+      ${button(uma ? "Abrir a campanha" : "Ver as campanhas", uma ? `${appUrl}${campanhas[0].href}` : `${appUrl}/painel/campanhas`)}
+    `),
+  };
+}
+
+/**
+ * Grupo de campanha cujo convite a última revisão não conseguiu ler (Job 9 do
+ * cron). O veredito pode ser de dias atrás: o e-mail pede para conferir e revisar
+ * de novo, que é o que tira o grupo deste aviso quando já está consertado.
+ */
+export function conviteQuebradoEmail(
+  name: string,
+  appUrl: string,
+  campanhas: readonly ConviteQuebrado[],
+): { subject: string; html: string } {
+  const firstName = escapeHtml(primeiroNome(name));
+  const uma = campanhas.length === 1;
+  const nomeNoAssunto = (campanhas[0]?.nome ?? "").replace(/\s+/g, " ").trim();
+  const gruposDaUnica = campanhas[0]?.grupos.length ?? 0;
+  const itens = campanhas
+    .map(
+      (c) =>
+        `<li style="margin:0 0 10px"><a href="${appUrl}${c.href}" style="color:${BRAND_COLORS.volt};font-weight:600">${escapeHtml(c.nome)}</a>: ${escapeHtml(listaDeGrupos(c.grupos))}</li>`,
+    )
+    .join("");
+
+  return {
+    subject: uma
+      ? gruposDaUnica === 1
+        ? `Um grupo da campanha ${nomeNoAssunto} está com o convite quebrado`
+        : `${gruposDaUnica} grupos da campanha ${nomeNoAssunto} estão com o convite quebrado`
+      : `Grupos de ${campanhas.length} campanhas estão com o convite quebrado`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Quem for para estes grupos não consegue entrar</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! Na última revisão dos links, o WhatsApp não deixou ler o convite destes grupos:
+      </p>
+      <ul style="margin:0 0 8px;padding-left:20px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">${itens}</ul>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        O mais comum é o seu número ter deixado de ser admin do grupo, ter saído dele ou o grupo ter sido apagado.
+        Se o número estava desconectado na hora da revisão, pode ser só isso.
+        Enquanto o link da campanha mandar gente para um grupo assim, quem clicar cai num convite que não abre.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Já arrumou? Na aba Grupos da campanha, aperte <strong>Revisar agora</strong> em Revisar links: com o convite funcionando, o grupo sai deste aviso.
       </p>
       ${button(uma ? "Abrir a campanha" : "Ver as campanhas", uma ? `${appUrl}${campanhas[0].href}` : `${appUrl}/painel/campanhas`)}
     `),

@@ -6,6 +6,7 @@ import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { carregarGrupos } from "@/lib/painel/inicio-carga";
 import { normalizeInviteUrl } from "@/lib/groups/invite-url";
 import { clearInviteFetchMarker } from "@/lib/groups/invite-backfill";
+import { conviteTrocado } from "@/lib/groups/invite-review";
 import { DEFAULT_GROUP_CAPACITY } from "@/lib/links/resolve-click-target";
 
 export const runtime = "nodejs";
@@ -125,11 +126,19 @@ export async function PATCH(req: Request) {
   // Find the group by whatsapp_group_id
   const { data: group } = await getSupabaseAdmin()
     .from("groups")
-    .select("id, metadata")
+    .select("id, metadata, invite_url")
     .eq("tenant_id", tenantId)
     .eq("whatsapp_group_id", id)
     .maybeSingle();
   if (!group) return Response.json({ error: "Grupo não encontrado." }, { status: 404 });
+
+  // Convite trocado à mão: o veredito da última revisão era do convite antigo. Sem
+  // zerar, o grupo consertado no painel seguia "quebrado" na tela e no e-mail
+  // semanal do cron (Job 9) até alguém revisar de novo.
+  if (inviteUrl !== undefined && conviteTrocado(group.invite_url as string | null, inviteUrl)) {
+    patch.invite_check = null;
+    patch.invite_checked_at = null;
+  }
 
   // Resgate manual de um grupo marcado como sem-convite pelo cron. Nunca é
   // automático: a Evolution achata toda falha num 404, então só uma pessoa
