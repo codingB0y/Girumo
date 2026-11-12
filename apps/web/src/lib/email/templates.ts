@@ -2,6 +2,7 @@ import "server-only";
 import { BRAND, BRAND_COLORS, getBrandAssetUrl } from "@/lib/brand";
 import { broadcastFailedCopy } from "@/lib/email/broadcast-failed-copy";
 import { escapeHtml, inviteCopy } from "@/lib/email/invite-copy";
+import type { LinkParado } from "@/lib/email/link-parado-aviso";
 import { trialEndingCopy, type TrialEndingCopyInput } from "@/lib/email/trial-ending-copy";
 
 /**
@@ -304,6 +305,46 @@ export function broadcastFailedEmail(
         Ninguém nos seus grupos recebeu. Abra a tela pra ver o motivo e enviar de novo.
       </p>
       ${button("Ver o que aconteceu", href)}
+    `),
+  };
+}
+
+/**
+ * Link de campanha que teve clique nos últimos dias e agora não manda ninguém para
+ * grupo (Job 8 do cron). O motivo de cada campanha é a frase da aba "Link e
+ * cliques" (`paradoDoLink`), para o e-mail e a tela dizerem a mesma coisa.
+ */
+export function linkParadoEmail(
+  name: string,
+  appUrl: string,
+  campanhas: readonly LinkParado[],
+): { subject: string; html: string } {
+  const firstName = escapeHtml(primeiroNome(name));
+  const uma = campanhas.length === 1;
+  // Assunto é texto puro: sem escape, mas sem quebra de linha vinda do nome.
+  const nomeNoAssunto = (campanhas[0]?.nome ?? "").replace(/\s+/g, " ").trim();
+  const itens = campanhas
+    .map(
+      (c) =>
+        `<li style="margin:0 0 10px"><a href="${appUrl}${c.href}" style="color:${BRAND_COLORS.volt};font-weight:600">${escapeHtml(c.nome)}</a>: ${escapeHtml(c.texto)}</li>`,
+    )
+    .join("");
+
+  return {
+    subject: uma
+      ? `O link da campanha ${nomeNoAssunto} parou de mandar gente para o grupo`
+      : `Os links de ${campanhas.length} campanhas pararam de mandar gente para o grupo`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Quem clica no seu link não está entrando no grupo</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! ${uma ? "Este link teve" : "Estes links tiveram"} clique nos últimos dias, mas agora
+        não ${uma ? "leva" : "levam"} ninguém para grupo:
+      </p>
+      <ul style="margin:0 0 8px;padding-left:20px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">${itens}</ul>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Se o link está num anúncio, na bio ou num post, cada clique até você arrumar é uma pessoa que não entra.
+      </p>
+      ${button(uma ? "Abrir a campanha" : "Ver as campanhas", uma ? `${appUrl}${campanhas[0].href}` : `${appUrl}/painel/campanhas`)}
     `),
   };
 }

@@ -18,6 +18,7 @@ export type EmailKind =
   | "broadcast_failed"
   | "inactivity_risk"
   | "group_admin_risk"
+  | "link_parado"
   | "alert_optout"
   | "trial_ending"
   | "bling_reconectar"

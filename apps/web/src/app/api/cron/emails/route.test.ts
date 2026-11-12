@@ -79,6 +79,8 @@ type Mundo = {
   addons?: string[];
   /** `notifications.type` que já têm aviso hoje (dedupe por tipo); vale se `dedupe` não vier. */
   jaAvisados?: string[];
+  /** Job 8: campanhas por loja; todas com clique recente e pool só de grupo alheio (link parado). */
+  campanhasParadas?: Record<string, string[]>;
 };
 
 function filtro(url: URL, coluna: string): string | null {
@@ -136,6 +138,14 @@ function mundo(m: Mundo): (chamada: Chamada) => Resposta {
       return { status: 200, corpo: { id: url.pathname.split("/").pop(), email: "dono@loja.test", user_metadata: { name: "Ana" } } };
     }
     if (rota === "GET /rest/v1/broadcasts") return { status: 200, corpo: [] };
+    if (rota === "GET /rest/v1/campaign_groups") {
+      const slugs = m.campanhasParadas?.[filtro(url, "tenant_id") ?? ""] ?? [];
+      return { status: 200, corpo: slugs.map((slug) => ({ id: `id-${slug}`, name: slug, slug, group_ids: ["g1@g.us"], metadata: {} })) };
+    }
+    if (rota === "GET /rest/v1/link_click_events") return { status: 200, corpo: [{ id: "clique" }] };
+    if (rota === "POST /rest/v1/rpc/campaign_group_states") {
+      return { status: 200, corpo: [{ posicao: 1, whatsapp_group_id: "g1@g.us", name: "g1", members: 10, capacity: 1024, is_admin: false, invite_url: null, estado: "lotado" }] };
+    }
     if (rota === "POST /rest/v1/logs" || rota === "POST /rest/v1/notifications") return { status: 201 };
     return { status: 500, corpo: { message: `inesperado: ${rota}` } };
   };
@@ -234,6 +244,16 @@ test("Job 3: número do atendimento caído avisa à parte, só com o Recuperar o
   });
   assert.deepEqual(tentativas("disconnect_privado"), ["com-addon"]);
   assert.deepEqual(tentativas("disconnect"), []);
+});
+
+test("Job 8: link de campanha parado entra no cron, só para loja com plano valendo", async () => {
+  // A regra e o dedupe estão em lib/email/cron-link-parado.test.ts; aqui, a fiação.
+  await rodarCron({
+    lojas: ["pagante", "ex-cliente"],
+    assinaturas: [{ tenant_id: "pagante", status: "active" }],
+    campanhasParadas: { pagante: ["bf"], "ex-cliente": ["bf"] },
+  });
+  assert.deepEqual(tentativas("link_parado"), ["pagante"]);
 });
 
 test("Job 3: o aviso de hoje do número dos grupos não segura o do atendimento", async () => {

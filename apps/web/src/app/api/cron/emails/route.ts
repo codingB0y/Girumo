@@ -25,6 +25,7 @@ import { listGroupsForProtection } from "@/lib/stores/groups";
 import { countEntriesBetween, entradasEntre } from "@/lib/stores/leads";
 import { ALERTA_DO_NUMERO, numerosCaidos, type NumeroDaLoja } from "@/lib/email/numero-caido";
 import { getAppUrl } from "@/lib/environment";
+import { avisarLinksParados } from "@/lib/email/cron-link-parado";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +45,9 @@ const SP_TZ = "America/Sao_Paulo";
  * 5. Disparo falho: broadcast que virou `failed` nas últimas 24h → envia email
  * 6. Risco dos 14 dias: sessão conectada mas em silêncio → avisa antes do corte
  * 7. Grupo sem segundo admin: se o número cair, a lista fica órfã → avisa
+ * 8. Link parado: campanha com clique nos últimos 3 dias cujo link agora não manda
+ *    ninguém para grupo (sem grupo, sem convite, sem admin, cheio sem lista de
+ *    espera) → avisa, 1 por campanha por dia (lib/email/cron-link-parado.ts)
  *
  * O e-mail de fim de teste (`trialEndingEmail`) não sai daqui: desde 03/10/2026 quem
  * o dispara é o webhook do Stripe (`customer.subscription.trial_will_end`).
@@ -201,7 +205,7 @@ export async function GET(req: Request) {
 
   const supabase = getSupabaseAdmin();
   const appUrl = getAppUrl();
-  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, inactivity_sent: 0, group_admin_sent: 0, errors: 0 };
+  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, inactivity_sent: 0, group_admin_sent: 0, link_parado_sent: 0, errors: 0 };
 
   // Toda checagem "já enviei?" (e "já conectou?") passa por aqui: erro de
   // leitura é logado e contado, e quem decide é `podeEnviar` — erro não envia.
@@ -876,6 +880,13 @@ export async function GET(req: Request) {
       results.errors++;
     }
   }
+
+  // --- Job 8: link de campanha que parou de mandar gente para grupo ---
+  // A aba "Link e cliques" já explica o motivo, mas só para quem abre a aba; o
+  // clique do anúncio se perde até lá. Mora em lib/email/cron-link-parado.ts.
+  const linkParado = await avisarLinksParados({ supabase, appUrl, now, todayStartISO, temPlanoValendo, liberado });
+  results.link_parado_sent += linkParado.enviados;
+  results.errors += linkParado.erros;
 
   return Response.json({
     ok: true,
