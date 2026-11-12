@@ -206,5 +206,6 @@ function pessoasUnicas(
     linhas += lids.size;
     for (const lid of lids) vistos.add(lid);
   }
-  return { pessoas: soma - (linhas - vistos.size), estimadas };
+  // Com um grupo só não há quem repetir: a soma já é exata.
+  return { pessoas: soma - (linhas - vistos.size), estimadas: estimadas && grupos.length > 1 };
 }

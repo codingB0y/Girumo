@@ -160,3 +160,10 @@ test("grupo sem participantes lidos deixa a comunidade como estimativa por cima"
   assert.equal(plano.comunidades[0].pessoasHoje, 5);
   assert.equal(plano.comunidades[0].pessoasEstimadas, true);
 });
+
+test("um grupo só, sem participantes lidos, não é estimativa: não há quem repetir", () => {
+  const plano = montarPlano(grupos([968]));
+  assert.equal(plano.comunidades[0].pessoasHoje, 968);
+  assert.equal(plano.comunidades[0].pessoasEstimadas, false);
+  assert.equal(plano.pessoasEstimadas, false);
+});

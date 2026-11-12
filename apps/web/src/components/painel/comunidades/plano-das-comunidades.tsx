@@ -51,7 +51,7 @@ export function PlanoDasComunidades({ plano, medios }: Props) {
                       Comunidade {c.numero}
                     </th>
                     <td className="font-data px-3 py-2.5 text-right tabular-nums">{c.grupos.length}</td>
-                    <td className="font-data px-3 py-2.5 text-right tabular-nums">
+                    <td className="font-data whitespace-nowrap px-3 py-2.5 text-right tabular-nums">
                       {c.pessoasEstimadas ? "até " : ""}
                       {numero(c.pessoasHoje)}
                     </td>

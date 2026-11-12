@@ -94,7 +94,7 @@ export function MontarComunidades({ aoFechar }: Props) {
         <button
           type="button"
           onClick={aoFechar}
-          className="min-h-11 rounded-[var(--radius-control)] border border-line-200 px-3.5 text-14 font-semibold text-volt-950 hover:bg-canvas-100"
+          className="min-h-11 self-start rounded-[var(--radius-control)] border border-line-200 px-3.5 text-14 font-semibold text-volt-950 hover:bg-canvas-100"
         >
           Fechar
         </button>
@@ -147,8 +147,10 @@ export function MontarComunidades({ aoFechar }: Props) {
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <h3 className="text-16 font-semibold text-volt-950">1 · Grupos</h3>
               <p className="text-13 text-slate-600">
-                Os {numero(candidatos.length)} grupos que o número administra e que ainda não estão em comunidade. Desmarque o
-                que não quer vincular.
+                {candidatos.length === 1
+                  ? "O grupo que o número administra e que ainda não está em comunidade."
+                  : `Os ${numero(candidatos.length)} grupos que o número administra e que ainda não estão em comunidade.`}{" "}
+                Desmarque o que não quer vincular.
               </p>
             </div>
 
