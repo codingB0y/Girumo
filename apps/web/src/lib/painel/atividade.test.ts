@@ -12,6 +12,7 @@ import {
   marcasDeRelampago,
   mostraRotulo,
   nomeDoMes,
+  saidasDoPeriodo,
   semanaPassadaMedida,
   somaDa,
   somaMedida,
@@ -19,6 +20,7 @@ import {
   variacao,
   type AtividadeDaCampanha,
   type PontoDaSerie,
+  type SaidaDepoisDoPost,
 } from "./atividade";
 
 // qua 23/09/2026 14:10 em Brasília (UTC-3).
@@ -298,4 +300,46 @@ test("a relâmpago aberta hoje vira marca na hora em que abriu; de ontem ou sem 
     ],
   );
   assert.equal(marcas[0].posicao, (9 * 60 + 5) / 1440);
+});
+
+function saida(postId: string, enviadoEm: string, extra: Partial<SaidaDepoisDoPost> = {}): SaidaDepoisDoPost {
+  const tres = new Date(Date.parse(enviadoEm) + 3 * HORA).toISOString();
+  return { postId, enviadoEm, grupos: 4, sairam: 0, contaAte: tres, ...extra };
+}
+
+// O banco devolve do mais antigo ao mais novo, de toda a janela dos dias (o mês e os 7 últimos).
+const lidas = [
+  saida("p-mes", br("2026-09-02", "10:00"), { sairam: 7 }),
+  saida("p-semana", br("2026-09-20", "09:00"), { sairam: 1 }),
+  saida("p-cedo", br("2026-09-23", "08:00"), { sairam: 3 }),
+  // 13h e a conta vai até 16h: às 14h10 ainda está aberta.
+  saida("p-agora", br("2026-09-23", "13:00")),
+];
+
+test("as saídas de hoje são as rodadas que saíram hoje, da mais nova para a mais velha", () => {
+  const linhas = saidasDoPeriodo(lidas, "hoje", [post({ id: "p-cedo", body: "Promoção de inverno\nsegunda linha" })], agora);
+  assert.deepEqual(
+    linhas.map((l) => [l.postId, l.texto, l.contando]),
+    [
+      ["p-agora", "Post", true],
+      ["p-cedo", "Promoção de inverno", false],
+    ],
+  );
+});
+
+test("7 dias e o mês recortam a mesma leitura pelo dia de Brasília", () => {
+  assert.deepEqual(saidasDoPeriodo(lidas, "7d", null, agora).map((l) => l.postId), ["p-agora", "p-cedo", "p-semana"]);
+  assert.deepEqual(saidasDoPeriodo(lidas, "mes", null, agora).map((l) => l.postId), ["p-agora", "p-cedo", "p-semana", "p-mes"]);
+});
+
+test("o post que repete todo dia tem uma linha por rodada, com chave própria", () => {
+  const repete = [saida("p", br("2026-09-22", "09:00")), saida("p", br("2026-09-23", "09:00"))];
+  const chaves = saidasDoPeriodo(repete, "7d", null, agora).map((l) => l.chave);
+  assert.equal(new Set(chaves).size, 2);
+});
+
+test("às 23h30 de Brasília o post das 23h é de hoje, mesmo com o UTC no dia seguinte", () => {
+  const noite = new Date(br("2026-09-30", "23:30"));
+  const linhas = saidasDoPeriodo([saida("p-noite", br("2026-09-30", "23:00"))], "hoje", null, noite);
+  assert.deepEqual(linhas.map((l) => l.postId), ["p-noite"]);
 });

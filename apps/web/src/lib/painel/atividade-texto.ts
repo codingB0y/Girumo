@@ -40,3 +40,16 @@ export function fraseDoMovimento(barras: Barra[], m: Movimento, quando: string, 
   const base = `${contagem(m.entraram, unidadeDeEntradas)} e ${contagem(m.sairam, unidadeDeSaidas)} ${quando}${local}${nota}; saldo ${saldo(m.entraram - m.sairam)}.`;
   return pico.valor > 0 ? `${base} O pico foi ${pico.rotuloLongo}, com ${numero(pico.valor)}.` : base;
 }
+
+/**
+ * A regra das saídas depois do post, como a tela escreve. Correlação: quem saiu depois, não quem
+ * saiu por causa do post.
+ */
+export const REGRA_DA_SAIDA =
+  "Conta quem saiu dos grupos que receberam o post, do envio até 3 h depois ou até o próximo post no grupo, o que vier antes. Sair depois de um post não quer dizer que saiu por causa dele.";
+
+/** "Saíram 3 nas 3 h seguintes"; com a conta aberta, "Saíram 3 até agora · a conta vai até 15:20". */
+export function fraseDaSaida(sairam: number, contaAte: string, contando: boolean): string {
+  const quem = sairam === 0 ? "Ninguém saiu" : sairam === 1 ? "Saiu 1" : `Saíram ${numero(sairam)}`;
+  return contando ? `${quem} até agora · a conta vai até ${horaBR(contaAte)}` : `${quem} nas 3 h seguintes`;
+}

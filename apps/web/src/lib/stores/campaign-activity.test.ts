@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
-import { campaignActivity, campaignGroupMemberCounts } from "./campaign-activity";
+import { campaignActivity, campaignGroupMemberCounts, campaignPostLeaves } from "./campaign-activity";
 
 /**
  * O cliente real do Supabase contra um PostgREST de mentira (o desenho de
@@ -83,4 +83,24 @@ test("a loja inteira vai com p_campaign nulo, e os grupos continuam na RPC", asy
   assert.equal(pedidos[0].corpo.p_tenant, "loja-a");
   assert.equal(pedidos[0].corpo.p_campaign, null);
   assert.deepEqual(pedidos[0].corpo.p_group_ids, ["g40@g.us", "g7@g.us"]);
+});
+
+test("as saídas depois do post levam a loja e a campanha na RPC e voltam com números", async () => {
+  pedidos.length = 0;
+  linhas = [
+    { broadcast_id: "post-1", sent_at: "2026-09-29T15:00:00+00:00", grupos: "12", sairam: 3, conta_ate: "2026-09-29T18:00:00+00:00" },
+  ];
+
+  assert.deepEqual(await campaignPostLeaves("loja-a", { id: "camp-1", groupIds: ["g40@g.us"] }, hoje), [
+    { postId: "post-1", enviadoEm: "2026-09-29T15:00:00.000Z", grupos: 12, sairam: 3, contaAte: "2026-09-29T18:00:00.000Z" },
+  ]);
+  assert.equal(pedidos[0].caminho, "/rest/v1/rpc/campaign_post_leaves");
+  // Mutante: sem p_tenant a função conta as saídas de qualquer loja que tenha os mesmos grupos.
+  assert.deepEqual(pedidos[0].corpo, {
+    p_tenant: "loja-a",
+    p_campaign: "camp-1",
+    p_group_ids: ["g40@g.us"],
+    p_from: "2026-09-29T03:00:00.000Z",
+    p_to: "2026-09-30T03:00:00.000Z",
+  });
 });

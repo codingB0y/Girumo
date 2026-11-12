@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Barra } from "./atividade";
-import { fraseDoMovimento, medindoDesde, saldo } from "./atividade-texto";
+import { fraseDaSaida, fraseDoMovimento, medindoDesde, saldo } from "./atividade-texto";
 
 function barra(parcial: Partial<Barra>): Barra {
   return {
@@ -62,4 +62,12 @@ test("fraseDoMovimento puts `onde` before the measurement note and in the empty 
     fraseDoMovimento([barra({})], { entraram: 0, sairam: 0 }, "hoje", null, "nos grupos da loja"),
     "Ninguém entrou nem saiu hoje nos grupos da loja.",
   );
+});
+
+test("fraseDaSaida diz quem saiu depois, no singular e no plural, e avisa quando a conta ainda está aberta", () => {
+  const fim = "2026-11-11T18:20:00.000Z";
+  assert.equal(fraseDaSaida(0, fim, false), "Ninguém saiu nas 3 h seguintes");
+  assert.equal(fraseDaSaida(1, fim, false), "Saiu 1 nas 3 h seguintes");
+  assert.equal(fraseDaSaida(1200, fim, false), "Saíram 1.200 nas 3 h seguintes");
+  assert.equal(fraseDaSaida(3, fim, true), "Saíram 3 até agora · a conta vai até 15:20");
 });

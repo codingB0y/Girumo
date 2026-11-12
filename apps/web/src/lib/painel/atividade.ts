@@ -1,5 +1,5 @@
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
-import { dayBR, dayBRAgo, dayBROf, horaBR, monthBROf } from "@/lib/date-br";
+import { dayBR, dayBRAgo, dayBROf, horaBR } from "@/lib/date-br";
 import type { OfferRow } from "@/lib/stores/flash-offers";
 import { apelidoDoGrupo, quandoDoPost, textoDoPost } from "@/lib/painel/campanha-visao";
 
@@ -17,6 +17,21 @@ export type Movimento = { entraram: number; sairam: number };
 /** `seq` é o `{n}` que o "Grupo lotou → abre outro" põe no nome do grupo. */
 export type GrupoAberto = { nome: string; seq: number; grupo: string | null; quando: string };
 
+/**
+ * Uma rodada de post e quem saiu depois dela (`public.campaign_post_leaves`): saídas nos grupos da
+ * campanha que receberam o post, do envio até o menor de 3 h depois e o próximo post no grupo.
+ */
+export type SaidaDepoisDoPost = {
+  postId: string;
+  /** Quando o post chegou ao primeiro grupo. */
+  enviadoEm: string;
+  /** Grupos da campanha que receberam esta rodada. */
+  grupos: number;
+  sairam: number;
+  /** Até quando a conta vai: saída depois disto não entra mais para este post. */
+  contaAte: string;
+};
+
 export type AtividadeDaCampanha = {
   /** O "agora" do servidor: é ele que diz qual hora ainda está enchendo. */
   geradoEm: string;
@@ -32,6 +47,11 @@ export type AtividadeDaCampanha = {
   hojePorGrupo: Record<string, Movimento>;
   /** Grupos abertos sozinhos hoje, do mais antigo ao mais novo. */
   gruposAbertosHoje: GrupoAberto[];
+  /**
+   * Só na campanha (a loja inteira não tem): as rodadas de post da janela dos dias, da mais
+   * antiga à mais nova. `null` quando a leitura falhou; o resto da análise segue de pé.
+   */
+  saidasDepoisDoPost?: SaidaDepoisDoPost[] | null;
 };
 
 export type Fatia = "hour" | "day";
@@ -180,12 +200,8 @@ function barrasPorHora(a: AtividadeDaCampanha, medida: Medida, abaixo?: Medida):
 function barrasPorDia(a: AtividadeDaCampanha, periodo: "7d" | "mes", medida: Medida, abaixo?: Medida): Barra[] {
   const agora = new Date(a.geradoEm);
   const hoje = dayBR(agora);
-  const limite = dayBRAgo(7, agora);
   const desde = MEDIDAS_DE_EVENTO.has(medida) ? Date.parse(a.entradasDesde) : -Infinity;
-  const dias = a.porDia.filter((p) => {
-    const dia = dayBROf(p.inicio) ?? "";
-    return periodo === "7d" ? dia > limite && dia <= hoje : monthBROf(p.inicio) === hoje.slice(0, 7);
-  });
+  const dias = a.porDia.filter((p) => diaNoPeriodo(dayBROf(p.inicio) ?? "", periodo, agora));
   return dias.map((p) => {
     const dia = dayBROf(p.inicio) ?? "";
     const n = Number(dia.slice(8));
@@ -205,6 +221,14 @@ function barrasPorDia(a: AtividadeDaCampanha, periodo: "7d" | "mes", medida: Med
       semMedicao: Date.parse(p.inicio) < desde,
     };
   });
+}
+
+/** Se o dia (`YYYY-MM-DD` de Brasília) cai no período: hoje, os 7 dias até hoje ou o mês de hoje. */
+function diaNoPeriodo(dia: string, periodo: Periodo, agora: Date): boolean {
+  const hoje = dayBR(agora);
+  if (periodo === "hoje") return dia === hoje;
+  if (periodo === "7d") return dia > dayBRAgo(7, agora) && dia <= hoje;
+  return dia.slice(0, 7) === hoje.slice(0, 7);
 }
 
 /**
@@ -308,4 +332,31 @@ export function marcasDeRelampago(ofertas: OfferRow[], agora: Date): MarcaDePost
       return { id: `relampago:${o.id}`, hora, posicao: (hh * 60 + mm) / 1440, texto: "Relâmpago no ar" };
     })
     .sort((x, y) => x.posicao - y.posicao);
+}
+
+export type LinhaDeSaida = SaidaDepoisDoPost & {
+  chave: string;
+  texto: string;
+  /** A janela ainda não fechou: saída que vier até `contaAte` ainda entra. */
+  contando: boolean;
+};
+
+/**
+ * As rodadas de post do período, da mais nova para a mais velha, com o texto do post. Post que não
+ * está mais na lista da campanha vira "Post".
+ */
+export function saidasDoPeriodo(lidas: SaidaDepoisDoPost[], periodo: Periodo, posts: DispatchView[] | null, agora: Date): LinhaDeSaida[] {
+  const porId = new Map((posts ?? []).map((p) => [p.id, p]));
+  return lidas
+    .filter((s) => diaNoPeriodo(dayBROf(s.enviadoEm) ?? "", periodo, agora))
+    .map((s) => {
+      const post = porId.get(s.postId);
+      return {
+        ...s,
+        chave: `${s.postId}@${s.enviadoEm}`,
+        texto: post ? textoDoPost(post) : "Post",
+        contando: Date.parse(s.contaAte) > agora.getTime(),
+      };
+    })
+    .sort((x, y) => Date.parse(y.enviadoEm) - Date.parse(x.enviadoEm));
 }
