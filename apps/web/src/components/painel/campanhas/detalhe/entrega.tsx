@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Ban, CalendarX2, Check, Clock, Loader2, X } from "lucide-react";
+// `React` explícito: o teste renderiza a legenda pelo tsx, que compila JSX no runtime clássico.
+import React, { useEffect, useState } from "react";
+import { AtSign, Ban, CalendarX2, Check, Clock, Loader2, X } from "lucide-react";
 import { horaBR } from "@/lib/date-br";
 import {
   aindaSaindo,
+  MOTIVO_SEM_TODOS,
   resumoDaEntrega,
   type EntregaDoPost,
   type EntregaNoGrupo,
@@ -145,11 +147,20 @@ export function CelulaDaEntrega({ entrega, leitura }: { entrega: EntregaNoGrupo 
   );
 }
 
+type PropsDaLegenda = {
+  hora: string;
+  resumo: ResumoDaEntrega;
+  desatualizada?: boolean;
+  /** O anti-ban tirou o @todos deste post: o lojista pediu a marcação e ela não saiu. */
+  semTodos?: boolean;
+};
+
 /**
  * "Post das 14:08: 27 entregues · 1 postando · 12 na fila": o que falta aparece;
- * zero não. Sem conseguir reler, diz que o número é o da última leitura.
+ * zero não. Sem conseguir reler, diz que o número é o da última leitura. Post que
+ * saiu sem o @todos pedido ganha uma linha com o porquê.
  */
-export function LegendaDaEntrega({ hora, resumo, desatualizada = false }: { hora: string; resumo: ResumoDaEntrega; desatualizada?: boolean }) {
+export function LegendaDaEntrega({ hora, resumo, desatualizada = false, semTodos = false }: PropsDaLegenda) {
   const partes: [EstadoDaEntrega, number, string][] = [
     ["entregue", resumo.entregues, resumo.entregues === 1 ? "entregue" : "entregues"],
     ["postando", resumo.postando, "postando"],
@@ -159,19 +170,29 @@ export function LegendaDaEntrega({ hora, resumo, desatualizada = false }: { hora
     ["fora_do_teto", resumo.foraDoTeto, "no limite do dia"],
   ];
   return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-13 text-slate-600">
-      <span className="font-medium text-volt-950">Post das {hora}:</span>
-      {partes
-        .filter(([estado, n]) => n > 0 || estado === "entregue")
-        .map(([estado, n, texto]) => (
-          <span key={estado} className={cn("inline-flex items-center gap-1", ESTADO[estado].classe)}>
-            <IconeDoEstado estado={estado} />
-            <span>
-              <span className="font-semibold tabular-nums">{numero(n)}</span> {texto}
+    <>
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-13 text-slate-600">
+        <span className="font-medium text-volt-950">Post das {hora}:</span>
+        {partes
+          .filter(([estado, n]) => n > 0 || estado === "entregue")
+          .map(([estado, n, texto]) => (
+            <span key={estado} className={cn("inline-flex items-center gap-1", ESTADO[estado].classe)}>
+              <IconeDoEstado estado={estado} />
+              <span>
+                <span className="font-semibold tabular-nums">{numero(n)}</span> {texto}
+              </span>
             </span>
+          ))}
+        {desatualizada && <span>· não deu para atualizar agora; tentando de novo</span>}
+      </p>
+      {semTodos && (
+        <p className="mt-1.5 flex items-start gap-1.5 text-13 text-atencao">
+          <AtSign className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            <span className="font-medium">Saiu sem o @todos.</span> {MOTIVO_SEM_TODOS}
           </span>
-        ))}
-      {desatualizada && <span>· não deu para atualizar agora; tentando de novo</span>}
-    </p>
+        </p>
+      )}
+    </>
   );
 }

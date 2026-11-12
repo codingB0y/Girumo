@@ -125,6 +125,12 @@ Se **todos** os grupos de destino estão no teto, nenhum comando sai: o post vir
 tela; sem isso a rota diria `201` e a tela "Postado" de um post que não saiu. Post agendado cortado inteiro
 não tem tela aberta: `promote_due_schedules` grava uma notificação `teto_posts_grupo` pro lojista.
 
+**Corte do @todos.** No claim, `app.claim_send_commands` tira a marcação de post com `mentionAll` acima de
+`app.mention_all_daily_budget()` posts com @todos por número em 24 h (zero desde 03/11/2026: todo @todos é
+cortado). O comando sai com `mentionAll = false` e `mentionAllCortado = true` no `payload`; a decisão é do
+post inteiro (cortado segue cortado). `GET /api/disparos/[id]/grupos` devolve `semTodos: true` no grupo
+cujo comando tem a marca, e a Visão geral da campanha avisa o lojista. Comando ainda na fila não tem a marca.
+
 **Tipo do comando**, com a precedência do legado — enquete > mídia > texto:
 - `send_message` → `{ jid, text, mentionAll }`
 - `send_media` → `{ jid, mediaId, mediaType, caption, mentionAll }`

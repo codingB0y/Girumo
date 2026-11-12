@@ -3,7 +3,18 @@ import { test } from "node:test";
 
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import type { ItemDoDia } from "./campanha-visao";
-import { aindaSaindo, estadoDaEntrega, itemAoVivo, postDaTabela, resumoDaEntrega, type EntregaNoGrupo, type ResumoDaEntrega } from "./entrega";
+import type { EntregaBruta } from "@/lib/stores/broadcast-deliveries";
+import {
+  aindaSaindo,
+  entregaDoComando,
+  estadoDaEntrega,
+  itemAoVivo,
+  postDaTabela,
+  resumoDaEntrega,
+  saiuSemTodos,
+  type EntregaNoGrupo,
+  type ResumoDaEntrega,
+} from "./entrega";
 
 // qua 23/09/2026 14:10 em Brasília (UTC-3).
 const agora = new Date("2026-09-23T17:10:00Z");
@@ -43,6 +54,42 @@ test("o resumo conta os de fora do teto à parte dos cancelados", () => {
   const resumo = resumoDaEntrega([g("entregue", 0), g("fora_do_teto", 1), g("fora_do_teto", 2), g("cancelado", 3)]);
   assert.deepEqual(resumo, { entregues: 1, postando: 0, naFila: 0, falharam: 0, cancelados: 1, foraDoTeto: 2, total: 4 });
   assert.equal(aindaSaindo(resumo), false);
+});
+
+const comando = (extra: Partial<EntregaBruta>): EntregaBruta => ({
+  jid: "g1@g.us",
+  fora: null,
+  todos: null,
+  status: "done",
+  completed_at: "2026-11-11T17:08:30Z",
+  failed_at: null,
+  ...extra,
+});
+
+test("o comando vira a linha da tabela; status desconhecido ou sem grupo fica de fora", () => {
+  assert.deepEqual(entregaDoComando(comando({})), { grupo: "g1@g.us", estado: "entregue", quando: "2026-11-11T17:08:30Z" });
+  assert.deepEqual(entregaDoComando(comando({ status: "failed", completed_at: null, failed_at: "2026-11-11T17:09:00Z" })), {
+    grupo: "g1@g.us",
+    estado: "falhou",
+    quando: "2026-11-11T17:09:00Z",
+  });
+  assert.equal(entregaDoComando(comando({ fora: "true", status: "canceled", completed_at: null }))?.estado, "fora_do_teto");
+  assert.equal(entregaDoComando(comando({ status: "algo-novo" })), null);
+  assert.equal(entregaDoComando(comando({ jid: null })), null);
+});
+
+test("o comando de que o anti-ban tirou o @todos chega marcado; o post avisa se algum grupo tem a marca", () => {
+  const cortado = entregaDoComando(comando({ todos: "true" }));
+  assert.equal(cortado?.semTodos, true);
+  // Mutante: ler qualquer valor como corte marcaria post que saiu com @todos.
+  assert.equal("semTodos" in (entregaDoComando(comando({ todos: null })) ?? {}), false);
+  assert.equal("semTodos" in (entregaDoComando(comando({ todos: "false" })) ?? {}), false);
+
+  const g = (semTodos: boolean, i: number): EntregaNoGrupo => ({ grupo: `${i}@g.us`, estado: "entregue", quando: null, ...(semTodos ? { semTodos: true } : {}) });
+  // A marca só entra no claim: grupo ainda na fila não a tem, e um cortado já basta.
+  assert.equal(saiuSemTodos([g(true, 0), { grupo: "1@g.us", estado: "na_fila", quando: null }]), true);
+  assert.equal(saiuSemTodos([g(false, 0), g(false, 1)]), false);
+  assert.equal(saiuSemTodos([]), false);
 });
 
 function post(extra: Partial<DispatchView>): DispatchView {
