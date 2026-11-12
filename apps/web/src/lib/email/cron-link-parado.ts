@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { sendEmail } from "@/lib/email/send";
 import { linkParadoEmail } from "@/lib/email/templates";
 import { JANELA_DE_CLIQUE_MS, TIPO_LINK_PARADO, linkParadoDaCampanha, type LinkParado } from "@/lib/email/link-parado-aviso";
@@ -104,14 +105,24 @@ export async function avisarLinksParados(ctx: ContextoDoJob): Promise<{ enviados
     if (!email) continue;
 
     const tpl = linkParadoEmail(name, ctx.appUrl, pendentes);
-    const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, tenantId: org.id, kind: "link_parado" });
+    // Mesma loja, mesmo dia, mesmas campanhas = mesma chave: se o insert do dedupe
+    // falhar lá embaixo, o reenvio da rodada seguinte morre no Resend (janela de 24 h).
+    const campanhasDoEnvio = createHash("sha256").update(pendentes.map((p) => p.href).join("\n")).digest("hex").slice(0, 16);
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "link_parado",
+      idempotencyKey: `link-parado/${org.id}/${ctx.todayStartISO.slice(0, 10)}/${campanhasDoEnvio}`,
+    });
     if (!sent) {
       erros++;
       continue;
     }
     enviados++;
 
-    // Se o registro falhar o e-mail já foi, e a próxima rodada reenviaria: conta erro.
+    // Se o registro falhar o e-mail já foi: conta erro (o reenvio fica com a idempotencyKey).
     const { error: notifError } = await supabase.from("notifications").insert(
       pendentes.map((p) => ({
         tenant_id: org.id,

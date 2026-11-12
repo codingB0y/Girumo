@@ -13,10 +13,12 @@ import type { avisarLinksParados as Job } from "./cron-link-parado";
  * do `POST /emails` — é a prova do que o lojista receberia.
  */
 
+/** Corte do "1 por dia" que o job recebe. */
+const HOJE = "2026-11-10T00:00:00.000Z";
 /** `auth.admin.getUserById` recusa id que não seja UUID. */
 const DONO = "00000000-0000-4000-8000-000000000001";
 
-type Chamada = { metodo: string; url: URL; corpo: unknown };
+type Chamada = { metodo: string; url: URL; corpo: unknown; cabecalhos: Record<string, string | string[] | undefined> };
 const chamadas: Chamada[] = [];
 
 type Campanha = { id: string; name: string; slug: string; group_ids: string[]; metadata: Record<string, unknown> };
@@ -30,6 +32,8 @@ type Mundo = {
   /** `href` que já têm aviso hoje. */
   avisados?: string[];
   erroNosCliques?: boolean;
+  /** O insert do dedupe falha depois do e-mail sair. */
+  insertFalha?: boolean;
   resendFora?: boolean;
 };
 let m: Mundo = { lojas: [], campanhas: {}, comClique: [], estados: {} };
@@ -50,13 +54,19 @@ function responder({ metodo, url, corpo }: Chamada): { status: number; corpo?: u
     return { status: 200, corpo: m.estados[(corpo as { p_campaign: string }).p_campaign] ?? [] };
   }
   if (rota === "GET /rest/v1/notifications") {
-    return { status: 200, corpo: (m.avisados ?? []).includes(filtro(url, "href") ?? "") ? [{ id: "n1" }] : [] };
+    // Só conta como avisado com o tipo E o corte do dia certos: tirar um dos dois filtros derruba o dedupe.
+    const avisado =
+      (m.avisados ?? []).includes(filtro(url, "href") ?? "") &&
+      filtro(url, "type") === "link_parado" &&
+      url.searchParams.get("created_at") === `gte.${HOJE}`;
+    return { status: 200, corpo: avisado ? [{ id: "n1" }] : [] };
   }
   if (rota === "GET /rest/v1/memberships") return { status: 200, corpo: [{ user_id: DONO }] };
   if (metodo === "GET" && url.pathname.startsWith("/auth/v1/admin/users/")) {
     return { status: 200, corpo: { id: DONO, email: "dono@loja.test", user_metadata: { name: "Ana Souza" } } };
   }
   if (rota === "POST /emails") return m.resendFora ? { status: 500, corpo: { message: "fora" } } : { status: 200, corpo: { id: "e1" } };
+  if (rota === "POST /rest/v1/notifications" && m.insertFalha) return { status: 500, corpo: { message: "timeout" } };
   if (rota === "POST /rest/v1/logs" || rota === "POST /rest/v1/notifications") return { status: 201 };
   return { status: 500, corpo: { message: `inesperado: ${rota}` } };
 }
@@ -69,6 +79,7 @@ const servidor = createServer((req, res) => {
       metodo: req.method ?? "",
       url: new URL(req.url ?? "/", "http://falso"),
       corpo: bruto ? JSON.parse(bruto) : undefined,
+      cabecalhos: req.headers,
     };
     chamadas.push(chamada);
     const { status, corpo } = responder(chamada);
@@ -104,7 +115,7 @@ function rodar(mundo: Mundo) {
     supabase,
     appUrl: "https://app.girumo.test",
     now: new Date(),
-    todayStartISO: "2026-11-10T00:00:00.000Z",
+    todayStartISO: HOJE,
     temPlanoValendo: async (t) => t !== "ex-cliente",
     liberado: (_job, _t, leitura) => podeEnviar(leitura),
   });
@@ -137,7 +148,8 @@ function campanha(slug: string, metadata: Record<string, unknown> = {}): Campanh
   return { id: `id-${slug}`, name: `Campanha ${slug}`, slug, group_ids: ["g1@g.us"], metadata };
 }
 
-const emails = () => chamadas.filter((c) => c.metodo === "POST" && c.url.pathname === "/emails").map((c) => c.corpo as { to: string; subject: string; html: string });
+const envios = () => chamadas.filter((c) => c.metodo === "POST" && c.url.pathname === "/emails");
+const emails = () => envios().map((c) => c.corpo as { to: string; subject: string; html: string });
 const avisosGravados = () =>
   chamadas
     .filter((c) => c.metodo === "POST" && c.url.pathname === "/rest/v1/notifications")
@@ -177,6 +189,24 @@ test("toda leitura da loja filtra por tenant_id (o service-role ignora o RLS)", 
   for (const c of chamadas.filter((x) => x.url.pathname === "/rest/v1/rpc/campaign_group_states")) {
     assert.equal((c.corpo as { p_tenant: string }).p_tenant, "pagante");
   }
+  // A janela de clique é de 3 dias, e o e-mail vai para o dono.
+  const cliques = chamadas.find((c) => c.url.pathname === "/rest/v1/link_click_events");
+  const desde = Date.parse(cliques?.url.searchParams.get("occurred_at")?.replace(/^gte\./, "") ?? "");
+  assert.ok(Math.abs(Date.now() - 3 * 24 * 60 * 60 * 1000 - desde) < 60_000);
+  assert.equal(filtro(chamadas.find((c) => c.url.pathname === "/rest/v1/memberships")!.url, "role"), "owner");
+});
+
+test("insert do dedupe falhando: o reenvio da rodada seguinte leva a mesma idempotencyKey", async () => {
+  // Sem a notificação gravada, a próxima hora acha a campanha de novo; quem segura o
+  // segundo e-mail é o Resend, pela chave.
+  const mundo: Mundo = { lojas: ["pagante"], campanhas: { pagante: [campanha("a")] }, comClique: ["id-a"], estados: { "id-a": semAdmin }, insertFalha: true };
+  assert.deepEqual(await rodar(mundo), { enviados: 1, erros: 1 });
+  const primeira = envios()[0].cabecalhos["idempotency-key"];
+  chamadas.length = 0;
+  await rodar(mundo);
+  const segunda = envios()[0].cabecalhos["idempotency-key"];
+  assert.ok(typeof primeira === "string" && primeira.startsWith("link-parado/pagante/2026-11-10/"));
+  assert.equal(segunda, primeira);
 });
 
 test("dedupe por campanha: a já avisada hoje sai do e-mail, a outra ainda vai", async () => {
