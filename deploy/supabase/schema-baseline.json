@@ -23,6 +23,7 @@
     "f|campaign_group_member_counts(p_tenant uuid, p_group_ids text[], p_from timestamp with time zone, p_to timestamp with time zone)": "84447a6a7036ce7387b5124c6b04cc92",
     "f|campaign_group_remove_group_id(p_tenant_id uuid, p_id uuid, p_whatsapp_group_id text)": "46c3ef0c3f44116f7b2f238041440bf6",
     "f|campaign_group_states(p_tenant uuid, p_campaign uuid)": "08a336fb6f97808c83e43f4b959f00f9",
+    "f|campaign_post_leaves(p_tenant uuid, p_campaign uuid, p_group_ids text[], p_from timestamp with time zone, p_to timestamp with time zone)": "9a07117831d4b12d9ac53c08ba7be84b",
     "f|claim_automation_runs(max_runs integer, p_tenant uuid)": "ac5f9e873fbd99d781cdd388e5622d84",
     "f|claim_bulk_jobs(p_tenant uuid, p_limit integer)": "84fbecf03faf6766abc7bd5dc7f50a9a",
     "f|claim_engine_commands(max_commands integer)": "a5f8ea994f6ebd88dd14b3cf3450929e",

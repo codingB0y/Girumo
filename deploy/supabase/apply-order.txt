@@ -655,3 +655,8 @@ apps/web/supabase/migrations/20261109140000_envio_pelo_avisos.sql
 # dele, e que nao e um chat) sai do alvo junto com os grupos-membro. Arquivo separado porque o CI nao reaplica
 # arquivo ja registrado. Mesmo check: infra/tests/envio-pelo-avisos-check.sql.
 apps/web/supabase/migrations/20261109150000_avisos_cobre_o_pai.sql
+
+# 11/11: saidas depois de cada post (aba Analise da campanha): public.campaign_post_leaves agrega no banco
+# quem saiu dos grupos que receberam o post, do envio ate o menor de 3 h e o proximo post no grupo.
+# Check: infra/tests/saidas-depois-do-post-check.sql.
+apps/web/supabase/migrations/20261111120000_saidas_depois_do_post.sql
