@@ -26,6 +26,7 @@ import { countEntriesBetween, entradasEntre } from "@/lib/stores/leads";
 import { ALERTA_DO_NUMERO, numerosCaidos, type NumeroDaLoja } from "@/lib/email/numero-caido";
 import { getAppUrl } from "@/lib/environment";
 import { avisarLinksParados } from "@/lib/email/cron-link-parado";
+import { avisarConvitesQuebrados } from "@/lib/email/cron-convite-quebrado";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,9 @@ const SP_TZ = "America/Sao_Paulo";
  * 8. Link parado: campanha com clique nos últimos 3 dias cujo link agora não manda
  *    ninguém para grupo (sem grupo, sem convite, sem admin, cheio sem lista de
  *    espera) → avisa, 1 por campanha por dia (lib/email/cron-link-parado.ts)
+ * 9. Convite quebrado: campanha não encerrada com grupo que a última revisão de
+ *    convite marcou `broken` → avisa, 1 por campanha por semana. Só lê o veredito
+ *    gravado, não consulta o WhatsApp (lib/email/cron-convite-quebrado.ts)
  *
  * O e-mail de fim de teste (`trialEndingEmail`) não sai daqui: desde 03/10/2026 quem
  * o dispara é o webhook do Stripe (`customer.subscription.trial_will_end`).
@@ -205,7 +209,7 @@ export async function GET(req: Request) {
 
   const supabase = getSupabaseAdmin();
   const appUrl = getAppUrl();
-  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, inactivity_sent: 0, group_admin_sent: 0, link_parado_sent: 0, errors: 0 };
+  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, inactivity_sent: 0, group_admin_sent: 0, link_parado_sent: 0, convite_quebrado_sent: 0, errors: 0 };
 
   // Toda checagem "já enviei?" (e "já conectou?") passa por aqui: erro de
   // leitura é logado e contado, e quem decide é `podeEnviar` — erro não envia.
@@ -887,6 +891,13 @@ export async function GET(req: Request) {
   const linkParado = await avisarLinksParados({ supabase, appUrl, now, todayStartISO, temPlanoValendo, liberado });
   results.link_parado_sent += linkParado.enviados;
   results.errors += linkParado.erros;
+
+  // --- Job 9: grupo de campanha com o convite quebrado ---
+  // O painel mostra o veredito da revisão, mas só para quem abre a campanha; quem
+  // clica no anúncio cai num convite que não abre. Mora em lib/email/cron-convite-quebrado.ts.
+  const conviteQuebrado = await avisarConvitesQuebrados({ supabase, appUrl, now, todayStartISO, temPlanoValendo, liberado });
+  results.convite_quebrado_sent += conviteQuebrado.enviados;
+  results.errors += conviteQuebrado.erros;
 
   return Response.json({
     ok: true,

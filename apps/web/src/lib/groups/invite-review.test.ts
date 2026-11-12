@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  conviteTrocado,
   decideInviteReview,
   etaRevisaoMin,
   formataEta,
@@ -103,4 +104,13 @@ test("ETA nunca cai a zero e nao inventa fracao de minuto", () => {
   assert.equal(formataEta(91), "≈ 1 h 31");
   assert.equal(formataEta(45), "≈ 45 min");
   assert.equal(formataEta(120), "≈ 2 h");
+});
+
+test("conviteTrocado: link novo apaga o veredito; o mesmo link em outro formato não", () => {
+  assert.equal(conviteTrocado(GUARDADO, "https://chat.whatsapp.com/OUTRO999999"), true);
+  assert.equal(conviteTrocado(GUARDADO, null), true, "limpar o convite também invalida o veredito");
+  assert.equal(conviteTrocado(null, GUARDADO), true);
+  assert.equal(conviteTrocado(GUARDADO, GUARDADO), false);
+  assert.equal(conviteTrocado("chat.whatsapp.com/invite/ABCdef123456", GUARDADO), false);
+  assert.equal(conviteTrocado(null, null), false);
 });
