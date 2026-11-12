@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Barra } from "./atividade";
-import { fraseDoMovimento, medindoDesde, saldo } from "./atividade-texto";
+import { fraseDaSaida, fraseDoMovimento, medindoDesde, saldo } from "./atividade-texto";
 
 function barra(parcial: Partial<Barra>): Barra {
   return {
@@ -62,4 +62,15 @@ test("fraseDoMovimento puts `onde` before the measurement note and in the empty 
     fraseDoMovimento([barra({})], { entraram: 0, sairam: 0 }, "hoje", null, "nos grupos da loja"),
     "Ninguém entrou nem saiu hoje nos grupos da loja.",
   );
+});
+
+test("fraseDaSaida diz quem saiu depois, no singular e no plural, e avisa quando a conta ainda está aberta", () => {
+  const contaAte = "2026-11-11T18:20:00.000Z";
+  const fechada = { contaAte, contando: false, cortada: false };
+  assert.equal(fraseDaSaida({ ...fechada, sairam: 0 }), "Ninguém saiu nas 3 h seguintes");
+  assert.equal(fraseDaSaida({ ...fechada, sairam: 1 }), "Saiu 1 nas 3 h seguintes");
+  assert.equal(fraseDaSaida({ ...fechada, sairam: 1200 }), "Saíram 1.200 nas 3 h seguintes");
+  // O post das 10h seguido de outro às 12h no mesmo grupo: "3 h seguintes" seria falso.
+  assert.equal(fraseDaSaida({ ...fechada, sairam: 2, cortada: true }), "Saíram 2 até o próximo post");
+  assert.equal(fraseDaSaida({ ...fechada, sairam: 3, contando: true }), "Saíram 3 até agora · a conta vai até 15:20");
 });
