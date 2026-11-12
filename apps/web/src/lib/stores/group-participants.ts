@@ -46,6 +46,17 @@ export async function upsertParticipantesDoGrupo(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * `lastSeenAt` é a última leitura em que a pessoa estava no grupo. A tabela nunca apaga quem saiu,
+ * então quem precisa da lista de hoje filtra por ela (ver `lib/communities/plano.ts`).
+ */
+export type ParticipanteDoGrupo = {
+  whatsappGroupId: string;
+  participantLid: string;
+  phone: string | null;
+  lastSeenAt: string;
+};
+
 /** Teto de linhas por página do PostgREST. Acima disso ele trunca em silêncio, sem erro. */
 const PAGE_SIZE = 1000;
 
@@ -66,17 +77,17 @@ const PAGE_SIZE = 1000;
 export async function listarParticipantesDosGrupos(
   tenantId: string,
   whatsappGroupIds: string[],
-): Promise<Array<{ whatsappGroupId: string; participantLid: string; phone: string | null }>> {
+): Promise<ParticipanteDoGrupo[]> {
   const { tenantId: tid } = montarQueryParticipantes(tenantId);
   if (whatsappGroupIds.length === 0) return [];
 
-  const linhas: Array<{ whatsappGroupId: string; participantLid: string; phone: string | null }> = [];
+  const linhas: ParticipanteDoGrupo[] = [];
   let desde = 0;
 
   for (;;) {
     const { data, error } = await getSupabaseAdmin()
       .from(TABLE)
-      .select("whatsapp_group_id, participant_lid, phone")
+      .select("whatsapp_group_id, participant_lid, phone, last_seen_at")
       .eq("tenant_id", tid)
       .in("whatsapp_group_id", whatsappGroupIds)
       // Sem ORDER BY o Postgres não garante a mesma ordem entre as páginas, e o
@@ -93,6 +104,7 @@ export async function listarParticipantesDosGrupos(
         whatsappGroupId: r.whatsapp_group_id as string,
         participantLid: r.participant_lid as string,
         phone: (r.phone as string | null) ?? null,
+        lastSeenAt: r.last_seen_at as string,
       });
     }
 
