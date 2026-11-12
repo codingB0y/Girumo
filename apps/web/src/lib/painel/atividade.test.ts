@@ -332,6 +332,24 @@ test("7 dias e o mês recortam a mesma leitura pelo dia de Brasília", () => {
   assert.deepEqual(saidasDoPeriodo(lidas, "mes", null, agora).map((l) => l.postId), ["p-agora", "p-cedo", "p-semana", "p-mes"]);
 });
 
+test("a janela é cortada só quando o próximo post fechou a conta antes das 3 h em todos os grupos", () => {
+  const cedo = br("2026-09-23", "08:00");
+  const linhas = saidasDoPeriodo(
+    [
+      saida("p-cortado", cedo, { contaAte: br("2026-09-23", "10:00") }),
+      // O último grupo recebeu às 08:40 e não teve post depois: a conta vai até 11:40.
+      saida("p-inteiro", br("2026-09-23", "08:01"), { contaAte: br("2026-09-23", "11:40") }),
+    ],
+    "hoje",
+    null,
+    agora,
+  );
+  assert.deepEqual(linhas.map((l) => [l.postId, l.cortada]), [
+    ["p-inteiro", false],
+    ["p-cortado", true],
+  ]);
+});
+
 test("o post que repete todo dia tem uma linha por rodada, com chave própria", () => {
   const repete = [saida("p", br("2026-09-22", "09:00")), saida("p", br("2026-09-23", "09:00"))];
   const chaves = saidasDoPeriodo(repete, "7d", null, agora).map((l) => l.chave);

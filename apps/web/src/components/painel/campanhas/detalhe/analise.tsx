@@ -259,7 +259,7 @@ function SaidasDepoisDoPost({ linhas, quando, hoje }: { linhas: LinhaDeSaida[] |
       ) : linhas.length === 0 ? (
         <p className="mt-3 text-13 text-slate-600">Nenhum post chegou aos grupos {quando}.</p>
       ) : (
-        <ol className="mt-2">
+        <ol id="saidas-post-lista" className="mt-2">
           {visiveis?.map((l) => (
             <li key={l.chave} className="grid grid-cols-[88px_1fr] gap-3 border-b border-line-200 py-2.5 text-13 last:border-0">
               <span className="tabular-nums text-slate-600">
@@ -268,8 +268,8 @@ function SaidasDepoisDoPost({ linhas, quando, hoje }: { linhas: LinhaDeSaida[] |
               <div className="min-w-0">
                 <p className="truncate font-medium text-volt-950">{l.texto}</p>
                 <p className="mt-0.5 text-slate-600">
-                  <span className={cn(l.sairam > 0 && "font-semibold text-saida")}>{fraseDaSaida(l.sairam, l.contaAte, l.contando)}</span>
-                  {" · "}
+                  <span className={cn(l.sairam > 0 && "font-semibold text-saida")}>{fraseDaSaida(l)}</span>
+                  {" · chegou a "}
                   {contagem(l.grupos, unidadeDeGrupos)}
                 </p>
               </div>
@@ -278,8 +278,13 @@ function SaidasDepoisDoPost({ linhas, quando, hoje }: { linhas: LinhaDeSaida[] |
         </ol>
       )}
       {linhas && linhas.length > POSTS_VISIVEIS && (
-        <button type="button" onClick={() => setTodas((t) => !t)} className="mt-2 text-13 font-medium text-cobalt-500 hover:underline">
-          {todas ? "Mostrar menos" : `Ver os ${linhas.length} posts`}
+        <button
+          type="button"
+          aria-expanded={todas}
+          aria-controls="saidas-post-lista"
+          onClick={() => setTodas((t) => !t)}
+          className="mt-2 text-13 font-medium text-cobalt-500 hover:underline">
+          {todas ? "Mostrar menos" : `Ver todos (${linhas.length})`}
         </button>
       )}
     </section>

@@ -334,11 +334,16 @@ export function marcasDeRelampago(ofertas: OfferRow[], agora: Date): MarcaDePost
     .sort((x, y) => x.posicao - y.posicao);
 }
 
+/** A janela de cada post, em horas: o `interval '3 hours'` de `public.campaign_post_leaves`. Mudar os dois juntos. */
+export const HORAS_DA_JANELA = 3;
+
 export type LinhaDeSaida = SaidaDepoisDoPost & {
   chave: string;
   texto: string;
   /** A janela ainda não fechou: saída que vier até `contaAte` ainda entra. */
   contando: boolean;
+  /** O próximo post cortou a janela antes das 3 h em todos os grupos que receberam. */
+  cortada: boolean;
 };
 
 /**
@@ -356,6 +361,7 @@ export function saidasDoPeriodo(lidas: SaidaDepoisDoPost[], periodo: Periodo, po
         chave: `${s.postId}@${s.enviadoEm}`,
         texto: post ? textoDoPost(post) : "Post",
         contando: Date.parse(s.contaAte) > agora.getTime(),
+        cortada: Date.parse(s.contaAte) < Date.parse(s.enviadoEm) + HORAS_DA_JANELA * UMA_HORA_MS,
       };
     })
     .sort((x, y) => Date.parse(y.enviadoEm) - Date.parse(x.enviadoEm));

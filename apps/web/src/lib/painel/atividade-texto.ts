@@ -1,5 +1,5 @@
 import { diaMesBR, horaBR } from "@/lib/date-br";
-import type { Barra } from "@/lib/painel/atividade";
+import { HORAS_DA_JANELA, type Barra } from "@/lib/painel/atividade";
 import { numero } from "@/lib/painel/grupos";
 
 /** Quem entrou e quem saiu num período. */
@@ -46,10 +46,14 @@ export function fraseDoMovimento(barras: Barra[], m: Movimento, quando: string, 
  * saiu por causa do post.
  */
 export const REGRA_DA_SAIDA =
-  "Conta quem saiu dos grupos que receberam o post, do envio até 3 h depois ou até o próximo post no grupo, o que vier antes. Sair depois de um post não quer dizer que saiu por causa dele.";
+  `Conta quem saiu dos grupos que receberam o post, do envio até ${HORAS_DA_JANELA} h depois ou até o próximo post no grupo, o que vier antes. Sair depois de um post não quer dizer que saiu por causa dele.`;
 
-/** "Saíram 3 nas 3 h seguintes"; com a conta aberta, "Saíram 3 até agora · a conta vai até 15:20". */
-export function fraseDaSaida(sairam: number, contaAte: string, contando: boolean): string {
-  const quem = sairam === 0 ? "Ninguém saiu" : sairam === 1 ? "Saiu 1" : `Saíram ${numero(sairam)}`;
-  return contando ? `${quem} até agora · a conta vai até ${horaBR(contaAte)}` : `${quem} nas 3 h seguintes`;
+/**
+ * "Saíram 3 nas 3 h seguintes"; com o próximo post cortando a janela em todos os grupos, "Saíram 3
+ * até o próximo post"; com a conta aberta, "Saíram 3 até agora · a conta vai até 15:20".
+ */
+export function fraseDaSaida(s: { sairam: number; contaAte: string; contando: boolean; cortada: boolean }): string {
+  const quem = s.sairam === 0 ? "Ninguém saiu" : s.sairam === 1 ? "Saiu 1" : `Saíram ${numero(s.sairam)}`;
+  if (s.contando) return `${quem} até agora · a conta vai até ${horaBR(s.contaAte)}`;
+  return s.cortada ? `${quem} até o próximo post` : `${quem} nas ${HORAS_DA_JANELA} h seguintes`;
 }
