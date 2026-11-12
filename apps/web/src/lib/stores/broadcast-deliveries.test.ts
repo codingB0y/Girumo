@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
+import { entregaDoComando } from "@/lib/painel/entrega";
 import { listBroadcastDeliveries } from "./broadcast-deliveries";
 
 /**
@@ -33,15 +34,25 @@ after(() => {
 
 test("lê os comandos da loja, do post e da rodada atual, com o grupo tirado do payload", async () => {
   pedidos.length = 0;
-  linhas = [{ jid: "g40@g.us", fora: null, status: "done", completed_at: "2026-09-23T17:08:30Z", failed_at: null }];
+  linhas = [
+    { jid: "g40@g.us", fora: null, todos: null, status: "done", completed_at: "2026-09-23T17:08:30Z", failed_at: null },
+    { jid: "g41@g.us", fora: null, todos: "true", status: "done", completed_at: "2026-09-23T17:08:40Z", failed_at: null },
+  ];
 
-  assert.deepEqual(await listBroadcastDeliveries("loja-a", "post-1", "rodada-2"), linhas);
+  const lidas = await listBroadcastDeliveries("loja-a", "post-1", "rodada-2");
+  assert.deepEqual(lidas, linhas);
+  // O que a rota devolve: só o grupo cujo comando teve o @todos cortado chega com a marca.
+  assert.deepEqual(lidas.map((l) => entregaDoComando(l)?.semTodos), [undefined, true]);
 
   assert.equal(pedidos.length, 1);
   const [url] = pedidos;
   assert.equal(url.pathname, "/rest/v1/engine_commands");
   // Mutante: `select *` traria o texto do post e a credencial de mídia de cada comando.
-  assert.equal(url.searchParams.get("select"), "jid:payload->>jid,fora:payload->>foraDoTeto,status,completed_at,failed_at");
+  // E a marca do corte do @todos tem que vir com o nome que o claim grava (`mentionAllCortado`).
+  assert.equal(
+    url.searchParams.get("select"),
+    "jid:payload->>jid,fora:payload->>foraDoTeto,todos:payload->>mentionAllCortado,status,completed_at,failed_at",
+  );
   // Mutantes: sem o tenant, o post de outra loja com o mesmo id apareceria; sem a
   // rodada, o post que repete todo dia misturaria as entregas de ontem com as de hoje.
   assert.deepEqual(Object.fromEntries([...url.searchParams].filter(([k]) => k !== "select")), {

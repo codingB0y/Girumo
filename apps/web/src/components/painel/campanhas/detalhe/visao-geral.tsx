@@ -31,7 +31,7 @@ import {
   type SeloDaLinha,
 } from "@/lib/painel/campanha-visao";
 import { medindoDesde, saldo } from "@/lib/painel/atividade-texto";
-import { aindaSaindo, itemAoVivo, postDaTabela, resumoDaEntrega, type ItemAoVivo } from "@/lib/painel/entrega";
+import { aindaSaindo, itemAoVivo, postDaTabela, resumoDaEntrega, saiuSemTodos, type ItemAoVivo } from "@/lib/painel/entrega";
 import { lotacao, numero } from "@/lib/painel/grupos";
 import { estadosFrescos, useEstadosDaCampanha } from "@/lib/painel/use-estados-da-campanha";
 import { cn } from "@/lib/utils";
@@ -93,6 +93,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
   const { entrega, leitura, desatualizada } = useEntrega(postTabela?.id ?? null, agora.getTime());
   const entregaPorGrupo = useMemo(() => new Map((entrega?.grupos ?? []).map((g) => [g.grupo, g])), [entrega]);
   const resumo = useMemo(() => (entrega ? resumoDaEntrega(entrega.grupos) : null), [entrega]);
+  const semTodos = useMemo(() => (entrega ? saiuSemTodos(entrega.grupos) : false), [entrega]);
   const horaDoPost = postTabela ? horaBR(quandoDoPost(postTabela)) : "";
 
   // O dia da campanha: posts e grupos abertos sozinhos, com o post em curso na contagem ao vivo.
@@ -215,7 +216,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
           </div>
           {postTabela && resumo && resumo.total > 0 && (
             <div className="border-b border-line-200 px-5 py-2.5">
-              <LegendaDaEntrega hora={horaDoPost} resumo={resumo} desatualizada={desatualizada} />
+              <LegendaDaEntrega hora={horaDoPost} resumo={resumo} desatualizada={desatualizada} semTodos={semTodos} />
             </div>
           )}
 

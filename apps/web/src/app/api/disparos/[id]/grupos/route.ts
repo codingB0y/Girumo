@@ -1,4 +1,4 @@
-import { estadoDaEntrega, type EntregaDoPost, type EntregaNoGrupo } from "@/lib/painel/entrega";
+import { entregaDoComando, type EntregaDoPost, type EntregaNoGrupo } from "@/lib/painel/entrega";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { listBroadcastDeliveries } from "@/lib/stores/broadcast-deliveries";
 import { getBroadcast } from "@/lib/stores/broadcasts";
@@ -11,8 +11,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * GET /api/disparos/[id]/grupos: como a rodada atual do post está em cada grupo
- * (entregue, postando, na fila, falhou, cancelado ou fora do limite do dia). A tabela de grupos da
- * campanha mostra isso na coluna "Post das HH:MM".
+ * (entregue, postando, na fila, falhou, cancelado ou fora do limite do dia), com `semTodos` no grupo
+ * de que o anti-ban tirou o @todos. A tabela de grupos da campanha mostra isso na coluna "Post das HH:MM".
  */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,14 +29,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!post) return Response.json({ error: "Post não encontrado." }, { status: 404 });
 
     // Rascunho e post do motor antigo não têm rodada: nada saiu por esta fila.
-    const grupos: EntregaNoGrupo[] = [];
-    if (post.run_id) {
-      for (const linha of await listBroadcastDeliveries(tenantId, post.id, post.run_id)) {
-        const estado = estadoDaEntrega(linha.status, linha.fora === "true");
-        if (!estado || !linha.jid) continue;
-        grupos.push({ grupo: linha.jid, estado, quando: linha.completed_at ?? linha.failed_at });
-      }
-    }
+    const linhas = post.run_id ? await listBroadcastDeliveries(tenantId, post.id, post.run_id) : [];
+    const grupos = linhas.map(entregaDoComando).filter((g): g is EntregaNoGrupo => g !== null);
 
     const resposta: EntregaDoPost = { postId: post.id, desde: post.running_since, grupos };
     return Response.json(resposta);

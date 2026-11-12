@@ -1,6 +1,7 @@
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBROf } from "@/lib/date-br";
 import { quandoDoPost, type ItemDoDia } from "@/lib/painel/campanha-visao";
+import type { EntregaBruta } from "@/lib/stores/broadcast-deliveries";
 
 /**
  * Entrega do post grupo a grupo (painel direção D, PR E; spec 2026-09-24).
@@ -17,6 +18,8 @@ export type EntregaNoGrupo = {
   estado: EstadoDaEntrega;
   /** Quando chegou ou falhou; null enquanto não terminou. */
   quando: string | null;
+  /** O anti-ban tirou o @todos deste comando (`payload.mentionAllCortado`); ausente quando não tirou. */
+  semTodos?: true;
 };
 
 export type EntregaDoPost = {
@@ -53,6 +56,36 @@ const DO_COMANDO: Record<string, EstadoDaEntrega> = {
 export function estadoDaEntrega(status: string, foraDoTeto = false): EstadoDaEntrega | null {
   if (status === "canceled" && foraDoTeto) return "fora_do_teto";
   return DO_COMANDO[status] ?? null;
+}
+
+/**
+ * A linha de `engine_commands` como a tabela mostra: null quando o status é
+ * desconhecido ou o comando não diz o grupo. As marcas do payload chegam como
+ * texto ("true"), do jeito que o PostgREST devolve `payload->>`.
+ */
+export function entregaDoComando(linha: EntregaBruta): EntregaNoGrupo | null {
+  const estado = estadoDaEntrega(linha.status, linha.fora === "true");
+  if (!estado || !linha.jid) return null;
+  const entrega: EntregaNoGrupo = { grupo: linha.jid, estado, quando: linha.completed_at ?? linha.failed_at };
+  return linha.todos === "true" ? { ...entrega, semTodos: true } : entrega;
+}
+
+/**
+ * Por que o post saiu sem marcar ninguém. O claim (`app.claim_send_commands`) tira o
+ * @todos acima de `app.mention_all_daily_budget()` posts com @todos por número em 24 h,
+ * e esse teto é zero desde 03/11/2026: todo post que pede @todos sai sem a marcação.
+ * A marca só entra no claim, então grupo ainda na fila não a tem; e o corte é do post
+ * inteiro (post cortado segue cortado), por isso basta um grupo marcado para avisar.
+ *
+ * ponytail: o texto assume o teto zero; se `mention_all_daily_budget` voltar a ser > 0,
+ * trocar "nenhum post" pelo teto lido do banco.
+ */
+export const MOTIVO_SEM_TODOS =
+  "Para proteger o número, o anti-ban não deixa nenhum post marcar todos: a marcação avisa cada pessoa, até quem silenciou o grupo, e é o que mais faz gente sair e denunciar o número.";
+
+/** O post saiu sem o @todos em algum grupo. */
+export function saiuSemTodos(grupos: EntregaNoGrupo[]): boolean {
+  return grupos.some((g) => g.semTodos);
 }
 
 /** Em qual contador do resumo cada estado cai; o `Record` obriga o estado novo a escolher o seu. */

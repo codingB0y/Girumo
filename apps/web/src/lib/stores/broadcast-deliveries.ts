@@ -6,6 +6,8 @@ export type EntregaBruta = {
   jid: string | null;
   /** `payload->>foraDoTeto`: "true" no comando que o banco cancelou por teto do dia; senão null. */
   fora: string | null;
+  /** `payload->>mentionAllCortado`: "true" no comando de que o anti-ban tirou o @todos; senão null. */
+  todos: string | null;
   status: string;
   completed_at: string | null;
   failed_at: string | null;
@@ -27,7 +29,7 @@ export async function listBroadcastDeliveries(
 ): Promise<EntregaBruta[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("engine_commands")
-    .select("jid:payload->>jid,fora:payload->>foraDoTeto,status,completed_at,failed_at")
+    .select("jid:payload->>jid,fora:payload->>foraDoTeto,todos:payload->>mentionAllCortado,status,completed_at,failed_at")
     .eq("tenant_id", tenantId)
     .eq("origin_kind", "broadcast")
     .eq("origin_id", broadcastId)
