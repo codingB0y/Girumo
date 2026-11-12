@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
-import { dayBR, horaBR } from "@/lib/date-br";
+import { dayBR, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
 import {
   barrasDaAtividade,
   diaDaSemanaPassada,
@@ -10,13 +10,23 @@ import {
   marcasDeGrupoAberto,
   marcasDePost,
   nomeDoMes,
+  saidasDoPeriodo,
   somaMedida,
   variacao,
   type AtividadeDaCampanha,
   type Barra,
+  type LinhaDeSaida,
   type Periodo,
 } from "@/lib/painel/atividade";
-import { contagem, fraseDoMovimento, medindoDesde, unidadeDeEntradas, unidadeDeSaidas } from "@/lib/painel/atividade-texto";
+import {
+  contagem,
+  fraseDaSaida,
+  fraseDoMovimento,
+  medindoDesde,
+  REGRA_DA_SAIDA,
+  unidadeDeEntradas,
+  unidadeDeSaidas,
+} from "@/lib/painel/atividade-texto";
 import { numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
 import { GraficoDeBarras } from "./grafico-barras";
@@ -70,6 +80,9 @@ type Props = {
 };
 
 const unidadeDeCliques: [string, string] = ["clique", "cliques"];
+const unidadeDeGrupos: [string, string] = ["grupo", "grupos"];
+/** Quantos posts a lista de saídas mostra antes de abrir o resto. */
+const POSTS_VISIVEIS = 6;
 
 /**
  * Seção Análise da direção D (spec 2026-09-24, PRs C e D): quem entrou e saiu dos
@@ -183,6 +196,13 @@ function Graficos({ atividade: a, periodo, posts }: { atividade: AtividadeDaCamp
           <Legenda cor="bg-saida">Saíram</Legenda>
           <span>cada entrada e saída nos grupos da campanha, como o WhatsApp avisa</span>
         </p>
+        {a.saidasDepoisDoPost !== undefined && (
+          <SaidasDepoisDoPost
+            linhas={a.saidasDepoisDoPost === null ? null : saidasDoPeriodo(a.saidasDepoisDoPost, periodo, posts, new Date(a.geradoEm))}
+            quando={quando}
+            hoje={hoje}
+          />
+        )}
       </figure>
 
       <figure className="m-0 min-w-0 border-t border-line-200 px-5 pb-4 pt-5 lg:border-l lg:border-t-0">
@@ -221,6 +241,53 @@ function Graficos({ atividade: a, periodo, posts }: { atividade: AtividadeDaCamp
         )}
       </figure>
     </div>
+  );
+}
+
+/** Cada post do período com quem saiu dos grupos depois dele: é o que mostra qual post faz gente sair. */
+function SaidasDepoisDoPost({ linhas, quando, hoje }: { linhas: LinhaDeSaida[] | null; quando: string; hoje: string }) {
+  const [todas, setTodas] = useState(false);
+  const visiveis = linhas && !todas ? linhas.slice(0, POSTS_VISIVEIS) : linhas;
+  return (
+    <section aria-labelledby="saidas-post-titulo" className="mt-5 border-t border-line-200 pt-4">
+      <h3 id="saidas-post-titulo" className="text-sm font-semibold text-volt-950">
+        Saídas depois de cada post
+      </h3>
+      <p className="mt-0.5 text-12 text-slate-600">{REGRA_DA_SAIDA}</p>
+      {linhas === null ? (
+        <p className="mt-3 text-13 text-slate-600">Não deu para ler as saídas depois de cada post.</p>
+      ) : linhas.length === 0 ? (
+        <p className="mt-3 text-13 text-slate-600">Nenhum post chegou aos grupos {quando}.</p>
+      ) : (
+        <ol id="saidas-post-lista" className="mt-2">
+          {visiveis?.map((l) => (
+            <li key={l.chave} className="grid grid-cols-[88px_1fr] gap-3 border-b border-line-200 py-2.5 text-13 last:border-0">
+              <span className="tabular-nums text-slate-600">
+                {dayBROf(l.enviadoEm) === hoje ? horaBR(l.enviadoEm) : `${diaMesBR(l.enviadoEm)} ${horaBR(l.enviadoEm)}`}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-volt-950">{l.texto}</p>
+                <p className="mt-0.5 text-slate-600">
+                  <span className={cn(l.sairam > 0 && "font-semibold text-saida")}>{fraseDaSaida(l)}</span>
+                  {" · chegou a "}
+                  {contagem(l.grupos, unidadeDeGrupos)}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      {linhas && linhas.length > POSTS_VISIVEIS && (
+        <button
+          type="button"
+          aria-expanded={todas}
+          aria-controls="saidas-post-lista"
+          onClick={() => setTodas((t) => !t)}
+          className="mt-2 text-13 font-medium text-cobalt-500 hover:underline">
+          {todas ? "Mostrar menos" : `Ver todos (${linhas.length})`}
+        </button>
+      )}
+    </section>
   );
 }
 
