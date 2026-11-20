@@ -80,7 +80,7 @@ function depsDoAviso(): DepsDoAviso {
 }
 
 /** Donos com convite aceito; quem não tem e-mail legível fica de fora sem derrubar os outros. */
-async function donosDaLoja(tenantId: string): Promise<Dono[]> {
+export async function donosDaLoja(tenantId: string): Promise<Dono[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("memberships")
     .select("user_id")
