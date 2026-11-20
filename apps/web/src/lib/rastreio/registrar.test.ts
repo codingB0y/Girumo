@@ -161,13 +161,17 @@ before(async () => {
 });
 after(() => { postgrest.close(); });
 
-test("o sininho do problema nasce uma vez por pedido, apontando para Entregas", async () => {
+test("o sininho do problema nasce uma vez por pedido, apontando para Entregas; o e-mail à loja sai depois dele", async () => {
+  const emails: Array<{ args: unknown[]; chamadasAntes: number }> = [];
+  const espiao = async (...args: [string, { id: string; numero: string }]) => { emails.push({ args, chamadasAntes: chamadas.length }); };
   jaTem = false;
-  assert.equal(await avisarLojaDoProblema("loja-a", { id: "ped-1", numero: "1042" }), true);
+  assert.equal(await avisarLojaDoProblema("loja-a", { id: "ped-1", numero: "1042" }, { emailDoProblema: espiao }), true);
+  assert.deepEqual(emails, [{ args: ["loja-a", { id: "ped-1", numero: "1042" }], chamadasAntes: 2 }]); // depois da busca e do insert
   const [busca, insert] = chamadas;
   assert.deepEqual(Object.fromEntries(busca.url.searchParams), { select: "id", tenant_id: "eq.loja-a", type: "eq.rastreio_problema", href: "eq./painel/vendas/entregas?pedido=ped-1", limit: "1" });
   assert.deepEqual(insert.corpo, { tenant_id: "loja-a", type: "rastreio_problema", title: "Problema na entrega do pedido nº 1042", body: "A transportadora não conseguiu entregar. Fale com a compradora.", href: "/painel/vendas/entregas?pedido=ped-1" });
   chamadas.length = 0; jaTem = true;
-  assert.equal(await avisarLojaDoProblema("loja-a", { id: "ped-1", numero: "1042" }), false);
+  assert.equal(await avisarLojaDoProblema("loja-a", { id: "ped-1", numero: "1042" }, { emailDoProblema: espiao }), false);
   assert.equal(chamadas.filter((c) => c.metodo === "POST").length, 0);
+  assert.equal(emails.length, 1);
 });
