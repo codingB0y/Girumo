@@ -8,7 +8,8 @@ import type { AvisoParaEnviar, PedidoInterno } from "./tipos";
 const LOJA: LojaDoRastreio = { tenantId: "t-1", nome: "Loja Exemplo", publicSlug: "loja-exemplo", dominio: null, corPrimaria: "#BE185D", storeWhatsapp: "5511999990000", vipLinkId: null };
 const PEDIDO: PedidoInterno = { id: "p-1", numero: "1532", orderCreatedAt: "2026-10-20T13:00:00.000Z", etapa: "enviado", etapaAt: "2026-10-21T13:14:00.000Z", events: [], shipmentService: "Correios SEDEX", trackingCode: "AB123456789BR", trackingUrl: null, linkToken: "0123456789abcdef0123456789abcdef", noticesStoppedAt: null, tenantId: "t-1", externalId: "9001", statusRaw: "on_carriage", buyerFirstName: "Maria", buyerPhone: "5511987654321", buyerEmailEnc: "cifrado" };
 const AGORA = new Date("2026-10-29T12:00:00.000Z");
-const AVISO: AvisoParaEnviar = { id: "a-1", orderId: "p-1", etapa: "enviado", canal: "email", attempts: 0, resends: 2, messageId: null };
+const AVISO: AvisoParaEnviar = { id: "a-1", orderId: "p-1", etapa: "enviado", canal: "email", attempts: 0, resends: 2, messageId: null, updatedAt: "2026-10-29T11:59:00.000Z" };
+const SE = { status: "pendente", resends: 2 } as const;
 
 function montar(extra: Partial<DepsDoEnvio> = {}) {
   const marcas: Array<{ id: string; patch: Parameters<DepsDoEnvio["marcar"]>[2] }> = [];
@@ -21,6 +22,7 @@ function montar(extra: Partial<DepsDoEnvio> = {}) {
     enviar: async (o) => { enviados.push(o); return true; },
     marcar: async (_t, id, patch) => { marcas.push({ id, patch }); },
     agora: () => AGORA,
+    estourou: async () => false,
     ...extra,
   };
   return { deps, marcas, enviados, convites };
@@ -32,7 +34,7 @@ test("envia com kind rastreio, o nome da loja no remetente e a chave com resends
   const e = enviados[0];
   assert.deepEqual([e.to, e.kind, e.tenantId, e.fromName, e.idempotencyKey, e.subject], ["maria@exemplo.test", "rastreio", "t-1", "Loja Exemplo", "rastreio:a-1:2", "Seu pedido nº 1532 foi enviado"]);
   assert.ok(e.html.includes("https://www.girumo.com.br/r/vip-exemplo") && typeof e.text === "string" && e.text.length > 0);
-  assert.deepEqual(marcas, [{ id: "a-1", patch: { status: "enviado", sentAt: "2026-10-29T12:00:00.000Z", error: null } }]);
+  assert.deepEqual(marcas, [{ id: "a-1", patch: { status: "enviado", sentAt: "2026-10-29T12:00:00.000Z", error: null, se: SE } }]);
 });
 
 test("o convite é decidido com o telefone do pedido", async () => {
@@ -47,24 +49,49 @@ const PULADOS: Array<[string, Partial<DepsDoEnvio>, string]> = [
   ["pedido com avisos parados", { pedido: async () => ({ ...PEDIDO, noticesStoppedAt: "2026-10-29T10:00:00.000Z" }) }, "avisos_parados"],
   ["pedido sem e-mail legível", { emailDoPedido: () => null }, "sem_email"],
   ["loja sem config", { loja: async () => null }, "sem_config"],
+  ["pedido que já passou para outra etapa com aviso", { pedido: async () => ({ ...PEDIDO, etapa: "problema" }) }, "etapa_superada"],
+  ["pedido cancelado depois do aviso", { pedido: async () => ({ ...PEDIDO, etapa: "cancelado" }) }, "etapa_superada"],
+  ["aviso parado há mais de 20 h (a chave do Resend vence em 24 h)", { aviso: async () => ({ ...AVISO, updatedAt: "2026-10-28T15:59:00.000Z" }) }, "aviso_vencido"],
 ];
 for (const [nome, extra, motivo] of PULADOS) {
   test(`${nome}: marca pulado e não chama o provedor`, async () => {
     const { deps, marcas, enviados } = montar(extra);
     assert.equal(await enviarAvisoPorEmail("t-1", "a-1", deps), false);
     assert.deepEqual(enviados, []);
-    assert.deepEqual(marcas, [{ id: "a-1", patch: { status: "pulado", error: motivo } }]);
+    assert.deepEqual(marcas, [{ id: "a-1", patch: { status: "pulado", error: motivo, se: SE } }]);
   });
 }
+
+test("confirmado ainda sai com o pedido já separando (separando não tem aviso)", async () => {
+  const { deps, enviados } = montar({
+    aviso: async () => ({ ...AVISO, etapa: "confirmado" }),
+    pedido: async () => ({ ...PEDIDO, etapa: "separando" }),
+  });
+  assert.equal(await enviarAvisoPorEmail("t-1", "a-1", deps), true);
+  assert.equal(enviados.length, 1);
+});
+
+test("na hora: acima do teto global o aviso fica pendente para o cron, sem ler nem enviar", async () => {
+  let lidos = 0;
+  const { deps, marcas, enviados } = montar({ estourou: async () => true, aviso: async () => { lidos++; return AVISO; } });
+  assert.equal(await enviarAvisoPorEmail("t-1", "a-1", deps), false);
+  assert.deepEqual([lidos, enviados, marcas], [0, [], []]);
+});
+
+test("na hora: id de aviso que não é de e-mail não envia nem marca", async () => {
+  const { deps, marcas, enviados } = montar({ aviso: async () => ({ ...AVISO, canal: "whatsapp" }) });
+  assert.equal(await enviarAvisoPorEmail("t-1", "a-1", deps), false);
+  assert.deepEqual([...enviados, ...marcas], []);
+});
 
 test("o provedor recusa: soma a tentativa e agenda a próxima; a espera cresce e a 5ª falha desiste", async () => {
   const recusa = (attempts: number) => montar({ enviar: async () => false, aviso: async () => ({ ...AVISO, attempts }) });
   const segunda = recusa(1);
   assert.equal(await enviarAvisoPorEmail("t-1", "a-1", segunda.deps), false);
-  assert.deepEqual(segunda.marcas, [{ id: "a-1", patch: { status: "pendente", somarTentativa: true, nextTryAt: "2026-10-29T12:30:00.000Z", error: "recusado_pelo_provedor" } }]);
+  assert.deepEqual(segunda.marcas, [{ id: "a-1", patch: { status: "pendente", somarTentativa: true, nextTryAt: "2026-10-29T12:30:00.000Z", error: "recusado_pelo_provedor", se: SE } }]);
   const quinta = recusa(4);
   await enviarAvisoPorEmail("t-1", "a-1", quinta.deps);
-  assert.deepEqual(quinta.marcas, [{ id: "a-1", patch: { status: "falhou", somarTentativa: true, nextTryAt: null, error: "recusado_pelo_provedor" } }]);
+  assert.deepEqual(quinta.marcas, [{ id: "a-1", patch: { status: "falhou", somarTentativa: true, nextTryAt: null, error: "recusado_pelo_provedor", se: SE } }]);
   assert.deepEqual([1, 2, 3, 4].map((n) => proximaTentativa(n, AGORA)?.toISOString()), ["2026-10-29T12:05:00.000Z", "2026-10-29T12:30:00.000Z", "2026-10-29T14:00:00.000Z", "2026-10-29T18:00:00.000Z"]);
   assert.equal(proximaTentativa(5, AGORA), null);
 });
@@ -74,7 +101,7 @@ test("o provedor explode: agenda a próxima com erro_ao_enviar e o log não leva
   t.mock.method(console, "error", (...a: unknown[]) => erros.push(a.map(String).join(" ")));
   const { deps, marcas } = montar({ enviar: async () => { throw new Error("resend fora do ar"); } });
   assert.equal(await enviarAvisoPorEmail("t-1", "a-1", deps), false);
-  assert.deepEqual(marcas, [{ id: "a-1", patch: { status: "pendente", somarTentativa: true, nextTryAt: "2026-10-29T12:05:00.000Z", error: "erro_ao_enviar" } }]);
+  assert.deepEqual(marcas, [{ id: "a-1", patch: { status: "pendente", somarTentativa: true, nextTryAt: "2026-10-29T12:05:00.000Z", error: "erro_ao_enviar", se: SE } }]);
   assert.equal(erros.length, 1);
   assert.ok(erros[0].includes("a-1") && !erros[0].includes("maria@exemplo.test") && !erros[0].includes("Maria"));
 });
@@ -94,6 +121,7 @@ test("enviarEmailsPendentes lê com limite e agora, uma falha não para os outro
   let n = 0;
   let lido: unknown;
   const { deps, marcas } = montar({
+    estourou: async () => { throw new Error("o cron não passa pelo teto da hora"); },
     vencidos: async (_t, limite, agora) => { lido = [limite, agora.toISOString()]; return [AVISO, { ...AVISO, id: "a-2" }]; },
     enviar: async () => (n += 1) === 2,
   });

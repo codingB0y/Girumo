@@ -44,6 +44,13 @@ test("o aviso de e-mail criado sai na hora, o de WhatsApp não", async () => {
   assert.deepEqual(log.emails, [["loja-a", "av-1"]]);
 });
 
+test("na varredura o aviso nasce mas o e-mail fica para o passo do cron, que tem teto", async () => {
+  const { deps, log } = montar();
+  await registrarPedidoDaYampi("loja-a", pedidoYampi(), "varredura", deps);
+  assert.equal(log.criar.length, 1);
+  assert.deepEqual(log.emails, []);
+});
+
 test("sem aviso criado, sem envio", async () => {
   const casos: Array<[string, Partial<DepsRegistrar>, "aviso" | "importacao"]> = [
     ["importação", {}, "importacao"],

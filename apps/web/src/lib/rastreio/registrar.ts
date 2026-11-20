@@ -87,7 +87,8 @@ export async function registrarPedidoDaYampi(
   const avisos = canais.length > 0 && ehEtapaComAviso(gravado.etapa)
     ? await deps.criarAvisos(tenantId, gravado.id, gravado.etapa, canais)
     : [];
-  // Na hora, com `await`: o registrar já roda dentro do `after()` do aviso da Yampi ou no cron.
-  for (const aviso of avisos) if (aviso.canal === "email") await deps.enviarEmail(tenantId, aviso.id);
+  // Na hora só pelo webhook, com `await` (o registrar já roda no `after()` do aviso da Yampi). Na varredura,
+  // o passo "e-mails" do cron, logo depois e com teto por rodada, manda.
+  if (origem === "aviso") for (const aviso of avisos) if (aviso.canal === "email") await deps.enviarEmail(tenantId, aviso.id);
   return { gravado, avisos };
 }

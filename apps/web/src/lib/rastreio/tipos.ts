@@ -92,4 +92,6 @@ export type AvisoParaEnviar = {
   attempts: number;
   resends: number;
   messageId: string | null;
+  /** Última gravação do aviso (criação, tentativa ou reenvio). */
+  updatedAt: string;
 };
