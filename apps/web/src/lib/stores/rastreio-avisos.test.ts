@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, beforeEach, test } from "node:test";
 
 import {
+  avisoPendente,
   avisosEnviando,
   avisosParaEnviar,
   criarAvisos,
@@ -111,6 +112,17 @@ test("avisosParaEnviar: pendentes da loja e do canal, sem espera ou vencidos, os
     order: "created_at.asc",
     limit: "10",
   });
+});
+
+test("avisoPendente: o pendente da loja com esse id, sem olhar a espera; sem linha, null", async () => {
+  responder = () => ({ status: 200, corpo: [{ ...LINHA, attempts: 0, resends: 2 }] });
+
+  assert.deepEqual(await avisoPendente("loja-a", "n-1"), { ...AVISO, attempts: 0, resends: 2 });
+  assert.equal(chamadas[0].url.searchParams.get("select"), COLUNAS);
+  assert.deepEqual(filtros(chamadas[0].url), { tenant_id: "eq.loja-a", id: "eq.n-1", status: "eq.pendente", limit: "1" });
+
+  responder = () => ({ status: 200, corpo: [] });
+  assert.equal(await avisoPendente("loja-a", "n-9"), null);
 });
 
 test("avisosEnviando: os enviando da loja e do canal", async () => {

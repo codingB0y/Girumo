@@ -68,6 +68,20 @@ export async function avisosParaEnviar(tenantId: string, canal: Canal, limite: n
   return ((data ?? []) as unknown as Linha[]).map(paraAviso);
 }
 
+/** O aviso `pendente` desta loja com esse id, sem olhar a espera; `null` se já saiu, foi pulado ou é de outra loja. */
+export async function avisoPendente(tenantId: string, avisoId: string): Promise<AvisoParaEnviar | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(AVISOS)
+    .select(COLUNAS)
+    .eq("tenant_id", tenantId)
+    .eq("id", avisoId)
+    .eq("status", "pendente")
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const [linha] = (data ?? []) as unknown as Linha[];
+  return linha ? paraAviso(linha) : null;
+}
+
 /** Os que já saíram para a fila de envio e esperam o resultado. */
 export async function avisosEnviando(tenantId: string, canal: Canal, limite: number): Promise<AvisoParaEnviar[]> {
   const { data, error } = await getSupabaseAdmin()
