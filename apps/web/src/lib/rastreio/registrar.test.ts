@@ -16,7 +16,7 @@ const GRAVADO: PedidoGravado = {
 };
 
 function montar(extra: Partial<DepsRegistrar> = {}) {
-  const log = { gravar: 0, config: 0, criar: [] as unknown[], loja: [] as unknown[] };
+  const log = { gravar: 0, config: 0, criar: [] as unknown[], loja: [] as unknown[], emails: [] as unknown[] };
   const deps: DepsRegistrar = {
     pepper: () => "p".repeat(32),
     gravarPedido: async () => { log.gravar++; return GRAVADO; },
@@ -24,6 +24,7 @@ function montar(extra: Partial<DepsRegistrar> = {}) {
     planoAtivo: async () => true,
     criarAvisos: async (t, o, e, canais) => { log.criar.push([t, o, e, canais]); return canais.map((canal, i) => ({ id: `av-${i}`, canal })); },
     avisarLoja: async (t, p) => { log.loja.push([t, p]); return true; },
+    enviarEmail: async (t, id) => { log.emails.push([t, id]); return true; },
     agora: () => new Date("2026-10-29T15:00:00Z"),
     ...extra,
   };
@@ -35,6 +36,26 @@ test("etapa nova e recente vira aviso nos canais da matriz", async () => {
   const r = await registrarPedidoDaYampi("loja-a", pedidoYampi(), "aviso", deps);
   assert.deepEqual(log.criar, [["loja-a", "ped-1", "enviado", ["whatsapp", "email"]]]);
   assert.deepEqual(r?.avisos, [{ id: "av-0", canal: "whatsapp" }, { id: "av-1", canal: "email" }]);
+});
+
+test("o aviso de e-mail criado sai na hora, o de WhatsApp não", async () => {
+  const { deps, log } = montar();
+  await registrarPedidoDaYampi("loja-a", pedidoYampi(), "aviso", deps);
+  assert.deepEqual(log.emails, [["loja-a", "av-1"]]);
+});
+
+test("sem aviso criado, sem envio", async () => {
+  const casos: Array<[string, Partial<DepsRegistrar>, "aviso" | "importacao"]> = [
+    ["importação", {}, "importacao"],
+    ["etapa que não mudou", { gravarPedido: async () => ({ ...GRAVADO, mudou: false }) }, "aviso"],
+    ["loja sem plano", { planoAtivo: async () => false }, "aviso"],
+    ["aviso que já existia", { criarAvisos: async () => [] }, "aviso"],
+  ];
+  for (const [nome, extra, origem] of casos) {
+    const { deps, log } = montar(extra);
+    await registrarPedidoDaYampi("loja-a", pedidoYampi(), origem, deps);
+    assert.deepEqual(log.emails, [], nome);
+  }
 });
 
 test("sem RASTREIO_DOC_PEPPER lança antes de gravar", async () => {

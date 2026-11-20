@@ -22,7 +22,7 @@ const ERRO_SEM_RESPOSTA = new YampiErro(0, "timeout");
 function montar(extra: Partial<DepsCron> = {}) {
   const log = {
     garantir: [] as unknown[], importar: [] as unknown[], cursor: [] as unknown[],
-    importado: [] as unknown[], varrer: [] as unknown[], purgar: 0, ordem: [] as string[],
+    importado: [] as unknown[], varrer: [] as unknown[], purgar: 0, ordem: [] as string[], emails: [] as unknown[],
   };
   const deps: DepsCron = {
     lojas: async () => ["loja-a", "loja-b"],
@@ -34,6 +34,7 @@ function montar(extra: Partial<DepsCron> = {}) {
     marcarImportado: async (id, em) => { log.importado.push([id, em]); },
     varrer: async (id) => { log.varrer.push(id); log.ordem.push(`varrer ${id}`); return 0; },
     purgar: async () => { log.purgar++; log.ordem.push("purgar"); return 3; },
+    enviarEmails: async (id, agora) => { log.emails.push([id, agora]); log.ordem.push(`e-mails ${id}`); return 0; },
     relogio: () => 0,
     ...extra,
   };
@@ -53,13 +54,13 @@ test("lojas já importadas são varridas antes de as novas importarem", async ()
     lerConfig: async (id) => (id === "loja-velha" ? CONFIG_IMPORTADA : null),
   });
   await rodarCronRastreio(AGORA, deps);
-  assert.deepEqual(log.ordem, ["varrer loja-velha", "importar loja-nova"]);
+  assert.deepEqual(log.ordem, ["e-mails loja-nova", "varrer loja-velha", "e-mails loja-velha", "importar loja-nova"]);
 });
 
 test("purge roda antes de qualquer loja", async () => {
   const { deps, log } = montar();
   await rodarCronRastreio(new Date("2026-10-30T06:02:00Z"), deps);
-  assert.deepEqual(log.ordem, ["purgar", "varrer loja-a", "varrer loja-b"]);
+  assert.deepEqual(log.ordem, ["purgar", "varrer loja-a", "e-mails loja-a", "varrer loja-b", "e-mails loja-b"]);
 });
 
 test("orçamento de tempo esgotado: as lojas seguintes ficam intactas e há aviso", async (t) => {
@@ -127,4 +128,27 @@ test("YampiErro de outro status loga só o status, sem a mensagem da Yampi", asy
   await rodarCronRastreio(AGORA, deps);
   assert.deepEqual(erros, ["[rastreio/cron] varrer loja-a: a Yampi respondeu 500"]);
   assert.ok(!erros[0].includes("/orders"));
+});
+
+test("o passo de e-mail roda em toda loja, até sem Yampi conectada", async () => {
+  const { deps, log } = montar({ lerConfig: async () => null, conexao: async () => null });
+  assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 2, falhas: 0, purgados: null });
+  assert.deepEqual(log.emails, [["loja-a", AGORA], ["loja-b", AGORA]]);
+});
+
+test("e-mail que lança numa loja não para as outras", async (t) => {
+  const erros: string[] = [];
+  t.mock.method(console, "error", (m: unknown) => erros.push(String(m)));
+  const { deps, log } = montar({
+    enviarEmails: async (id, agora) => { log.emails.push([id, agora]); if (id === "loja-a") throw new Error("resend fora do ar"); return 1; },
+  });
+  assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 2, falhas: 1, purgados: null });
+  assert.deepEqual([log.emails, erros], [[["loja-a", AGORA], ["loja-b", AGORA]], ["[rastreio/cron] e-mails loja-a: resend fora do ar"]]);
+});
+
+test("varredura que falha não impede o e-mail da mesma loja", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const { deps, log } = montar({ lojas: async () => ["loja-a"], varrer: async () => { throw new YampiErro(0, "timeout"); } });
+  assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 1, falhas: 1, purgados: null });
+  assert.deepEqual(log.emails, [["loja-a", AGORA]]);
 });
