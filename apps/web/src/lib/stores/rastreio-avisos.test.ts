@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, beforeEach, test } from "node:test";
 
 import {
+  avisoPendente,
   avisosEnviando,
   avisosParaEnviar,
   criarAvisos,
@@ -54,9 +55,9 @@ beforeEach(() => {
 
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const filtros = (url: URL) => Object.fromEntries([...url.searchParams].filter(([chave]) => chave !== "select"));
-const COLUNAS = "id,order_id,etapa,channel,attempts,resends,message_id";
-const LINHA = { id: "n-1", order_id: "o-1", etapa: "enviado", channel: "email", attempts: 1, resends: 0, message_id: null };
-const AVISO = { id: "n-1", orderId: "o-1", etapa: "enviado", canal: "email", attempts: 1, resends: 0, messageId: null };
+const COLUNAS = "id,order_id,etapa,channel,attempts,resends,message_id,updated_at";
+const LINHA = { id: "n-1", order_id: "o-1", etapa: "enviado", channel: "email", attempts: 1, resends: 0, message_id: null, updated_at: "2026-10-29T14:00:00+00:00" };
+const AVISO = { id: "n-1", orderId: "o-1", etapa: "enviado", canal: "email", attempts: 1, resends: 0, messageId: null, updatedAt: "2026-10-29T14:00:00+00:00" };
 
 test("criarAvisos pede ignore-duplicates e devolve só os criados agora", async () => {
   // Imita o ignore-duplicates: guarda as chaves e devolve só as linhas novas.
@@ -113,6 +114,17 @@ test("avisosParaEnviar: pendentes da loja e do canal, sem espera ou vencidos, os
   });
 });
 
+test("avisoPendente: o pendente da loja com esse id, sem olhar a espera; sem linha, null", async () => {
+  responder = () => ({ status: 200, corpo: [{ ...LINHA, attempts: 0, resends: 2 }] });
+
+  assert.deepEqual(await avisoPendente("loja-a", "n-1"), { ...AVISO, attempts: 0, resends: 2 });
+  assert.equal(chamadas[0].url.searchParams.get("select"), COLUNAS);
+  assert.deepEqual(filtros(chamadas[0].url), { tenant_id: "eq.loja-a", id: "eq.n-1", status: "eq.pendente", limit: "1" });
+
+  responder = () => ({ status: 200, corpo: [] });
+  assert.equal(await avisoPendente("loja-a", "n-9"), null);
+});
+
 test("avisosEnviando: os enviando da loja e do canal", async () => {
   responder = () => ({ status: 200, corpo: [{ ...LINHA, channel: "whatsapp", message_id: "m-1" }] });
 
@@ -151,6 +163,16 @@ test("marcarAviso grava só o que veio e soma a tentativa lida", async () => {
 
   responder = () => ({ status: 200, corpo: [] });
   await assert.rejects(marcarAviso("loja-a", "n-1", { status: "pulado" }), /aviso não encontrado/);
+});
+
+test("marcarAviso com `se` grava só se o aviso ainda está naquele status e reenvio; senão, nada", async () => {
+  responder = ({ metodo }) => (metodo === "GET" ? { status: 200, corpo: [{ attempts: 0 }] } : { status: 200, corpo: [] });
+
+  await marcarAviso("loja-a", "n-1", { status: "pendente", somarTentativa: true, error: "x", se: { status: "pendente", resends: 2 } });
+
+  const escrita = chamadas.find((c) => c.metodo === "PATCH");
+  assert.deepEqual(filtros(escrita!.url), { tenant_id: "eq.loja-a", id: "eq.n-1", status: "eq.pendente", resends: "eq.2" });
+  assert.equal((escrita!.corpo as Record<string, unknown>).se, undefined);
 });
 
 test("reabrirAvisos reabre uma vez o que existe e cria o que falta", async () => {

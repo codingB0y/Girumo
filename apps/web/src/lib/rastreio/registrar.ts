@@ -3,6 +3,7 @@ import "server-only";
 import { tenantGrantsPlan } from "@/lib/billing/entitlements";
 import { canaisDoAviso, ehEtapaComAviso, mudancaParaAvisar, recenteNaYampi } from "@/lib/rastreio/avisar";
 import { pepperDoRastreio } from "@/lib/rastreio/documento";
+import { enviarAvisoPorEmail } from "@/lib/rastreio/enviar-email";
 import { pedidoDaYampi } from "@/lib/rastreio/pedido-yampi";
 import type { Canal, OrigemDoPedido, PedidoGravado, PedidoParaGravar, RastreioConfig } from "@/lib/rastreio/tipos";
 import { criarAvisos } from "@/lib/stores/rastreio-avisos";
@@ -20,6 +21,8 @@ export type DepsRegistrar = {
   planoAtivo: (tenantId: string) => Promise<boolean>;
   criarAvisos: typeof criarAvisos;
   avisarLoja: (tenantId: string, pedido: { id: string; numero: string }) => Promise<boolean>;
+  /** Nunca lança: a falha vira retentativa no cron. */
+  enviarEmail: (tenantId: string, avisoId: string) => Promise<boolean>;
   agora: () => Date;
 };
 
@@ -43,7 +46,8 @@ export async function avisarLojaDoProblema(tenantId: string, pedido: { id: strin
 
 const DEPS: DepsRegistrar = {
   pepper: pepperDoRastreio, gravarPedido, lerConfig, planoAtivo: tenantGrantsPlan, criarAvisos,
-  avisarLoja: avisarLojaDoProblema, agora: () => new Date(),
+  avisarLoja: avisarLojaDoProblema, enviarEmail: enviarAvisoPorEmail,
+  agora: () => new Date(),
 };
 
 /**
@@ -83,5 +87,8 @@ export async function registrarPedidoDaYampi(
   const avisos = canais.length > 0 && ehEtapaComAviso(gravado.etapa)
     ? await deps.criarAvisos(tenantId, gravado.id, gravado.etapa, canais)
     : [];
+  // Na hora só pelo webhook, com `await` (o registrar já roda no `after()` do aviso da Yampi). Na varredura,
+  // o passo "e-mails" do cron, logo depois e com teto por rodada, manda.
+  if (origem === "aviso") for (const aviso of avisos) if (aviso.canal === "email") await deps.enviarEmail(tenantId, aviso.id);
   return { gravado, avisos };
 }

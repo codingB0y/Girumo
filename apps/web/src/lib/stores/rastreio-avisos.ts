@@ -10,7 +10,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
  */
 
 const AVISOS = "tracking_notices";
-const COLUNAS = "id,order_id,etapa,channel,attempts,resends,message_id";
+const COLUNAS = "id,order_id,etapa,channel,attempts,resends,message_id,updated_at";
 
 type Linha = {
   id: string;
@@ -20,6 +20,7 @@ type Linha = {
   attempts: number;
   resends: number;
   message_id: string | null;
+  updated_at: string;
 };
 
 function paraAviso(l: Linha): AvisoParaEnviar {
@@ -31,6 +32,7 @@ function paraAviso(l: Linha): AvisoParaEnviar {
     attempts: l.attempts,
     resends: l.resends,
     messageId: l.message_id,
+    updatedAt: l.updated_at,
   };
 }
 
@@ -68,6 +70,20 @@ export async function avisosParaEnviar(tenantId: string, canal: Canal, limite: n
   return ((data ?? []) as unknown as Linha[]).map(paraAviso);
 }
 
+/** O aviso `pendente` desta loja com esse id, sem olhar a espera; `null` se já saiu, foi pulado ou é de outra loja. */
+export async function avisoPendente(tenantId: string, avisoId: string): Promise<AvisoParaEnviar | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(AVISOS)
+    .select(COLUNAS)
+    .eq("tenant_id", tenantId)
+    .eq("id", avisoId)
+    .eq("status", "pendente")
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const [linha] = (data ?? []) as unknown as Linha[];
+  return linha ? paraAviso(linha) : null;
+}
+
 /** Os que já saíram para a fila de envio e esperam o resultado. */
 export async function avisosEnviando(tenantId: string, canal: Canal, limite: number): Promise<AvisoParaEnviar[]> {
   const { data, error } = await getSupabaseAdmin()
@@ -84,7 +100,8 @@ export async function avisosEnviando(tenantId: string, canal: Canal, limite: num
 
 /**
  * Grava só o que veio. `somarTentativa` lê `attempts` e grava +1: duas gravações simultâneas do mesmo
- * aviso somam uma, ao custo de uma retentativa a mais.
+ * aviso somam uma, ao custo de uma retentativa a mais. Com `se`, grava só se o aviso ainda está naquele
+ * status e reenvio; senão não faz nada (outro envio, o "parar avisos" ou o reenvio já resolveram).
  */
 export async function marcarAviso(
   tenantId: string,
@@ -96,6 +113,7 @@ export async function marcarAviso(
     nextTryAt?: string | null;
     somarTentativa?: boolean;
     sentAt?: string | null;
+    se?: { status: AvisoStatus; resends: number };
   },
 ): Promise<void> {
   const db = getSupabaseAdmin();
@@ -106,7 +124,7 @@ export async function marcarAviso(
     if (!data) throw new Error("rastreio: aviso não encontrado");
     attempts = (data as { attempts: number }).attempts + 1;
   }
-  const { data, error } = await db
+  let query = db
     .from(AVISOS)
     .update({
       status: patch.status,
@@ -118,10 +136,11 @@ export async function marcarAviso(
       updated_at: new Date().toISOString(),
     })
     .eq("tenant_id", tenantId)
-    .eq("id", avisoId)
-    .select("id");
+    .eq("id", avisoId);
+  if (patch.se) query = query.eq("status", patch.se.status).eq("resends", patch.se.resends);
+  const { data, error } = await query.select("id");
   if (error) throw new Error(error.message);
-  if (!data?.length) throw new Error("rastreio: aviso não encontrado");
+  if (!data?.length && !patch.se) throw new Error("rastreio: aviso não encontrado");
 }
 
 /**

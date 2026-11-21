@@ -1,5 +1,6 @@
 import "server-only";
 
+import { enviarEmailsPendentes } from "@/lib/rastreio/enviar-email";
 import { importarPedidos, varrerPedidos } from "@/lib/rastreio/importar";
 import type { RastreioConfig } from "@/lib/rastreio/tipos";
 import { avancarCursor, garantirConfig, lerConfig, lojasComRastreio, marcarImportado } from "@/lib/stores/rastreio-config";
@@ -22,12 +23,14 @@ export type DepsCron = {
   marcarImportado: typeof marcarImportado;
   varrer: typeof varrerPedidos;
   purgar: typeof purgarVencidos;
+  enviarEmails: (tenantId: string, agora: Date) => Promise<number>;
   relogio: () => number;
 };
 
 const DEPS: DepsCron = {
   lojas: lojasComRastreio, lerConfig, garantirConfig, conexao: conexaoYampiAtiva, importar: importarPedidos,
-  avancarCursor, marcarImportado, varrer: varrerPedidos, purgar: purgarVencidos, relogio: Date.now,
+  avancarCursor, marcarImportado, varrer: varrerPedidos, purgar: purgarVencidos, enviarEmails: enviarEmailsPendentes,
+  relogio: Date.now,
 };
 
 const MOTIVO_DA_YAMPI: Record<number, string> = {
@@ -79,12 +82,13 @@ export async function rodarCronRastreio(
     if (!lida) continue;
     if (lida.config?.importedAt) await passo("varrer", tenantId, () => deps.varrer(tenantId, agora));
     else novas.push([tenantId, lida.config]);
+    // Fora do `if`: o aviso criado pelo webhook sai mesmo com a API da loja fora. PR 5: os passos de WhatsApp entram antes deste.
+    await passo("e-mails", tenantId, () => deps.enviarEmails(tenantId, agora));
   }
   for (const [i, [tenantId, config]] of novas.entries()) {
     if (esgotado()) { adiadas += novas.length - i; break; }
     await passo("ligar", tenantId, () => ligarLoja(tenantId, config, agora, deps));
   }
-  // PRs 4 e 5: passos de e-mail e WhatsApp por loja, independentes da varredura: aviso criado pelo webhook sai mesmo com a API da loja fora.
   if (adiadas > 0) console.warn(`[rastreio/cron] orçamento de tempo esgotado: ${adiadas} lojas ficam para a próxima rodada`);
   return { lojas: lojas.length, falhas, purgados };
 }
