@@ -24,6 +24,9 @@ const JANELA_DOS_PEDIDOS_MS = 30 * DIA_MS;
 const RENOVAR_ANTES_MS = 7 * DIA_MS;
 const TETO_DE_PAGINAS = 20;
 const TENTATIVAS_DE_GRAVAR_TOKENS = 3;
+const ESPERA_ENTRE_GRAVACOES_MS = 250;
+/** Uma página ou uma renovação leva até 15 s (timeout do cliente), mais a gravação. */
+const FOLGA_DO_PRAZO_MS = 30_000;
 const ROTULO = "[rastreio/melhor-envio]";
 
 export type ResultadoDosMarcos = { pedidos: number; casados: number; marcos: number; paginas: number };
@@ -44,10 +47,11 @@ const DEPS = {
   reivindicar: reivindicarPassada, aCaminho: pedidosACaminho, listar: paginaDeEtiquetas, credenciais: credenciaisMelhorEnvio,
   chave: chaveDeIntegracoes, renovar: renovarToken, trocarTokens, reautorizar: marcarReautorizar,
   avisarReconectar: avisarReconectarMelhorEnvio, gravarMarco, avisar: avisarEtapaNova, concluir: concluirPassada,
+  relogio: Date.now,
 };
 export type DepsMarcos = typeof DEPS;
 
-type Contexto = { tenantId: string; agora: Date; chave: Buffer; cred: CredenciaisMelhorEnvio; deps: DepsMarcos };
+type Contexto = { tenantId: string; agora: Date; prazo: number; chave: Buffer; cred: CredenciaisMelhorEnvio; deps: DepsMarcos };
 type Acesso = { access: string; refreshEnc: string };
 type PaginaDeEtiquetas = Awaited<ReturnType<typeof paginaDeEtiquetas>>;
 type Concluir = (temEtiqueta: boolean | null, erro: string | null) => Promise<void>;
@@ -55,41 +59,50 @@ type Concluir = (temEtiqueta: boolean | null, erro: string | null) => Promise<vo
 /**
  * `null` = loja sem conexão ativa, fora da vez (30 min), conexão que virou `reautorizar` nesta passada, ou
  * reconectada no meio dela. Erro do Melhor Envio fica em `last_error` (código) e sobe para o passo do cron.
- * // ponytail: sem orçamento de tempo próprio; 20 páginas lentas (até 15 s cada) passam do orçamento do cron —
- * cortar a paginação pelo relógio se aparecer no log.
+ * `prazo` (no relógio de `deps.relogio`) é o fim do orçamento do cron: perto dele, nenhuma página nem renovação começa.
  */
-export async function rodarMarcosDoMelhorEnvio(tenantId: string, agora: Date, deps: DepsMarcos = DEPS): Promise<ResultadoDosMarcos | null> {
+export async function rodarMarcosDoMelhorEnvio(
+  tenantId: string,
+  agora: Date,
+  prazo = Number.POSITIVE_INFINITY,
+  deps: DepsMarcos = DEPS,
+): Promise<ResultadoDosMarcos | null> {
   const conexao = await deps.reivindicar(tenantId, agora, INTERVALO_DA_PASSADA_MS);
   if (!conexao) return null;
   const primeiraPassada = conexao.primeiraPassadaEm === null;
   const concluir: Concluir = (temEtiqueta, erro) => deps.concluir(tenantId, { agora, primeiraPassada, temEtiqueta, erro });
   try {
-    return await passada(tenantId, agora, conexao, concluir, deps);
+    return await passada(tenantId, agora, prazo, conexao, concluir, deps);
   } catch (e) {
     await concluir(null, codigoDoErro(e)).catch((f) => console.error(`${ROTULO} ${tenantId}: a passada não fechou: ${mensagem(f)}`));
     throw e;
   }
 }
 
-async function passada(tenantId: string, agora: Date, conexao: ConexaoMelhorEnvio, concluir: Concluir, deps: DepsMarcos): Promise<ResultadoDosMarcos | null> {
-  const pedidos = await deps.aCaminho(tenantId, new Date(agora.getTime() - JANELA_DOS_PEDIDOS_MS));
-  if (pedidos.length === 0) {
-    await concluir(null, null);
-    return { pedidos: 0, casados: 0, marcos: 0, paginas: 0 };
-  }
+async function passada(
+  tenantId: string, agora: Date, prazo: number, conexao: ConexaoMelhorEnvio, concluir: Concluir, deps: DepsMarcos,
+): Promise<ResultadoDosMarcos | null> {
   const chave = deps.chave();
   const cred = deps.credenciais();
   if (!chave || !cred) throw new Error(`${ROTULO} MELHORENVIO_CLIENT_ID/SECRET ou INTEGRATIONS_ENCRYPTION_KEY ausente`);
-  const c: Contexto = { tenantId, agora, chave, cred, deps };
+  const c: Contexto = { tenantId, agora, prazo, chave, cred, deps };
 
+  // O token antes dos pedidos: loja sem envio por semanas ainda renova, e a renovação de 45 dias não vence parada.
   const acesso = await acessoValido(c, conexao);
   if (!acesso) return null;
+  const pedidos = await deps.aCaminho(tenantId, new Date(agora.getTime() - JANELA_DOS_PEDIDOS_MS));
+  if (pedidos.length === 0) {
+    // Sem ler etiqueta, a primeira passada não conta: a importação da Yampi pode trazer agora pedidos já entregues.
+    await deps.concluir(tenantId, { agora, primeiraPassada: false, temEtiqueta: null, erro: null });
+    return { pedidos: 0, casados: 0, marcos: 0, paginas: 0 };
+  }
   // A primeira passada depois de conectar só grava: a conta pode chegar com dezenas de etiquetas já entregues.
   const origem: OrigemDoPedido = conexao.primeiraPassadaEm === null ? "importacao" : "varredura";
   const r = await casarPaginas(c, acesso.access, pedidos, origem);
   if (r.recusada) {
     // A chave morreu antes do prazo (a loja trocou a senha ou tirou o app): renova já; a lista fica para a próxima passada.
-    if (!(await renovar(c, acesso.refreshEnc))) return null;
+    // ponytail: 401 que volta logo depois de renovar (escopo ou conta suspensa) renova a cada passada sem virar `reautorizar`; contar recusas seguidas se aparecer.
+    if (!semTempo(c) && !(await renovar(c, acesso.refreshEnc))) return null;
     await concluir(r.viuEtiqueta, "chave_recusada");
   } else {
     await concluir(r.viuEtiqueta, null);
@@ -97,13 +110,23 @@ async function passada(tenantId: string, agora: Date, conexao: ConexaoMelhorEnvi
   return { pedidos: pedidos.length, casados: r.casados, marcos: r.marcos, paginas: r.paginas };
 }
 
+/**
+ * Morrer pelo `maxDuration` entre a resposta da renovação e a gravação perde o par novo (o Melhor Envio já
+ * invalidou o antigo) e obriga a lojista a reconectar: perto do prazo, nenhuma renovação nem página começa.
+ */
+const semTempo = (c: Contexto): boolean => c.prazo - c.deps.relogio() < FOLGA_DO_PRAZO_MS;
+
 async function acessoValido(c: Contexto, conexao: ConexaoMelhorEnvio): Promise<Acesso | null> {
   if (Date.parse(conexao.renovacaoExpiraEm) <= c.agora.getTime()) {
     await reautorizar(c, conexao.refreshTokenEnc, "renovacao_vencida");
     return null;
   }
-  if (Date.parse(conexao.expiraEm) - c.agora.getTime() < RENOVAR_ANTES_MS) return renovar(c, conexao.refreshTokenEnc);
-  return { access: abrir(conexao.accessTokenEnc, contextoDoTokenMe(c.tenantId, "access"), c.chave), refreshEnc: conexao.refreshTokenEnc };
+  const expira = Date.parse(conexao.expiraEm);
+  const lido = (): Acesso => ({ access: abrir(conexao.accessTokenEnc, contextoDoTokenMe(c.tenantId, "access"), c.chave), refreshEnc: conexao.refreshTokenEnc });
+  if (expira - c.agora.getTime() >= RENOVAR_ANTES_MS) return lido();
+  if (!semTempo(c)) return renovar(c, conexao.refreshTokenEnc);
+  // Sem tempo para renovar: usa o acesso que ainda vale; vencido, a passada fica para a próxima rodada.
+  return expira > c.agora.getTime() ? lido() : null;
 }
 
 /**
@@ -132,12 +155,22 @@ async function renovar(c: Contexto, refreshEnc: string): Promise<Acesso | null> 
       return gravou ? { access: novos.accessToken, refreshEnc: selado.refreshTokenEnc } : null;
     } catch (e) {
       if (tentativa >= TENTATIVAS_DE_GRAVAR_TOKENS) throw e;
+      await new Promise((ok) => setTimeout(ok, ESPERA_ENTRE_GRAVACOES_MS * tentativa));
     }
   }
 }
 
+/**
+ * A transição `ativa → reautorizar` acontece uma vez; o sininho que falha não volta a ser tentado, então a
+ * falha dele só vai para o log (subir levaria o `concluir` a apagar o motivo gravado em `last_error`).
+ */
 async function reautorizar(c: Contexto, refreshEnc: string, motivo: string): Promise<void> {
-  if (await c.deps.reautorizar(c.tenantId, refreshEnc, motivo)) await c.deps.avisarReconectar(c.tenantId);
+  if (!(await c.deps.reautorizar(c.tenantId, refreshEnc, motivo))) return;
+  try {
+    await c.deps.avisarReconectar(c.tenantId);
+  } catch (e) {
+    console.error(`${ROTULO} ${c.tenantId}: o sininho de reconexão não gravou: ${mensagem(e)}`);
+  }
 }
 
 type Casamento = { casados: number; marcos: number; paginas: number; viuEtiqueta: boolean | null; recusada: boolean };
@@ -150,6 +183,10 @@ async function casarPaginas(c: Contexto, access: string, pedidos: PedidoACaminho
   }
   const r: Casamento = { casados: 0, marcos: 0, paginas: 0, viuEtiqueta: null, recusada: false };
   for (let pagina = 1; pagina <= TETO_DE_PAGINAS && faltam.size > 0; pagina++) {
+    if (pagina > 1 && semTempo(c)) {
+      console.warn(`${ROTULO} ${c.tenantId}: parou na página ${pagina - 1} pelo prazo do cron`);
+      break;
+    }
     let lida: PaginaDeEtiquetas;
     try {
       lida = await c.deps.listar(access, pagina);
@@ -159,7 +196,7 @@ async function casarPaginas(c: Contexto, access: string, pedidos: PedidoACaminho
       break;
     }
     r.paginas++;
-    if (pagina === 1) r.viuEtiqueta = lida.etiquetas.length > 0;
+    if (pagina === 1) r.viuEtiqueta = lida.ultimaPagina > 0; // só o 204 diz "conta sem etiqueta"
     for (const etiqueta of lida.etiquetas) {
       const codigo = normalizarCodigo(etiqueta.tracking);
       const pedido = codigo === null ? undefined : faltam.get(codigo);
@@ -177,11 +214,18 @@ async function casarPaginas(c: Contexto, access: string, pedidos: PedidoACaminho
 
 /** A lista vem da etiqueta mais nova à mais antiga, e a etiqueta nasce depois do pedido. */
 function acabou(lida: PaginaDeEtiquetas, pagina: number, faltam: Map<string, PedidoACaminho>): boolean {
-  if (faltam.size === 0 || pagina >= lida.ultimaPagina || lida.etiquetas.length === 0) return true;
-  const criadas = lida.etiquetas.map((e) => (e.criadaEm ? Date.parse(e.criadaEm) : NaN)).filter(Number.isFinite);
-  // Abaixo da criação do pedido mais antigo que falta (com 1 dia de folga para o fuso), não há mais nada a casar.
-  const limite = Math.min(...[...faltam.values()].map((p) => Date.parse(p.orderCreatedAt))) - DIA_MS;
-  return criadas.length > 0 && Math.min(...criadas) < limite;
+  if (faltam.size === 0 || pagina >= lida.ultimaPagina) return true;
+  // A página INTEIRA abaixo da criação do pedido mais antigo que falta (com 1 dia de folga para o fuso): não há
+  // mais nada a casar. Pela mais nova da página, não pela mais velha: uma etiqueta antiga fora de ordem não corta.
+  // Laço e não `Math.max(...lista)`: página fora do padrão com dezenas de milhares de itens estoura o spread.
+  let maisNova = Number.NEGATIVE_INFINITY;
+  for (const e of lida.etiquetas) {
+    const t = e.criadaEm ? Date.parse(e.criadaEm) : NaN;
+    if (t > maisNova) maisNova = t;
+  }
+  let pedidoMaisAntigo = Number.POSITIVE_INFINITY;
+  for (const p of faltam.values()) pedidoMaisAntigo = Math.min(pedidoMaisAntigo, Date.parse(p.orderCreatedAt));
+  return maisNova > Number.NEGATIVE_INFINITY && maisNova < pedidoMaisAntigo - DIA_MS;
 }
 
 /** `true` = o marco mudou a etapa. Um pedido que falha não para os outros. */

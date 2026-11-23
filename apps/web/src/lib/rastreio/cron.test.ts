@@ -36,7 +36,7 @@ function montar(extra: Partial<DepsCron> = {}) {
     varrer: async (id) => { log.varrer.push(id); log.ordem.push(`varrer ${id}`); return 0; },
     purgar: async () => { log.purgar++; log.ordem.push("purgar"); return 3; },
     enviarEmails: async (id, agora) => { log.emails.push([id, agora]); log.ordem.push(`e-mails ${id}`); return 0; },
-    marcos: async (id, agora) => { log.marcos.push([id, agora]); return null; },
+    marcos: async (id, agora, prazo) => { log.marcos.push([id, agora, prazo]); return null; },
     relogio: () => 0,
     ...extra,
   };
@@ -151,7 +151,7 @@ test("e-mail que lança numa loja não para as outras", async (t) => {
 test("o passo do Melhor Envio roda em toda loja, até sem Yampi conectada", async () => {
   const { deps, log } = montar({ lerConfig: async () => null, conexao: async () => null });
   assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 2, falhas: 0, purgados: null });
-  assert.deepEqual(log.marcos, [["loja-a", AGORA], ["loja-b", AGORA]]);
+  assert.deepEqual(log.marcos, [["loja-a", AGORA, 240_000], ["loja-b", AGORA, 240_000]]); // o prazo é o fim do orçamento do cron
 });
 
 test("Melhor Envio fora numa loja não para as outras", async (t) => {

@@ -25,7 +25,8 @@ export type DepsCron = {
   varrer: typeof varrerPedidos;
   purgar: typeof purgarVencidos;
   enviarEmails: (tenantId: string, agora: Date) => Promise<number>;
-  marcos: (tenantId: string, agora: Date) => Promise<unknown>;
+  /** `prazo` = fim do orçamento desta execução, no relógio de `relogio`. */
+  marcos: (tenantId: string, agora: Date, prazo: number) => Promise<unknown>;
   relogio: () => number;
 };
 
@@ -85,7 +86,7 @@ export async function rodarCronRastreio(
     if (lida.config?.importedAt) await passo("varrer", tenantId, () => deps.varrer(tenantId, agora));
     else novas.push([tenantId, lida.config]);
     // Fora do `if`, como os envios: a passada não depende da Yampi, e o aviso que o marco cria sai nesta mesma rodada.
-    await passo("melhor envio", tenantId, () => deps.marcos(tenantId, agora));
+    await passo("melhor envio", tenantId, () => deps.marcos(tenantId, agora, inicio + ORCAMENTO_DA_EXECUCAO_MS));
     // Fora do `if`: o aviso criado pelo webhook sai mesmo com a API da loja fora. PR 5: os passos de WhatsApp entram antes deste.
     await passo("e-mails", tenantId, () => deps.enviarEmails(tenantId, agora));
   }
