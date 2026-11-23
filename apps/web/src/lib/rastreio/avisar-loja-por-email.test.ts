@@ -23,6 +23,8 @@ function montar(extra: Partial<DepsDoAlertaDaLoja> = {}) {
     enviar: async (o) => { enviados.push(o); return true; },
     appUrl: () => "https://app.girumo.test",
     config: async () => CONFIG,
+    estourou: async () => false,
+    prazoMs: 1000,
     ...extra,
   };
   return { deps, enviados };
@@ -82,6 +84,28 @@ test("com o aviso por e-mail desligado (ou sem config), nenhum envio", async () 
     await emailDoProblemaParaLoja("t-1", PEDIDO, deps);
     assert.deepEqual([enviados, lidos], [[], 0]);
   }
+});
+
+test("acima do teto da loja, só o sininho: nenhum e-mail", async () => {
+  let teto: string | undefined;
+  const { deps, enviados } = montar({ estourou: async (t) => { teto = t; return true; } });
+  const log = await comLog(() => emailDoProblemaParaLoja("t-1", PEDIDO, deps));
+  assert.deepEqual([enviados, teto], [[], "t-1"]);
+  assert.equal(log.length, 1);
+});
+
+test("com o aviso por e-mail desligado, o teto não é gasto", async () => {
+  let gastos = 0;
+  const { deps } = montar({ config: async () => ({ ...CONFIG, notifyStoreOnProblem: false }), estourou: async () => { gastos++; return false; } });
+  await emailDoProblemaParaLoja("t-1", PEDIDO, deps);
+  assert.equal(gastos, 0);
+});
+
+test("envio que pendura: desiste no prazo, resolve e não lança", async () => {
+  const { deps } = montar({ enviar: () => new Promise<boolean>(() => undefined), prazoMs: 20 });
+  const log = await comLog(() => emailDoProblemaParaLoja("t-1", PEDIDO, deps));
+  assert.equal(log.length, 1);
+  assert.ok(log[0].includes("t-1") && !log[0].includes("@"));
 });
 
 test("config ou donos que explodem: nada sai e não lança", async () => {

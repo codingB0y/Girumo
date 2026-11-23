@@ -57,6 +57,13 @@ test("aviso de problema na entrega escapa o nome e o número e leva o botão par
   assert.match(html, /Oi &lt;b&gt;Ana!/);
   assert.match(html, /pedido nº 15&lt;3\./);
   assert.match(html, /href="https:\/\/app\.x\/painel\/vendas\/entregas\?pedido=p-1&amp;v=1"/);
+  // O rótulo é o do interruptor em Configurações › Rastreio de pedidos.
+  assert.match(html, /Me avisar quando um pedido tiver problema na entrega/);
+});
+
+test("o corte do número no assunto não parte um emoji ao meio", () => {
+  const { subject } = rastreioProblemaEmail("Ana", "https://app.x", `${"1".repeat(39)}😀😀`);
+  assert.equal(subject, `Pedido nº ${"1".repeat(39)}😀: a entrega não foi concluída`);
 });
 
 test("o número do pedido no assunto não leva quebra de linha nem passa de 40 caracteres", () => {
