@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   broadcastFailedEmail,
   nudgeConnectEmail,
+  rastreioProblemaEmail,
   weeklyReportEmail,
 } from "./templates";
 
@@ -47,4 +48,26 @@ test("o assunto leva o primeiro nome como texto puro, sem entidade HTML", () => 
   const { subject, html } = nudgeConnectEmail("D'Ávila Souza", "https://app.x");
   assert.equal(subject, "D'Ávila, seu WhatsApp ainda não está conectado");
   assert.match(html, /Oi D&#39;Ávila!/);
+});
+
+test("aviso de problema na entrega escapa o nome e o número e leva o botão para o pedido", () => {
+  const { subject, html } = rastreioProblemaEmail("<b>Ana", "https://app.x/painel/vendas/entregas?pedido=p-1&v=1", "15<3");
+  assert.equal(subject, "Pedido nº 15<3: a entrega não foi concluída");
+  assert.doesNotMatch(html, /<b>Ana/);
+  assert.match(html, /Oi &lt;b&gt;Ana!/);
+  assert.match(html, /pedido nº 15&lt;3\./);
+  assert.match(html, /href="https:\/\/app\.x\/painel\/vendas\/entregas\?pedido=p-1&amp;v=1"/);
+  // O rótulo é o do interruptor em Configurações › Rastreio de pedidos.
+  assert.match(html, /Me avisar quando um pedido tiver problema na entrega/);
+});
+
+test("o corte do número no assunto não parte um emoji ao meio", () => {
+  const { subject } = rastreioProblemaEmail("Ana", "https://app.x", `${"1".repeat(39)}😀😀`);
+  assert.equal(subject, `Pedido nº ${"1".repeat(39)}😀: a entrega não foi concluída`);
+});
+
+test("o número do pedido no assunto não leva quebra de linha nem passa de 40 caracteres", () => {
+  const { subject } = rastreioProblemaEmail("Ana", "https://app.x", `15\r\nBcc: x@y.test${"9".repeat(60)}`);
+  assert.doesNotMatch(subject, /[\r\n]/);
+  assert.equal(subject, `Pedido nº ${`15 Bcc: x@y.test${"9".repeat(60)}`.slice(0, 40)}: a entrega não foi concluída`);
 });

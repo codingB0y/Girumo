@@ -23,7 +23,8 @@ export type EmailKind =
   | "alert_optout"
   | "trial_ending"
   | "bling_reconectar"
-  | "rastreio";
+  | "rastreio"
+  | "rastreio_problema";
 
 export type EmailDelivery = {
   tenantId: string;

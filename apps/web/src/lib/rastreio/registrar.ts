@@ -2,6 +2,7 @@ import "server-only";
 
 import { tenantGrantsPlan } from "@/lib/billing/entitlements";
 import { canaisDoAviso, ehEtapaComAviso, mudancaParaAvisar, recenteNaYampi } from "@/lib/rastreio/avisar";
+import { emailDoProblemaParaLoja } from "@/lib/rastreio/avisar-loja-por-email";
 import { pepperDoRastreio } from "@/lib/rastreio/documento";
 import { enviarAvisoPorEmail } from "@/lib/rastreio/enviar-email";
 import { pedidoDaYampi } from "@/lib/rastreio/pedido-yampi";
@@ -26,8 +27,16 @@ export type DepsRegistrar = {
   agora: () => Date;
 };
 
-/** Sininho da loja: uma notificação por pedido com problema, apontando para Entregas. */
-export async function avisarLojaDoProblema(tenantId: string, pedido: { id: string; numero: string }): Promise<boolean> {
+/**
+ * Sininho da loja: uma notificação por pedido com problema, apontando para Entregas. O e-mail aos donos sai
+ * logo depois de o sininho nascer (então também uma vez por pedido); ele nunca lança, e o sininho gravado
+ * não vira erro.
+ */
+export async function avisarLojaDoProblema(
+  tenantId: string,
+  pedido: { id: string; numero: string },
+  deps: { emailDoProblema: typeof emailDoProblemaParaLoja } = { emailDoProblema: emailDoProblemaParaLoja },
+): Promise<boolean> {
   const db = getSupabaseAdmin();
   const href = `/painel/vendas/entregas?pedido=${pedido.id}`;
   const achou = await db.from("notifications").select("id").eq("tenant_id", tenantId).eq("type", "rastreio_problema").eq("href", href).limit(1);
@@ -41,6 +50,7 @@ export async function avisarLojaDoProblema(tenantId: string, pedido: { id: strin
     href,
   });
   if (error) throw new Error(error.message);
+  await deps.emailDoProblema(tenantId, pedido);
   return true;
 }
 

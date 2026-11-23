@@ -184,6 +184,29 @@ export function blingReconectarEmail(name: string, appUrl: string): { subject: s
   };
 }
 
+// --- Pedido com problema na entrega (aviso à loja; o sininho do painel diz o mesmo) ---
+export function rastreioProblemaEmail(name: string, href: string, numero: string): { subject: string; html: string } {
+  const firstName = escapeHtml(primeiroNome(name));
+  // O número vem da Yampi: sem controle nem quebra de linha no assunto, e curto (como no e-mail da compradora).
+  const n = Array.from(numero.replace(/[\s\p{Cc}\p{Cf}]+/gu, " ").trim()).slice(0, 40).join("");
+  return {
+    subject: `Pedido nº ${n}: a entrega não foi concluída`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Entrega com problema</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! A transportadora não conseguiu entregar o pedido nº ${escapeHtml(n)}. Fale com a compradora para combinar o que fazer.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Se o aviso de problema estiver ligado, a compradora recebe uma mensagem dizendo que a loja vai entrar em contato.
+      </p>
+      ${button("Ver o pedido", escapeHtml(href))}
+      <p style="margin:20px 0 0;font-size:13px;color:${BRAND_COLORS.slate}">
+        Não quer receber este e-mail? Desligue "Me avisar quando um pedido tiver problema na entrega" em Configurações › Rastreio de pedidos. O aviso no painel continua.
+      </p>
+    `),
+  };
+}
+
 /**
  * Risco de desconexão por inatividade do celular (a regra dos 14 dias).
  *
