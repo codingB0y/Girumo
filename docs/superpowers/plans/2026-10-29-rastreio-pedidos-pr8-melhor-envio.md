@@ -702,7 +702,7 @@ Textos (exatos):
 - Conectada: "Conectado à conta {contaNome} · {contaEmail}"; "{n} entregas confirmadas pelo Melhor Envio em 7 dias"
   (`n === 1` → "1 entrega confirmada…"); sem primeira passada: "Primeira consulta em até 30 min. Ela só grava: entrega
   antiga não vira aviso."; com `ultimaConsultaEm`: "Última consulta às {HH:mm}"; com `ultimoErro`: "A última consulta
-  falhou: {ultimoErro}"; `temEtiqueta === false`: "Esta conta não tem nenhuma etiqueta. Se as etiquetas da loja saem por
+  falhou: {texto do código}" (o `ultimoErro` é código curto: Divergência 13); `temEtiqueta === false`: "Esta conta não tem nenhuma etiqueta. Se as etiquetas da loja saem por
   outra conta do Melhor Envio, desconecte e conecte com ela."; botão "Desconectar" com a confirmação "Desconectar o
   Melhor Envio? Os avisos de “entregue” e “não entregue” voltam a depender da Yampi."
 - `reautorizar`: "O Melhor Envio recusou a renovação do acesso. Os avisos de entrega voltaram a depender da Yampi." +
@@ -789,3 +789,7 @@ Textos (exatos):
     permitido pela regra do PR 1) e volta na passada seguinte. Aviso não repete (`unique (order_id, etapa, channel)`).
     `ponytail:` aceitar até aparecer na prova; o conserto é a `rastreio_gravar_pedido` não aceitar `enviado` da Yampi
     sobre `status_raw like 'melhorenvio:%'`.
+13. **`last_error` em código, não em frase** (Parte 4). A store da Parte 3 grava só `^[a-z0-9_]{1,40}$` (o resto vira
+    `erro`), então a passada grava: `renovacao_vencida`, `renovacao_recusada` (os dois vão com `reautorizar`),
+    `chave_recusada` (401 na lista), `http_<status>`, `sem_resposta`, `renovacao_<tipo do ErroOAuthMelhorEnvio>` ou
+    `erro`. A Parte 6 traduz no cartão. O log do passo do cron segue com a mensagem fixa do erro.

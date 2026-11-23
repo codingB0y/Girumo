@@ -79,19 +79,34 @@ export async function registrarPedidoDaYampi(
     return null;
   }
   const gravado = await deps.gravarPedido(tenantId, pedido, origem);
+  const avisos = await avisarEtapaNova(tenantId, gravado, { origem, atualizadoEm: pedido.atualizadoNaYampi, numero: pedido.numero }, deps);
+  return { gravado, avisos };
+}
+
+/**
+ * O que vem depois de gravar a etapa, para o pedido da Yampi e para o marco do Melhor Envio: sininho do
+ * problema e avisos da matriz. `atualizadoEm` é quando a etapa aconteceu na origem (o `updated_at` da Yampi
+ * ou a data do marco); acima de 3 dias não avisa.
+ */
+export async function avisarEtapaNova(
+  tenantId: string,
+  gravado: PedidoGravado,
+  e: { origem: OrigemDoPedido; atualizadoEm: string; numero: string },
+  deps: DepsRegistrar = DEPS,
+): Promise<{ id: string; canal: Canal }[]> {
+  const { origem, atualizadoEm: atualizadoNaYampi } = e;
   const agora = deps.agora();
-  const sem = { gravado, avisos: [] };
-  const avisar = mudancaParaAvisar({ gravado, origem, atualizadoNaYampi: pedido.atualizadoNaYampi, agora });
-  const sininho = gravado.etapa === "problema" && origem !== "importacao" && recenteNaYampi(pedido.atualizadoNaYampi, agora);
-  if (!avisar && !sininho) return sem;
+  const avisar = mudancaParaAvisar({ gravado, origem, atualizadoNaYampi, agora });
+  const sininho = gravado.etapa === "problema" && origem !== "importacao" && recenteNaYampi(atualizadoNaYampi, agora);
+  if (!avisar && !sininho) return [];
 
   const [plano, config] = await Promise.all([deps.planoAtivo(tenantId), deps.lerConfig(tenantId)]);
-  if (!plano || !config) return sem;
-  if (sininho) await deps.avisarLoja(tenantId, { id: gravado.id, numero: pedido.numero });
-  if (!avisar) return sem;
+  if (!plano || !config) return [];
+  if (sininho) await deps.avisarLoja(tenantId, { id: gravado.id, numero: e.numero });
+  if (!avisar) return [];
 
   const canais = canaisDoAviso({
-    gravado, origem, atualizadoNaYampi: pedido.atualizadoNaYampi, agora, matriz: config.matrix,
+    gravado, origem, atualizadoNaYampi, agora, matriz: config.matrix,
     paradoEm: gravado.paradoEm, temTelefone: gravado.temTelefone, temEmail: gravado.temEmail,
   });
   const avisos = canais.length > 0 && ehEtapaComAviso(gravado.etapa)
@@ -100,5 +115,5 @@ export async function registrarPedidoDaYampi(
   // Na hora só pelo webhook, com `await` (o registrar já roda no `after()` do aviso da Yampi). Na varredura,
   // o passo "e-mails" do cron, logo depois e com teto por rodada, manda.
   if (origem === "aviso") for (const aviso of avisos) if (aviso.canal === "email") await deps.enviarEmail(tenantId, aviso.id);
-  return { gravado, avisos };
+  return avisos;
 }

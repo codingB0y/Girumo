@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
-import { avisarLojaDoProblema, registrarPedidoDaYampi, type DepsRegistrar } from "@/lib/rastreio/registrar";
+import { avisarEtapaNova, avisarLojaDoProblema, registrarPedidoDaYampi, type DepsRegistrar } from "@/lib/rastreio/registrar";
 import { MATRIZ_PADRAO, type PedidoGravado, type RastreioConfig } from "@/lib/rastreio/tipos";
 import { pedidoYampi } from "@/test/rastreio-dados-falsos";
 
@@ -138,6 +138,35 @@ test("payload fora do formato: null e nada gravado", async () => {
   const { deps, log } = montar();
   assert.equal(await registrarPedidoDaYampi("loja-a", {}, "aviso", deps), null);
   assert.equal(log.gravar, 0);
+});
+
+// --- avisarEtapaNova: o mesmo passo, chamado pelo marco do Melhor Envio ---
+const MARCO_ENTREGUE: PedidoGravado = { ...GRAVADO, etapa: "entregue", etapaAnterior: "enviado" };
+const DO_MARCO = { origem: "varredura" as const, atualizadoEm: "2026-10-29T10:00:00Z", numero: "1042" };
+
+test("marco recente vira aviso pela matriz", async () => {
+  const { deps, log } = montar();
+  const avisos = await avisarEtapaNova("loja-a", MARCO_ENTREGUE, DO_MARCO, deps);
+  assert.deepEqual(log.criar, [["loja-a", "ped-1", "entregue", ["whatsapp"]]]); // matriz padrão: entregue só WhatsApp
+  assert.deepEqual(avisos, [{ id: "av-0", canal: "whatsapp" }]);
+});
+
+test("primeira passada do Melhor Envio não avisa", async () => {
+  const { deps, log } = montar();
+  assert.deepEqual(await avisarEtapaNova("loja-a", MARCO_ENTREGUE, { ...DO_MARCO, origem: "importacao" }, deps), []);
+  assert.deepEqual([log.config, log.criar, log.loja], [0, [], []]);
+});
+
+test("marco velho não avisa", async () => {
+  const { deps, log } = montar();
+  assert.deepEqual(await avisarEtapaNova("loja-a", MARCO_ENTREGUE, { ...DO_MARCO, atualizadoEm: "2026-10-25T14:00:00Z" }, deps), []);
+  assert.deepEqual(log.criar, []);
+});
+
+test("problema do Melhor Envio avisa a loja com o número certo", async () => {
+  const { deps, log } = montar();
+  await avisarEtapaNova("loja-a", { ...MARCO_ENTREGUE, etapa: "problema" }, { ...DO_MARCO, numero: "2077" }, deps);
+  assert.deepEqual(log.loja, [["loja-a", { id: "ped-1", numero: "2077" }]]);
 });
 
 // --- sininho, com PostgREST falso ---

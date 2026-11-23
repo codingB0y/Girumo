@@ -2,6 +2,7 @@ import "server-only";
 
 import { enviarEmailsPendentes } from "@/lib/rastreio/enviar-email";
 import { importarPedidos, varrerPedidos } from "@/lib/rastreio/importar";
+import { rodarMarcosDoMelhorEnvio } from "@/lib/rastreio/melhor-envio";
 import type { RastreioConfig } from "@/lib/rastreio/tipos";
 import { avancarCursor, garantirConfig, lerConfig, lojasComRastreio, marcarImportado } from "@/lib/stores/rastreio-config";
 import { purgarVencidos } from "@/lib/stores/rastreio-pedidos";
@@ -24,13 +25,15 @@ export type DepsCron = {
   varrer: typeof varrerPedidos;
   purgar: typeof purgarVencidos;
   enviarEmails: (tenantId: string, agora: Date) => Promise<number>;
+  /** `prazo` = fim do orçamento desta execução, no relógio de `relogio`. */
+  marcos: (tenantId: string, agora: Date, prazo: number) => Promise<unknown>;
   relogio: () => number;
 };
 
 const DEPS: DepsCron = {
   lojas: lojasComRastreio, lerConfig, garantirConfig, conexao: conexaoYampiAtiva, importar: importarPedidos,
   avancarCursor, marcarImportado, varrer: varrerPedidos, purgar: purgarVencidos, enviarEmails: enviarEmailsPendentes,
-  relogio: Date.now,
+  marcos: rodarMarcosDoMelhorEnvio, relogio: Date.now,
 };
 
 const MOTIVO_DA_YAMPI: Record<number, string> = {
@@ -82,6 +85,8 @@ export async function rodarCronRastreio(
     if (!lida) continue;
     if (lida.config?.importedAt) await passo("varrer", tenantId, () => deps.varrer(tenantId, agora));
     else novas.push([tenantId, lida.config]);
+    // Fora do `if`, como os envios: a passada não depende da Yampi, e o aviso que o marco cria sai nesta mesma rodada.
+    await passo("melhor envio", tenantId, () => deps.marcos(tenantId, agora, inicio + ORCAMENTO_DA_EXECUCAO_MS));
     // Fora do `if`: o aviso criado pelo webhook sai mesmo com a API da loja fora. PR 5: os passos de WhatsApp entram antes deste.
     await passo("e-mails", tenantId, () => deps.enviarEmails(tenantId, agora));
   }

@@ -23,6 +23,7 @@ function montar(extra: Partial<DepsCron> = {}) {
   const log = {
     garantir: [] as unknown[], importar: [] as unknown[], cursor: [] as unknown[],
     importado: [] as unknown[], varrer: [] as unknown[], purgar: 0, ordem: [] as string[], emails: [] as unknown[],
+    marcos: [] as unknown[],
   };
   const deps: DepsCron = {
     lojas: async () => ["loja-a", "loja-b"],
@@ -35,6 +36,7 @@ function montar(extra: Partial<DepsCron> = {}) {
     varrer: async (id) => { log.varrer.push(id); log.ordem.push(`varrer ${id}`); return 0; },
     purgar: async () => { log.purgar++; log.ordem.push("purgar"); return 3; },
     enviarEmails: async (id, agora) => { log.emails.push([id, agora]); log.ordem.push(`e-mails ${id}`); return 0; },
+    marcos: async (id, agora, prazo) => { log.marcos.push([id, agora, prazo]); return null; },
     relogio: () => 0,
     ...extra,
   };
@@ -144,6 +146,29 @@ test("e-mail que lança numa loja não para as outras", async (t) => {
   });
   assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 2, falhas: 1, purgados: null });
   assert.deepEqual([log.emails, erros], [[["loja-a", AGORA], ["loja-b", AGORA]], ["[rastreio/cron] e-mails loja-a: resend fora do ar"]]);
+});
+
+test("o passo do Melhor Envio roda em toda loja, até sem Yampi conectada", async () => {
+  const { deps, log } = montar({ lerConfig: async () => null, conexao: async () => null });
+  assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 2, falhas: 0, purgados: null });
+  assert.deepEqual(log.marcos, [["loja-a", AGORA, 240_000], ["loja-b", AGORA, 240_000]]); // o prazo é o fim do orçamento do cron
+});
+
+test("Melhor Envio fora numa loja não para as outras", async (t) => {
+  const erros: string[] = [];
+  t.mock.method(console, "error", (m: unknown) => erros.push(String(m)));
+  const { deps, log } = montar({
+    marcos: async (id, agora) => { log.marcos.push([id, agora]); if (id === "loja-a") throw new Error("o Melhor Envio respondeu 503"); return null; },
+  });
+  assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 2, falhas: 1, purgados: null });
+  assert.deepEqual([log.marcos, erros], [[["loja-a", AGORA], ["loja-b", AGORA]], ["[rastreio/cron] melhor envio loja-a: o Melhor Envio respondeu 503"]]);
+  assert.deepEqual(log.emails.length, 2);
+});
+
+test("o marco do Melhor Envio vem depois da varredura e antes dos envios", async () => {
+  const { deps, log } = montar({ lojas: async () => ["loja-a"], marcos: async (id) => { log.ordem.push(`marcos ${id}`); return null; } });
+  await rodarCronRastreio(AGORA, deps);
+  assert.deepEqual(log.ordem, ["varrer loja-a", "marcos loja-a", "e-mails loja-a"]);
 });
 
 test("varredura que falha não impede o e-mail da mesma loja", async (t) => {
