@@ -42,3 +42,14 @@ test("fluxo sem grafo publicado ou sem gatilho é ignorado; empate fica com o pr
   const b = fluxo("b", {});
   assert.equal(escolherFluxo([vazio, semGatilho, a, b], { kind: "comment", postId: "x", text: "quero" })?.flowId, "a");
 });
+
+test("qualquer mensagem: só quando nenhuma palavra casou, nunca em comentário, story só com storyReplies", () => {
+  const qualquer = fluxo("any", { on: "dm", keywords: [], anyMessage: true });
+  const comPalavra = fluxo("kw", { on: "dm", keywords: ["grupo"] });
+  assert.equal(escolherFluxo([qualquer, comPalavra], { kind: "dm", text: "quero o grupo" })?.flowId, "kw", "a palavra ganha, mesmo com o fluxo de qualquer mensagem antes na lista");
+  const escolha = escolherFluxo([qualquer, comPalavra], { kind: "dm", text: "oi, qual o preço?" });
+  assert.deepEqual([escolha?.flowId, escolha?.keyword, escolha?.qualquer], ["any", "qualquer mensagem", true]);
+  assert.equal(escolherFluxo([qualquer], { kind: "comment", postId: "x", text: "oi" }), null);
+  assert.equal(escolherFluxo([qualquer], { kind: "story", text: "lindo" }), null);
+  assert.equal(escolherFluxo([fluxo("anyS", { on: "dm", keywords: [], anyMessage: true, storyReplies: true })], { kind: "story", text: "lindo" })?.flowId, "anyS");
+});

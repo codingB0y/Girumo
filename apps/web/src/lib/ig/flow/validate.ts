@@ -22,6 +22,7 @@ export type IssueCode =
   | "sem_palavra"
   | "palavra_repetida"
   | "palavra_em_uso"
+  | "qualquer_em_uso"
   | "texto_vazio"
   | "texto_longo"
   | "botao_vazio"
@@ -43,14 +44,15 @@ export type IssueCode =
   | "fase_seguinte";
 
 export type Issue = { code: IssueCode; nodeId: string | null; text: string };
+export type KeywordInUse = { on: "comment" | "dm"; keyword: string; any?: true };
 
 export type ValidateContext = {
   /** Slugs das campanhas da loja. `null` = não conferir (cliente sem a lista). */
   campaignSlugs: readonly string[] | null;
   /** `null` = não conferir. */
   accountConnected: boolean | null;
-  /** Palavras dos outros fluxos no ar, por tipo de gatilho. */
-  keywordsInUse: readonly { on: "comment" | "dm"; keyword: string }[];
+  /** Palavras dos outros fluxos no ar, por tipo de gatilho. `any` = aquele fluxo responde qualquer mensagem. */
+  keywordsInUse: readonly KeywordInUse[];
 };
 
 /**
@@ -83,7 +85,11 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
     saidasUsadas.add(chave);
   }
 
-  if (trigger) {
+  if (trigger?.anyMessage) {
+    if (trigger.on !== "dm") add("sem_palavra", trigger.id, "Qualquer mensagem só vale no gatilho de direct.");
+    // Dois fluxos de qualquer mensagem no ar: o mesmo direct abriria os dois.
+    else if (ctx.keywordsInUse.some((u) => u.any && u.on === "dm")) add("qualquer_em_uso", trigger.id, "Outro fluxo no ar já responde qualquer mensagem. Pause aquele antes.");
+  } else if (trigger) {
     const palavras = trigger.keywords.map((k) => k.trim()).filter(Boolean);
     if (palavras.length === 0) add("sem_palavra", trigger.id, "Escolha pelo menos uma palavra que dispara.");
     const normalizadas = new Set<string>();
@@ -93,7 +99,7 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
       normalizadas.add(n);
     }
     for (const uso of ctx.keywordsInUse) {
-      if (uso.on === trigger.on && normalizadas.has(normalizeForMatch(uso.keyword))) {
+      if (!uso.any && uso.on === trigger.on && normalizadas.has(normalizeForMatch(uso.keyword))) {
         add("palavra_em_uso", trigger.id, `"${uso.keyword}" já dispara outro fluxo no ar.`);
       }
     }
@@ -249,7 +255,7 @@ export type GrupoChave = "palavras" | "textos" | "campanha" | "regras" | "ligaco
 export type ChecklistItem = { chave: GrupoChave; rotulo: string; ok: boolean };
 
 const GRUPOS: { chave: GrupoChave; rotulo: string; codes: IssueCode[] }[] = [
-  { chave: "palavras", rotulo: "Palavras que disparam", codes: ["sem_gatilho", "gatilhos_demais", "sem_palavra", "palavra_repetida", "palavra_em_uso"] },
+  { chave: "palavras", rotulo: "Palavras que disparam", codes: ["sem_gatilho", "gatilhos_demais", "sem_palavra", "palavra_repetida", "palavra_em_uso", "qualquer_em_uso"] },
   { chave: "textos", rotulo: "Texto de cada direct", codes: ["texto_vazio", "texto_longo", "botao_vazio", "botao_sem_espera", "escolhas_invalidas"] },
   { chave: "campanha", rotulo: "Campanha do convite", codes: ["sem_convite", "sem_campanha", "campanha_inexistente"] },
   { chave: "regras", rotulo: "Regras do Instagram", codes: ["botao_no_primeiro_direct", "segundo_direct_sem_resposta", "condicao_cedo", "espera_longa", "fase_seguinte"] },

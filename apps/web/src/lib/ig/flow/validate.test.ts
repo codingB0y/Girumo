@@ -186,3 +186,15 @@ test("convite com botão logo depois do comentário é recusado: é o único dir
   const direto: FlowDef = { ...def, nodes: def.nodes.filter((n) => n.id !== "pergunta"), edges: [{ from: "gatilho", out: "next", to: "convite" }] };
   assert.deepEqual(codes(validateFlow(direto, ok)), ["botao_no_primeiro_direct"]);
 });
+
+test("qualquer mensagem: sem palavra passa; só no direct; só um no ar; palavras dos outros não contam contra ele", () => {
+  const dm = comCampanha(RECIPES.dm_invite.build());
+  const qualquer: FlowDef = { ...dm, nodes: dm.nodes.map((n) => (n.type === "trigger" ? { ...n, keywords: [], anyMessage: true } : n)) };
+  assert.deepEqual(validateFlow(qualquer, { ...ok, keywordsInUse: [{ on: "dm", keyword: "grupo" }] }), []);
+  assert.deepEqual(codes(validateFlow(qualquer, { ...ok, keywordsInUse: [{ on: "dm", keyword: "", any: true }] })), ["qualquer_em_uso"]);
+  assert.equal(checklist(validateFlow(qualquer, { ...ok, keywordsInUse: [{ on: "dm", keyword: "", any: true }] })).find((i) => i.chave === "palavras")?.ok, false);
+  const noComentario: FlowDef = { ...qualquer, nodes: qualquer.nodes.map((n) => (n.type === "trigger" ? { ...n, on: "comment" } : n)) };
+  assert.ok(codes(validateFlow(noComentario, ok)).includes("sem_palavra"));
+  // Fluxo com palavra não tropeça no "any" de outro fluxo.
+  assert.deepEqual(validateFlow(dm, { ...ok, keywordsInUse: [{ on: "dm", keyword: "", any: true }] }), []);
+});

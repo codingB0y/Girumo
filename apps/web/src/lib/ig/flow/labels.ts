@@ -32,6 +32,7 @@ export function tituloDoBloco(node: FlowNode): string {
 export function resumoDoBloco(node: FlowNode): string {
   switch (node.type) {
     case "trigger":
+      if (node.anyMessage) return "Qualquer mensagem";
       return node.keywords.length ? node.keywords.join(", ") : "sem palavra ainda";
     case "message":
     case "invite":

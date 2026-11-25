@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { RECIPES } from "@/lib/ig/flow/recipes";
 import { ZernioError } from "@/lib/ig/transport/types";
 import type { EventoZernio } from "@/lib/ig/webhook/events";
 import type { RunRow } from "@/lib/stores/ig-runs";
@@ -201,4 +202,28 @@ test("erro que não passa sozinho ao ler a conversa (tabela ausente) não emudec
   } finally {
     console.error = erro;
   }
+});
+
+// "Qualquer mensagem" (gatilho de direct sem palavra): só abre com a conversa parada há 24 h.
+const deQualquer = async () => {
+  const dm = RECIPES.dm_invite.build();
+  return [{ id: "f-any", version: 1, published: { ...dm, nodes: dm.nodes.map((n) => (n.type === "trigger" ? { ...n, keywords: [], anyMessage: true } : n.type === "invite" ? { ...n, campaignSlug: "vip" } : n)) } }];
+};
+
+test("qualquer mensagem: conversa nova ou parada há 24 h abre o fluxo com a palavra 'qualquer mensagem'", async () => {
+  for (const conversas of [undefined, { inicial: { ig_user_id: "u1", last_message_at: "2026-10-05T11:00:00Z" } }]) {
+    const a = ambiente({ fluxos: deQualquer, conversas });
+    const d = await tratarEvento(semFluxo, a.amb);
+    assert.equal(d.kind, "handled", JSON.stringify(conversas));
+    assert.equal((a.criados[0] as { matchedKeyword: string }).matchedKeyword, "qualquer mensagem");
+  }
+});
+
+test("qualquer mensagem não atropela conversa em andamento nem abre quando a leitura falha", async () => {
+  const andamento = ambiente({ fluxos: deQualquer, conversas: { inicial: { ig_user_id: "u1", last_message_at: "2026-10-06T10:00:00Z" } } });
+  assert.deepEqual(await tratarEvento(semFluxo, andamento.amb), { kind: "ignored", reason: "conversa em andamento" });
+  assert.equal(andamento.chamadas.length, 0);
+  const quebrada = ambiente({ fluxos: deQualquer });
+  quebrada.amb.conversas.ler = async () => { throw Object.assign(new Error("permissão"), { code: "42501" }); };
+  assert.deepEqual(await tratarEvento(semFluxo, quebrada.amb), { kind: "ignored", reason: "conversa em andamento" });
 });

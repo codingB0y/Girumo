@@ -35,10 +35,21 @@ export function BlocoForm({ node, def, confirmar, primeiroDepoisDoComentario, ca
   if (node.type === "trigger") {
     return (
       <div className="grid gap-4">
-        <div>
-          <span className={rotulo}>Palavras que disparam <span className="font-normal text-slate-600">vale com ou sem acento, no meio da frase</span></span>
-          <div className="mt-1"><Palavras palavras={node.keywords} aoMudar={(keywords) => aoMudar({ keywords })} /></div>
-        </div>
+        {node.on === "dm" && (
+          <div>
+            <span className="flex items-center justify-between">
+              <span className={rotulo}>Responder qualquer mensagem</span>
+              <Interruptor ligado={node.anyMessage === true} aoMudar={(anyMessage) => aoMudar({ anyMessage })} rotulo="Responder qualquer mensagem" />
+            </span>
+            {node.anyMessage && <p className={ajuda}>Entra quando nenhum fluxo com palavra casou e a conversa estava parada há 24 h. Mensagem só com foto ou áudio não dispara.</p>}
+          </div>
+        )}
+        {!node.anyMessage && (
+          <div>
+            <span className={rotulo}>Palavras que disparam <span className="font-normal text-slate-600">vale com ou sem acento, no meio da frase</span></span>
+            <div className="mt-1"><Palavras palavras={node.keywords} aoMudar={(keywords) => aoMudar({ keywords })} /></div>
+          </div>
+        )}
         {node.on === "comment" ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>

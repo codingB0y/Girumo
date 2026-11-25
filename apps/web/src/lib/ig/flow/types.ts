@@ -36,6 +36,11 @@ export type TriggerNode = {
   publicReply: string | null;
   /** Só `dm`. Resposta a story também dispara. */
   storyReplies: boolean;
+  /**
+   * Só `dm`. Qualquer mensagem dispara e as palavras não contam. Entra só quando nenhum fluxo com palavra
+   * casou e a conversa estava parada há 24 h (não atropela atendimento). Ausente = `false`.
+   */
+  anyMessage?: boolean;
 };
 
 export type MessageNode = {

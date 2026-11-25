@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (parsed.data.status === "live") {
       const conta = await getAccount(ctx.tenantId);
       if (conta?.status !== "active") return Response.json({ error: "Conecte o Instagram pra pôr no ar." }, { status: 409 });
-      const emUso = validateFlow(flow.published, { campaignSlugs: null, accountConnected: true, keywordsInUse: keywordsInUse(await listLiveFlows(ctx.tenantId), id) }).find((i) => i.code === "palavra_em_uso");
+      const emUso = validateFlow(flow.published, { campaignSlugs: null, accountConnected: true, keywordsInUse: keywordsInUse(await listLiveFlows(ctx.tenantId), id) }).find((i) => i.code === "palavra_em_uso" || i.code === "qualquer_em_uso");
       if (emUso) return Response.json({ error: emUso.text }, { status: 409 });
     }
     const atualizado = await setFlowStatus(ctx.tenantId, id, parsed.data.status);
