@@ -40,3 +40,15 @@ test("a receita em branco só tem o gatilho, sem palavra", () => {
   assert.equal(def.nodes.length, 1);
   assert.deepEqual(triggerOf(def)?.keywords, []);
 });
+
+test("a receita de qualquer direct publica: qualquer mensagem, pergunta com 3 escolhas, convite na 1ª e o resto passa pra loja", () => {
+  const def = RECIPES.dm_any.build();
+  const comCampanha = { ...def, nodes: def.nodes.map((n) => (n.type === "invite" ? { ...n, campaignSlug: "vip" } : n)) };
+  assert.deepEqual(validateFlow(comCampanha, { campaignSlugs: ["vip"], accountConnected: true, keywordsInUse: [{ on: "dm", keyword: "grupo" }] }), []);
+  assert.deepEqual(foraDaFase(def), []);
+  const t = triggerOf(def);
+  assert.ok(t?.on === "dm" && t.anyMessage === true && t.storyReplies === false, "story fica de fora, como a decisão de 06/10");
+  const alvo = (out: string) => def.edges.find((e) => e.from === "pergunta" && e.out === out)?.to;
+  assert.deepEqual([alvo("v0"), alvo("v1"), alvo("v2"), alvo("other")], ["convite", "passa", "passa", "passa"]);
+  for (const c of (def.nodes.find((n) => n.id === "pergunta") as { choices: string[] }).choices) assert.ok(c.length <= 20, c);
+});

@@ -660,3 +660,5 @@ apps/web/supabase/migrations/20261109150000_avisos_cobre_o_pai.sql
 # quem saiu dos grupos que receberam o post, do envio ate o menor de 3 h e o proximo post no grupo.
 # Check: infra/tests/saidas-depois-do-post-check.sql.
 apps/web/supabase/migrations/20261111120000_saidas_depois_do_post.sql
+# 25/11: receita "Respondeu qualquer direct" (dm_any) na CHECK de ig_flows.recipe.
+apps/web/supabase/migrations/20261125120000_ig_receita_qualquer_direct.sql
