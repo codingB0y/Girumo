@@ -73,6 +73,16 @@ type Entrada = {
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
+/**
+ * "Qualquer mensagem" só abre quando ninguém está conversando: conversa nova ou sem mensagem (dela, da loja ou do
+ * robô) há 24 h. Leitura que falhou conta como em andamento: na dúvida, o robô fica quieto.
+ */
+export function conversaParada(lida: boolean, conversa: { last_message_at: string | null } | null, agora: Date): boolean {
+  if (!lida) return false;
+  if (!conversa?.last_message_at) return true;
+  return Date.parse(conversa.last_message_at) <= agora.getTime() - UM_DIA_MS;
+}
+
 /** Data da Zernio que não parseia vira "agora": nunca uma janela que não fecha. */
 const ou = (texto: string, agoraMs: number) => {
   const ms = Date.parse(texto);
@@ -220,13 +230,16 @@ async function processar(ev: EventoZernio, amb: Ambiente, ctx: Contexto): Promis
   const entrada = ev.event === "comment.received" ? deComentario(ev, agora.getTime()) : deMensagem(ev, agora.getTime());
   if (!entrada) return { kind: "ignored", reason: "evento sem gatilho" };
 
+  // A conversa ANTES deste direct (o índice só é gravado depois). `lida` = false quando a leitura falhou.
+  let conversa: Awaited<ReturnType<Conversas["ler"]>> = null;
+  let conversaLida = false;
   // Robô pausado (a loja respondeu pelo painel): nada abre nem retoma para essa pessoa. Comentário só confere depois de casar um fluxo.
   if (ev.event === "message.received") {
     // Falha passageira: sem saber se está pausado, o robô não responde e a Zernio reenvia. Erro que se repete
     // (tabela ausente, permissão) não pode emudecer o robô em loop: segue como não pausado.
-    let conversa: Awaited<ReturnType<Conversas["ler"]>> = null;
     try {
       conversa = await amb.conversas.ler(tenantId, entrada.igUserId);
+      conversaLida = true;
     } catch (e) {
       registrarFalha("ler", e);
       if (falhaPassageira(e)) return { kind: "retry", reason: "conversa" };
@@ -266,6 +279,9 @@ async function processar(ev: EventoZernio, amb: Ambiente, ctx: Contexto): Promis
     }
     run = existente;
   } else {
+    // Qualquer mensagem não atropela atendimento: só abre com a conversa parada há 24 h (ou nova).
+    // ponytail: se a 1ª tentativa caiu depois de gravar o índice, o reenvio vê a conversa "recente" e não abre; a pessoa fica em Aguardando você.
+    if (escolha.qualquer && !conversaParada(conversaLida, conversa, agora)) return { kind: "ignored", reason: "conversa em andamento" };
     if (await amb.runs.entradaRecente(tenantId, escolha.flowId, entrada.igUserId, iso(agora.getTime() - UM_DIA_MS))) return { kind: "ignored", reason: "24h" };
     if ((await amb.runs.iniciadosDesde(tenantId, conta.id, iso(agora.getTime() - UMA_HORA_MS))) >= TETO_RUNS_POR_HORA) return { kind: "ignored", reason: "teto" };
     run = await amb.runs.criar(tenantId, {

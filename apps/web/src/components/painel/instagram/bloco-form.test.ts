@@ -70,3 +70,13 @@ test("Passar pra loja mostra o texto opcional com a dica e a prévia leva a marc
   assert.doesNotMatch(nada, /sem texto ainda/);
   assert.match(nada, /Passa pra loja/);
 });
+test("gatilho de direct tem o interruptor de qualquer mensagem; ligado, esconde as palavras; o de comentário não tem", () => {
+  const t = RECIPES.dm_invite.build().nodes[0];
+  const desligado = render(t);
+  assert.match(desligado, /Responder qualquer mensagem/);
+  assert.match(desligado, /Palavras que disparam/);
+  const ligado = render({ ...t, anyMessage: true } as FlowNode);
+  assert.doesNotMatch(ligado, /Palavras que disparam/);
+  assert.match(ligado, /conversa estava parada há 24 h/);
+  assert.doesNotMatch(render(RECIPES.comment_invite.build().nodes[0]), /Responder qualquer mensagem/);
+});

@@ -31,6 +31,7 @@ const triggerNode = z.strictObject({
   postId: z.string().regex(/^\d{1,40}$/).nullable(),
   publicReply: z.string().max(MAX_PUBLIC_REPLY).nullable(),
   storyReplies: z.boolean(),
+  anyMessage: z.boolean().optional(),
 });
 const messageNode = z.strictObject({
   id,

@@ -15,3 +15,9 @@ test("junta as palavras dos outros fluxos no ar, por tipo de gatilho, e ignora o
   ]);
   assert.equal(keywordsInUse(flows, "zzz").length, 4);
 });
+
+test("fluxo de qualquer mensagem entra como any, sem as palavras dele", () => {
+  const dm = RECIPES.dm_invite.build();
+  const qualquer = { ...dm, nodes: dm.nodes.map((n) => (n.type === "trigger" ? { ...n, anyMessage: true } : n)) };
+  assert.deepEqual(keywordsInUse([{ id: "q", published: qualquer }], "outro"), [{ on: "dm", keyword: "", any: true }]);
+});
