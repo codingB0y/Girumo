@@ -1,6 +1,6 @@
 import { MAX_WAIT_MINUTES, type FlowDef } from "./types";
 
-export type RecipeId = "comment_invite" | "comment_confirm_invite" | "comment_choose_group" | "comment_follow_invite" | "dm_invite" | "blank";
+export type RecipeId = "comment_invite" | "comment_confirm_invite" | "comment_choose_group" | "comment_follow_invite" | "dm_invite" | "dm_any" | "blank";
 
 export type Recipe = {
   id: RecipeId;
@@ -28,7 +28,11 @@ export const DEFAULT_TEXTS = {
   escolheIdade: "É pra qual idade?",
   conviteGrupo: "Aqui está o link do grupo VIP:",
   passaPraLoja: "Já já alguém da loja te responde por aqui.",
+  comoAjudar: "Oi! Como posso te ajudar?",
 } as const;
+
+/** Escolhas da receita "Respondeu qualquer direct": a 1ª manda o convite, as outras passam pra loja. */
+export const ESCOLHAS_DO_DIRECT = ["Link do grupo", "Preço e frete", "Falar com a loja"] as const;
 
 /** Escolhas de exemplo da receita "Comentou, escolhe o grupo"; o lojista troca pelas dele. */
 export const ESCOLHAS_EXEMPLO = ["Até 4 anos", "5 a 8 anos", "9 a 12 anos"] as const;
@@ -142,6 +146,29 @@ export const RECIPES: Record<RecipeId, Recipe> = {
       edges: [{ from: "gatilho", out: "next", to: "convite" }],
     }),
   },
+  dm_any: {
+    id: "dm_any",
+    titulo: "Respondeu qualquer direct",
+    descricao: "Quem escreve no direct sem conversa em andamento recebe uma pergunta: link do grupo, preço e frete ou falar com a loja.",
+    cadeia: ["Qualquer direct", "Pergunta: como posso ajudar?", "Link do grupo: convite", "Outra escolha: passa pra loja"],
+    gatilho: "Direct",
+    build: () => ({
+      v: 1,
+      nodes: [
+        { id: "gatilho", type: "trigger", on: "dm", keywords: [], postId: null, publicReply: null, storyReplies: false, anyMessage: true },
+        { id: "pergunta", type: "message", text: DEFAULT_TEXTS.comoAjudar, button: null, wait: { minutes: MAX_WAIT_MINUTES }, choices: [...ESCOLHAS_DO_DIRECT] },
+        { id: "convite", type: "invite", text: DEFAULT_TEXTS.conviteComBotao, campaignSlug: null, button: DEFAULT_TEXTS.botaoConvite, remindAfterMinutes: null },
+        { id: "passa", type: "handoff", text: DEFAULT_TEXTS.passaPraLoja },
+      ],
+      edges: [
+        { from: "gatilho", out: "next", to: "pergunta" },
+        { from: "pergunta", out: "v0", to: "convite" },
+        { from: "pergunta", out: "v1", to: "passa" },
+        { from: "pergunta", out: "v2", to: "passa" },
+        { from: "pergunta", out: "other", to: "passa" },
+      ],
+    }),
+  },
   blank: {
     id: "blank",
     titulo: "Em branco",
@@ -156,7 +183,7 @@ export const RECIPES: Record<RecipeId, Recipe> = {
   },
 };
 
-export const RECIPE_ORDER: RecipeId[] = ["comment_invite", "comment_confirm_invite", "comment_choose_group", "comment_follow_invite", "dm_invite", "blank"];
+export const RECIPE_ORDER: RecipeId[] = ["comment_invite", "comment_confirm_invite", "comment_choose_group", "comment_follow_invite", "dm_invite", "dm_any", "blank"];
 
 export function isRecipeId(value: unknown): value is RecipeId {
   return typeof value === "string" && (RECIPE_ORDER as string[]).includes(value);
